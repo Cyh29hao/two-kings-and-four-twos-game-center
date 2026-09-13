@@ -1,0 +1,4 @@
+Tile symbols: FluffyStuff/riichi-mahjong-tiles, Regular set.
+Source: https://github.com/FluffyStuff/riichi-mahjong-tiles
+License: CC0 1.0 / public domain. https://creativecommons.org/publicdomain/zero/1.0/
+Modifications: removed editor metadata; Haku uses a blue frame; back artwork drawn for Entertainment Center. No red-five variants included.

@@ -46,7 +46,7 @@ export async function POST(req:Request){return safe(async()=>{
  if(g.phase==='closed')return json({left:true});
  if(g.practice)throw new AppError('请使用结束测试，系统会关闭整个人机房');
  if(!['waiting','finished'].includes(g.phase))throw new AppError('对局中请留在房间；关闭页面后仍会超时托管');
- g.seats.splice(seat,1);g.phase=g.seats.length?'waiting':'closed';g.seats.forEach(s=>{s.ready=false;s.hand=[];s.last=''});g.host=g.seats[0]?.id||'';g.bottom=[];g.last=null;g.winner=-1;g.deltas=[];g.deadline=0;g.landlord=-1;g.bid=0;g.turn=0;g.multiplier=1;g.spring=false;
+ g.seats.splice(seat,1);g.phase=g.seats.length?'waiting':'closed';g.seats.forEach(s=>{s.ready=false;s.hand=[];s.last=''});g.host=g.seats[0]?.id||'';g.bottom=[];g.last=null;g.tableActions=[];g.winner=-1;g.deltas=[];g.deadline=0;g.landlord=-1;g.bid=0;g.turn=0;g.multiplier=1;g.spring=false;
  r=await commit(r,g,(guard,op)=>[db().prepare(`DELETE FROM members WHERE user_id=? AND ${guard}`).bind(u.id,r.code,op)]);return json({left:true});
  }else throw new AppError('未知操作');
  r=await commit(r,g);return json(roomView(r,g,u.id));

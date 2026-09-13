@@ -33,6 +33,8 @@ const initial=hints(mine.game.seats[index].hand,null).sort((a,b)=>b.length-a.len
 const action={action:'play',code:room.code,revision:room.revision,cards:initial};
 const racing=await Promise.all([fetch(origin+'/api/game',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,cookie:clients[index].cookie},body:JSON.stringify(action)}),fetch(origin+'/api/game',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,cookie:clients[index].cookie},body:JSON.stringify(action)})]);
 assert.deepEqual(racing.map(r=>r.status).sort(),[200,409]);room=await racing.find(r=>r.status===200)!.json();
+assert.deepEqual(room.game.tableActions[index].cards,[...room.game.last.cards]);
+for(const client of clients){const rejoined=(await req('/api/game?room='+room.code,undefined,client.cookie)).data;assert.deepEqual(rejoined.game.tableActions,room.game.tableActions);assert.equal(rejoined.game.tableActions[rejoined.game.turn],null);}
 let turns=0;
 while(room.game.phase==='playing'){
  assert(++turns<200);const i=room.game.turn;const r=(await req('/api/game?room='+room.code,undefined,clients[i].cookie)).data;
@@ -40,6 +42,7 @@ while(room.game.phase==='playing'){
  room=(await req('/api/game',{action:options.length?'play':'pass',code:r.code,revision:r.revision,cards:options[0]||[]},clients[i].cookie)).data;
 }
 assert.equal(room.game.phase,'finished');assert.equal(room.game.deltas.reduce((x:number,y:number)=>x+y,0),0);
+assert.deepEqual(room.game.tableActions[room.game.winner].cards,room.game.last.cards);
 const lobby=(await req('/api/game',undefined,a.cookie)).data;assert.equal(lobby.records.length,1);
 await req('/api/game',{action:'play',code:room.code,revision:room.revision-1,cards:[]},a.cookie,409);
 assert.equal((await req('/api/game',undefined,a.cookie)).data.records.length,1);
