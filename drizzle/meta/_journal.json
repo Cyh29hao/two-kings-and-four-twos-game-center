@@ -8,6 +8,20 @@
       "when": 1789285738507,
       "tag": "0000_handy_speed",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789306658611,
+      "tag": "0001_silly_martin_li",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789309362630,
+      "tag": "0002_robust_agent_zero",
+      "breakpoints": true
     }
   ]
 }

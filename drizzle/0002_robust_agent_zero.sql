@@ -1,0 +1,1 @@
+CREATE INDEX `idx_records_room_created` ON `records` (`room_code`,`created`);

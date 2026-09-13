@@ -55,6 +55,8 @@ await req('/api/game',{action:'create'},admin.cookie,400);
 await req('/api/admin',{action:'settings',seconds:30,announcement:'欢迎来娱乐中心。建个房间，把房间号发给朋友就能入座。',maintenance:false},admin.cookie);
 await req('/api/admin',{action:'close',code:room.code},admin.cookie);
 assert.equal((await req('/api/game',undefined,a.cookie)).data.activeRoom,null);
+const priorAdmin=(await req('/api/game',undefined,admin.cookie)).data.activeRoom;
+if(priorAdmin)await req('/api/admin',{action:'close',code:priorAdmin},admin.cookie);
 const adminRoom=(await req('/api/game',{action:'create',title:'周末的快乐牌桌'},admin.cookie)).data;
 await req('/api/game',{action:'join',code:adminRoom.code},a.cookie);
 await req('/api/game',{action:'join',code:adminRoom.code},c.cookie);

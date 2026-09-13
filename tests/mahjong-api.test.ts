@@ -10,7 +10,7 @@ const admin=await req('/api/auth',{action:'login',username:'MartinHamburger',pas
 const suffix=Date.now().toString().slice(-7),clients=[];
 for(let i=0;i<4;i++)clients.push(await req('/api/auth',{action:'register',username:'mjqa'+i+suffix,password,name:['小满','阿北','桃子','小川'][i]}));
 const ids=clients.map(c=>c.data.user.id);
-let room=(await req('/api/mahjong',{action:'create',title:'四人麻将联机验证'},clients[0].cookie)).data;const code=room.code;
+let room=(await req('/api/mahjong',{action:'create',rulesId:'basic-136-v2',title:'四人麻将联机验证'},clients[0].cookie)).data;const code=room.code;
 await req('/api/mahjong?room='+code,undefined,clients[1].cookie,403);
 await req('/api/game',{action:'create'},clients[0].cookie,409);
 assert.equal((await req('/api/game',undefined,clients[0].cookie)).data.activeKind,'mahjong');
