@@ -1,14 +1,16 @@
 import {newSeat, sortTiles, tileLabel, isWinning, type Seat, type Option, type Meld} from './engine.ts';
 import {HAM, type ModernRules} from './rules.ts';
 import {canWin, winPlans, effectiveType, isWild, type WinContext, type WinPlan} from './solver.ts';
+import type {Practice} from '../practice/types.ts';
 
 export type Money = string;
 export type ChipEntry = {id:string;round:string;kind:'exposed'|'concealed'|'added'|'win'|'refund';actor:number;deltas:Money[];at:number;description:string};
-export type RoundResult = {kind:'mahjong';schemaVersion:2;id:string;roundNumber:number;rules:ModernRules;initialChips:Money;baseChips:Money;
+export type RoundResult = {practice?:boolean;kind:'mahjong';schemaVersion:2;id:string;roundNumber:number;rules:ModernRules;initialChips:Money;baseChips:Money;
   winner:number;source:number;winType:'self'|'discard'|'rob'|'draw'|'aborted';wildcard:number;plan:WinPlan|null;awards:{tile:number;type:number;hit:boolean}[];
-  seats:{id:string;name:string;delta:Money;balance:Money}[];entries:ChipEntry[];log:{text:string;at:number}[];started:number;ended:number;automatic:boolean};
+  seats:{id:string;name:string;bot?:boolean;delta:Money;balance:Money}[];entries:ChipEntry[];log:{text:string;at:number}[];started:number;ended:number;automatic:boolean};
 type Pending={kind:'discard'|'added';from:number;tile:number;meldIndex?:number;eligible:number[];responses:Record<string,Option|null>;earth:boolean};
 export type ModernGame = {
+  practice?:Practice;
   kind:'mahjong';schemaVersion:2;rules:ModernRules;phase:'waiting'|'playing'|'choosing'|'finished'|'closed';host:string;
   seats:(Seat & {balance:Money})[];wall:number[];turn:number;dealer:number;round:string;roundNumber:number;seconds:number;deadline:number;
   drawn:number|null;lastDiscard:{seat:number;tile:number}|null;pending:Pending|null;winner:number;source:number;
@@ -86,9 +88,9 @@ function finish(g:ModernGame,type:RoundResult['winType'],now:number,plan:WinPlan
   g.phase='finished';g.winType=type;g.pending=null;g.choice=null;g.deadline=0;g.seats.forEach(s=>s.ready=false);
   g.deltas=g.seats.map((s,i)=>(BigInt(s.balance)-BigInt(g.roundStart[i])).toString());
   if(type==='draw'){g.winner=-1;g.source=-1;g.stats.draws++;note(g,g.rules.reserve?'牌墙已到保留 12 张，本局流局，已成功杠分保留':'牌墙已摸完，本局流局',now);}
-  if(type==='aborted'){g.winner=-1;g.source=-1;g.stats.aborted++;note(g,'管理员中止本局，本局杠分已撤销',now);}else g.stats.completed++;
-  g.result={kind:'mahjong',schemaVersion:2,id:g.round,roundNumber:g.roundNumber,rules:{...g.rules},initialChips:g.initialChips,baseChips:g.baseChips,winner:g.winner,source:g.source,winType:type,wildcard:g.wildcard,
-    plan,awards,seats:g.seats.map((s,i)=>({id:s.id,name:s.name,delta:g.deltas[i],balance:s.balance})),entries:structuredClone(g.entries),log:[...g.log],started:g.roundStarted,ended:now,automatic};
+  if(type==='aborted'){g.winner=-1;g.source=-1;g.stats.aborted++;note(g,'本局已中止，本局杠分已撤销',now);}else g.stats.completed++;
+  g.result={...(g.practice?{practice:true}:{}),kind:'mahjong',schemaVersion:2,id:g.round,roundNumber:g.roundNumber,rules:{...g.rules},initialChips:g.initialChips,baseChips:g.baseChips,winner:g.winner,source:g.source,winType:type,wildcard:g.wildcard,
+    plan,awards,seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,delta:g.deltas[i],balance:s.balance})),entries:structuredClone(g.entries),log:[...g.log],started:g.roundStarted,ended:now,automatic};
 }
 function settle(g:ModernGame,now:number,plan:WinPlan|null,automatic=false){
   const type=g.winType as 'self'|'discard'|'rob', awards:RoundResult['awards']=[];
@@ -168,24 +170,24 @@ export function timeoutModern(g:ModernGame,now=Date.now()){
   else moveModern(g,g.turn,{action:'discard',tile:g.drawn??g.seats[g.turn].hand.at(-1)!},now);
   return true;
 }
-export function closeModern(g:ModernGame,force=false,now=Date.now()){
+export function closeModern(g:ModernGame,force=false,now=Date.now(),reason:'admin'|'practice'='admin'){
   if(g.phase==='closed')return;
   if(['playing','choosing'].includes(g.phase)){
     if(!force)throw Error('请在本局结束后再结束整桌');
     const refunds=g.seats.map((s,i)=>(BigInt(g.roundStart[i])-BigInt(s.balance)).toString());
-    if(refunds.some(v=>v!=='0'))entry(g,'refund',-1,refunds,'撤销管理员中止局的全部杠分',now);
+    if(refunds.some(v=>v!=='0'))entry(g,'refund',-1,refunds,'撤销中止局的全部杠分',now);
     finish(g,'aborted',now);
   }
-  g.phase='closed';g.deadline=0;g.pending=null;g.choice=null;g.ended=now;note(g,force?'管理员结束整桌':'房主结束整桌',now);
+  g.phase='closed';g.deadline=0;g.pending=null;g.choice=null;g.ended=now;note(g,reason==='practice'?'房主结束人机测试':force?'管理员结束整桌':'房主结束整桌',now);
 }
 export function modernView(g:ModernGame,id:string){
   const own=g.seats.findIndex(s=>s.id===id),reveal=g.phase==='finished';
-  return {kind:g.kind,schemaVersion:2 as const,rules:g.rules,phase:g.phase,host:g.host,turn:g.turn,dealer:g.dealer,round:g.round,roundNumber:g.roundNumber,seconds:g.seconds,deadline:g.deadline,
+  return {practice:g.practice?{difficulty:g.practice.difficulty}:null,kind:g.kind,schemaVersion:2 as const,rules:g.rules,phase:g.phase,host:g.host,turn:g.turn,dealer:g.dealer,round:g.round,roundNumber:g.roundNumber,seconds:g.seconds,deadline:g.deadline,
     remaining:g.wall.length,drawn:own===g.turn?g.drawn:null,lastDiscard:g.lastDiscard,pending:g.pending?{kind:g.pending.kind,from:g.pending.from,tile:g.pending.tile}:null,
     winner:g.winner,source:g.source,winType:g.winType,deltas:g.deltas,log:g.log,options:modernOptions(g,own),wildcard:g.wildcard,result:g.result,
     session:{initialChips:g.initialChips,baseChips:g.baseChips,started:g.started,ended:g.ended,stats:g.stats,streak:g.streak,fixed:g.fixedIds.length>0},
     entries:g.entries,canChoose:g.phase==='choosing'&&own===g.winner,
-    seats:g.seats.map((s,i)=>({id:s.id,name:s.name,ready:s.ready,last:s.last,count:s.hand.length,river:s.river,balance:s.balance,
+    seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,ready:s.ready,last:s.last,count:s.hand.length,river:s.river,balance:s.balance,
       hand:i===own||reveal?s.hand:[],melds:s.melds.map(m=>({...m,tiles:m.concealed&&i!==own&&!reveal?[]:m.tiles}))})),
   };
 }

@@ -1,11 +1,12 @@
 import {BASIC_136, type MahjongRules} from './rules.ts';
+import type {Practice} from '../practice/types.ts';
 export type Phase='waiting'|'playing'|'finished'|'closed';
 export type Meld={kind:'chi'|'pong'|'kong';tiles:number[];from:number;concealed:boolean};
-export type Seat={id:string;name:string;hand:number[];melds:Meld[];river:number[];ready:boolean;last:string};
+export type Seat={id:string;name:string;hand:number[];melds:Meld[];river:number[];ready:boolean;last:string;bot?:boolean};
 export type Option={key:string;kind:'chi'|'pong'|'kong'|'hu'|'concealed'|'added';tiles:number[];meldIndex?:number};
 type Pending={kind:'discard'|'added';from:number;tile:number;meldIndex?:number;eligible:number[];responses:Record<string,Option|null>};
 export type MahjongGame={
- kind:'mahjong';schemaVersion:1;rules:MahjongRules;phase:Phase;host:string;seats:Seat[];
+ practice?:Practice;kind:'mahjong';schemaVersion:1;rules:MahjongRules;phase:Phase;host:string;seats:Seat[];
  wall:number[];turn:number;dealer:number;round:string;roundNumber:number;seconds:number;deadline:number;
  drawn:number|null;lastDiscard:{seat:number;tile:number}|null;pending:Pending|null;
  winner:number;winType:'self'|'discard'|'rob'|'draw'|null;source:number;deltas:number[];log:{text:string;at:number}[];

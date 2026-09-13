@@ -11,14 +11,14 @@ export async function createReportImage(report:Report,shareUrl=''){
  function wrap(value:string,x:number,yy:number,maxWidth:number,size=28,color=ink,weight=400){c.font=`${weight} ${size}px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;let line='',row=yy;for(const ch of value){if(c.measureText(line+ch).width>maxWidth&&line){text(line,x,row,size,color,weight);row+=size*1.55;line='';}line+=ch;}if(line)text(line,x,row,size,color,weight);return row+size*1.55;}
  function rule(){c.strokeStyle='#d8e1d7';c.lineWidth=2;c.beginPath();c.moveTo(64,y);c.lineTo(1016,y);c.stroke();y+=35;}
  function pill(value:string,x:number,yy:number,w:number){c.fillStyle='#e6eee4';c.beginPath();c.roundRect(x,yy-29,w,46,23);c.fill();text(value,x+18,yy,24,green,600);}
- text('娱 乐 中 心',64,y,26,green,700);text(report.scope==='table'?'整 桌 战 报':'本 局 战 报',804,y,24,muted,500);y+=80;
+ text('娱 乐 中 心'+(report.practice?' · 人机测试':''),64,y,26,green,700);text(report.scope==='table'?'整 桌 战 报':'本 局 战 报',804,y,24,muted,500);y+=80;
  y=wrap(report.title,64,y,952,58,ink,650)+15;
  pill(report.ruleName,64,y,report.ruleName==='ham 规'?150:170);text(`基础 ${chips(report.baseChips)} 筹码`,250,y,27,muted);y+=65;
  text(new Date(report.ended).toLocaleString('zh-CN',{hour12:false}),64,y,25,muted);y+=45;rule();
  const rows=report.players;const top=[...rows].sort((a,b)=>BigInt(a.delta)>BigInt(b.delta)?-1:BigInt(a.delta)<BigInt(b.delta)?1:0)[0];
  if(top&&BigInt(top.delta)>0n){text(report.scope==='table'?'本桌领先':'本局领先',64,y,26,muted);y+=55;y=wrap(`${top.name}  ${chips(top.delta,true)}`,64,y,952,50,green,700)+20;}
  text('玩家',64,y,25,muted);text(report.scope==='table'?'初始筹码':'局前筹码',350,y,25,muted);text('净输赢',583,y,25,muted);text('结余筹码',812,y,25,muted);y+=50;
- for(const player of rows){const start=y;const ends=[wrap(player.name,64,start,250,32,ink,600),wrap(chips(player.initial),350,start,200,28,muted),wrap(chips(player.delta,true),583,start,200,30,BigInt(player.delta)>=0n?green:'#ad6648',650),wrap(chips(player.balance),812,start,204,28,ink,600)];y=Math.max(...ends)+24;}
+ for(const player of rows){const start=y;const ends=[wrap(player.name+(player.bot?' · 机器人':''),64,start,250,32,ink,600),wrap(chips(player.initial),350,start,200,28,muted),wrap(chips(player.delta,true),583,start,200,30,BigInt(player.delta)>=0n?green:'#ad6648',650),wrap(chips(player.balance),812,start,204,28,ink,600)];y=Math.max(...ends)+24;}
  y+=10;rule();text(`完成 ${report.stats.completed} 局　·　流局 ${report.stats.draws} 局　·　中止 ${report.stats.aborted} 局`,64,y,28,muted);y+=65;
  const round=report.scope==='round'?report.rounds[0]:null;
  if(round){

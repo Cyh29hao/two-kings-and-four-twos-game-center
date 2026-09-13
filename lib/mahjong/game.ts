@@ -11,5 +11,5 @@ export function timeoutMahjong(g:MahjongGame,now=Date.now()){return isModern(g)?
 export function dealMahjong(g:MahjongGame){return isModern(g)?modern.dealModern(g):legacy.dealMahjong(g);}
 export function moveMahjong(g:MahjongGame,seat:number,m:modern.ModernMove){return isModern(g)?modern.moveModern(g,seat,m):legacy.moveMahjong(g,seat,m as legacy.Move);}
 export function mahjongView(g:MahjongGame,id:string){if(isModern(g))return modern.modernView(g,id);return {...legacy.mahjongView(g,id),schemaVersion:1 as const,
-  wildcard:-1,result:null,session:null,entries:[],canChoose:false,seats:legacy.mahjongView(g,id).seats.map(s=>({...s,balance:null}))};}
+  practice:null,wildcard:-1,result:null,session:null,entries:[],canChoose:false,seats:legacy.mahjongView(g,id).seats.map(s=>({...s,bot:false,balance:null}))};}
 export type MahjongView=ReturnType<typeof mahjongView>;
