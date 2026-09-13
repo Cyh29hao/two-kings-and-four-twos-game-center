@@ -51,7 +51,7 @@ export default function ResetPassword() {
 
   return <main className="reset-shell">
     <section className="reset-card">
-      <a href="/" className="brand"><span className="brand-icon"><Club size={21}/></span><span>三人局<small>好 友 游 戏 室</small></span></a>
+      <a href="/" className="brand"><span className="brand-icon"><Club size={21}/></span><span>娱乐中心<small>好 友 游 戏 室</small></span></a>
       {done ? <div className="reset-success" role="status">
         <CheckCircle2 size={38}/><h1>新密码已保存</h1>
         <p>旧密码和已有登录已失效。现在可以用新密码重新入座。</p>

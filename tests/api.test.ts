@@ -52,7 +52,7 @@ await req('/api/auth',{action:'login',username:b.data.user.username,password:tes
 await req('/api/admin',{action:'ban',id:b.data.user.id,banned:false},admin.cookie);
 await req('/api/admin',{action:'settings',seconds:45,announcement:'欢迎牌友',maintenance:true},admin.cookie);
 await req('/api/game',{action:'create'},admin.cookie,400);
-await req('/api/admin',{action:'settings',seconds:30,announcement:'欢迎来三人局。建个房间，把房间号发给朋友就能入座。',maintenance:false},admin.cookie);
+await req('/api/admin',{action:'settings',seconds:30,announcement:'欢迎来娱乐中心。建个房间，把房间号发给朋友就能入座。',maintenance:false},admin.cookie);
 await req('/api/admin',{action:'close',code:room.code},admin.cookie);
 assert.equal((await req('/api/game',undefined,a.cookie)).data.activeRoom,null);
 const adminRoom=(await req('/api/game',{action:'create',title:'周末的快乐牌桌'},admin.cookie)).data;
