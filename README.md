@@ -17,6 +17,7 @@
 - Vinext + React，Cloudflare Workers 运行，D1 存储。
 - `npm run dev`：本地预览；`npm run build`：构建；`npm test`：规则与整局验证。
 - `.env.example` 列出环境变量。`ADMIN_SETUP_HASH` 是专属设置密钥的 SHA-256，原始密钥只保存在交付给所有者的设置入口中。不要提交 `.env`。
+- 管理员忘记密码时，由站点所有者签发新的 32 字节随机密钥，设置 `ADMIN_RESET_HASH`（密钥的 SHA-256）、`ADMIN_RESET_EXPIRES`（有效期截止的毫秒时间戳）、`ADMIN_RESET_USER_ID`（现有管理员的准确账号 ID），部署后交付 `/reset#key=密钥`。建议 24 小时有效；使用后同一密钥不可重复使用。只保存密钥散列，不设定用户的新密码。重设与注销全部旧会话在同一事务中完成，不影响账号、积分与记录。
 - 数据模型在 `db/schema.ts`；生成迁移用 `npm run db:generate`。部署过的迁移保持不变，新修改追加迁移。
 - 本地应用迁移：`node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_handy_speed.sql`。只用于尚未迁移的本地数据库。
 - `tests/api.test.ts` 使用本地测试账号验证完整三人对局、并发重复提交、越权、CSRF、封禁、维护和关闭房间。仅运行于本地测试库，不在正式站点运行。
@@ -29,7 +30,7 @@
 - 密码使用带随机盐的 scrypt（N=16384,r=8,p=5）散列；会话随机密钥的 SHA-256 保存在数据库，浏览器使用 HttpOnly、SameSite Cookie，HTTPS 下启用 Secure。
 - 账号与管理权限均在服务器检查。认证限流、同源写入验证、参数化查询已启用。
 - 后台列表有明确上限：200 个账号、100 个房间、100 局记录、30 次管理操作，适合小规模朋友游戏室。
-- 首版没有密码找回、聊天室、观战、自动匹配、机器人陪玩或大规模负载验证。
+- 普通玩家尚无密码找回；管理员可通过所有者签发的一次性链接重设。尚无聊天室、观战、自动匹配、机器人陪玩或大规模负载验证。
 
 ## 规则参考
 

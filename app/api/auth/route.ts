@@ -5,12 +5,32 @@ export async function GET(req:Request){return safe(async()=>{const u=await user(
 export async function POST(req:Request){return safe(async()=>{
  const b=await body(req),action=b.action;
  if(action==='logout'){const t=req.headers.get('cookie')?.match(/sanren_session=([a-f0-9]{64})/)?.[1];if(t)await db().prepare('DELETE FROM sessions WHERE hash=?').bind(digest(t)).run();return json({ok:true},200,{'Set-Cookie':cookie('',req,0)});}
- if(!['login','register','setup'].includes(action))throw new AppError('未知操作');
+ if(!['login','register','setup','reset'].includes(action))throw new AppError('未知操作');
  const name=typeof b.username==='string'?b.username.trim():'';const canonical=name.toLowerCase();const pw=typeof b.password==='string'?b.password:'';
  if(!/^[a-zA-Z0-9_]{3,24}$/.test(name))throw new AppError('用户名需为 3–24 位字母、数字或下划线');
  if(pw.length<10||pw.length>128)throw new AppError('密码需为 10–128 个字符');
  const ip=req.headers.get('cf-connecting-ip')||'local';await limit('auth-ip:'+digest(ip),40);await limit('auth-user:'+digest(canonical),15);
  let u=await db().prepare('SELECT * FROM users WHERE username=?').bind(canonical).first<User>();
+ if(action==='reset'){
+   const expected=vars().ADMIN_RESET_HASH;
+   const expires=Number(vars().ADMIN_RESET_EXPIRES);
+   const target=vars().ADMIN_RESET_USER_ID;
+   const reserved=(vars().ADMIN_USERNAME||'MartinHamburger').toLowerCase();
+   const raw=typeof b.token==='string'?b.token:'';
+   const actual=digest(raw);
+   if(!expected||!/^[a-f0-9]{64}$/.test(expected)||!target||!Number.isFinite(expires)||expires<=Date.now()||!raw||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected))||canonical!==reserved||!u||u.id!==target||u.role!=='admin')throw new AppError('重设链接无效或已过期，请重新获取专属入口',403);
+   const usedKey='admin_reset_used:'+actual;
+   const newHash=passwordHash(pw);
+   try{
+     await db().batch([
+       db().prepare('INSERT INTO settings (key,value) VALUES (?,?)').bind(usedKey,String(Date.now())),
+       db().prepare("UPDATE users SET password=? WHERE id=? AND role='admin'").bind(newHash,target),
+       db().prepare('DELETE FROM sessions WHERE user_id=?').bind(target),
+       db().prepare('INSERT INTO audit (id,actor,action,created) VALUES (?,?,?,?)').bind(crypto.randomUUID(),u.display,'通过专属一次性链接重设管理员密码',Date.now())
+     ]);
+   }catch(e){if(String(e).includes('UNIQUE'))throw new AppError('这个重设链接已使用，请用新密码登录',409);throw e;}
+   return json({ok:true},200,{'Set-Cookie':cookie('',req,0)});
+ }
  if(action==='login'){if(!u||!passwordValid(pw,u.password))throw new AppError('用户名或密码不正确',401);if(u.banned)throw new AppError('账号已被停用，请联系管理员',403);}
  else{
  const reserved=(vars().ADMIN_USERNAME||'MartinHamburger').toLowerCase();
