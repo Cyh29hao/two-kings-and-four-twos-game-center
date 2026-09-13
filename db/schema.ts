@@ -1,0 +1,9 @@
+import {sqliteTable,text,integer,index,uniqueIndex} from 'drizzle-orm/sqlite-core';
+export const users=sqliteTable('users',{id:text('id').primaryKey(),username:text('username').notNull(),display:text('display').notNull(),password:text('password').notNull(),role:text('role').notNull().default('player'),banned:integer('banned').notNull().default(0),score:integer('score').notNull().default(0),created:integer('created').notNull()},t=>[uniqueIndex('idx_users_username').on(t.username)]);
+export const sessions=sqliteTable('sessions',{hash:text('hash').primaryKey(),userId:text('user_id').notNull().references(()=>users.id),expires:integer('expires').notNull()},t=>[index('idx_sessions_expires').on(t.expires)]);
+export const rooms=sqliteTable('rooms',{code:text('code').primaryKey(),title:text('title').notNull(),state:text('state').notNull(),phase:text('phase').notNull(),revision:integer('revision').notNull().default(0),op:text('op').notNull(),created:integer('created').notNull(),updated:integer('updated').notNull()},t=>[index('idx_rooms_phase_updated').on(t.phase,t.updated)]);
+export const members=sqliteTable('members',{userId:text('user_id').primaryKey().references(()=>users.id),roomCode:text('room_code').notNull().references(()=>rooms.code)},t=>[index('idx_members_room').on(t.roomCode)]);
+export const settings=sqliteTable('settings',{key:text('key').primaryKey(),value:text('value').notNull()});
+export const records=sqliteTable('records',{id:text('id').primaryKey(),roomCode:text('room_code').notNull(),result:text('result').notNull(),created:integer('created').notNull()},t=>[index('idx_records_created').on(t.created)]);
+export const limits=sqliteTable('limits',{key:text('key').primaryKey(),count:integer('count').notNull(),expires:integer('expires').notNull()});
+export const audit=sqliteTable('audit',{id:text('id').primaryKey(),actor:text('actor').notNull(),action:text('action').notNull(),created:integer('created').notNull()});

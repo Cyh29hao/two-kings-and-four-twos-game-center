@@ -1,0 +1,1 @@
+export async function api(path:string,data?:unknown){const r=await fetch(path,{...(data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{}),cache:'no-store'});const d:any=await r.json();if(!r.ok){const e=new Error(d.error||'请求未完成，请重试') as Error&{status:number};e.status=r.status;throw e;}return d;}
