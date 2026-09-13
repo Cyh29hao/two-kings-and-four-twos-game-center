@@ -1,11 +1,11 @@
 import {AppError,body,config,db,json,limit,publicUser,requireUser,safe} from '@/lib/server';
-import {advance,commit,getRoom,roomView} from '@/lib/rooms';
+import {advance,commit,getRoom,roomView,isMahjong} from '@/lib/rooms';
 import {bid,deal,newGame,play,type Game} from '@/lib/game/engine';
 export const dynamic='force-dynamic';
 export async function GET(req:Request){return safe(async()=>{
  const u=await requireUser(req),code=new URL(req.url).searchParams.get('room');
- if(code){let r=await getRoom(code);let g=JSON.parse(r.state) as Game;if(!g.seats.some(s=>s.id===u.id))throw new AppError('你不在这个房间',403);r=await advance(r);g=JSON.parse(r.state);return json(roomView(r,g,u.id));}
- const [c,m,all]=await Promise.all([config(),db().prepare('SELECT room_code FROM members WHERE user_id=?').bind(u.id).first<{room_code:string}>(),db().prepare('SELECT result,room_code,created FROM records WHERE EXISTS (SELECT 1 FROM json_each(records.result,\'$.seats\') WHERE json_extract(value,\'$.id\')=?) ORDER BY created DESC LIMIT 12').bind(u.id).all()]);return json({user:publicUser(u),config:c,activeRoom:m?.room_code||null,records:all.results.map(x=>({...x,result:JSON.parse(x.result as string)}))});
+ if(code){let r=await getRoom(code);let g=JSON.parse(r.state) as Game;if(isMahjong(g))throw new AppError('这是麻将房间，请从麻将入口进入',409);if(!g.seats.some(s=>s.id===u.id))throw new AppError('你不在这个房间',403);r=await advance(r);g=JSON.parse(r.state);return json(roomView(r,g,u.id));}
+ const [c,m,all]=await Promise.all([config(),db().prepare('SELECT room_code,COALESCE(json_extract(rooms.state,\'$.kind\'),\'landlord\') AS kind FROM members JOIN rooms ON rooms.code=members.room_code WHERE user_id=?').bind(u.id).first<{room_code:string;kind:string}>(),db().prepare('SELECT result,room_code,created FROM records WHERE COALESCE(json_extract(result,\'$.kind\'),\'landlord\')=\'landlord\' AND EXISTS (SELECT 1 FROM json_each(records.result,\'$.seats\') WHERE json_extract(value,\'$.id\')=?) ORDER BY created DESC LIMIT 12').bind(u.id).all()]);return json({user:publicUser(u),config:c,activeRoom:m?.room_code||null,activeKind:m?.kind||null,records:all.results.map(x=>({...x,result:JSON.parse(x.result as string)}))});
 });}
 export async function POST(req:Request){return safe(async()=>{
  const u=await requireUser(req),b=await body(req);await limit('game:'+u.id,180,1);
@@ -18,6 +18,7 @@ export async function POST(req:Request){return safe(async()=>{
  }
  if(typeof b.code!=='string'||!/^\d{6}$/.test(b.code))throw new AppError('请输入 6 位房间号');
  let r=await getRoom(b.code);let g=JSON.parse(r.state) as Game;
+ if(isMahjong(g)){if(b.action==='join')return json({redirect:'/mahjong?room='+r.code});throw new AppError('这是麻将房间，请从麻将入口进入',409);}
  if(b.action==='join'){
  if(g.phase==='closed')throw new AppError('该房间已关闭');
  if(g.seats.some(s=>s.id===u.id))return json(roomView(r,g,u.id));

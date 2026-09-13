@@ -6,7 +6,7 @@ async function req(path:string,data?:any,session='',expect=200){const response=a
 const testPassword='Local-test-only-913!';
 await req('/api/game',undefined,'',401);
 await req('/api/auth',{action:'register',username:'MartinHamburger',password:testPassword},'',409);
-let admin;try{admin=await req('/api/auth',{action:'setup',username:'MartinHamburger',password:testPassword,token:process.argv[2]})}catch{admin=await req('/api/auth',{action:'login',username:'MartinHamburger',password:testPassword})}
+let admin;try{admin=await req('/api/auth',{action:'setup',username:'MartinHamburger',password:testPassword,token:process.argv[2]})}catch{admin=await req('/api/auth',{action:'login',username:'MartinHamburger',password:process.env.LOCAL_ADMIN_TEST_PASSWORD||testPassword})}
 const suffix=Date.now().toString().slice(-7);
 const a=await req('/api/auth',{action:'register',username:'testa'+suffix,password:testPassword,name:'小北'});
 const b=await req('/api/auth',{action:'register',username:'testb'+suffix,password:testPassword,name:'阿满'});
