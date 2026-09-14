@@ -6,7 +6,7 @@ export type PlanGroup = {kind: 'sequence'|'triplet'|'pair'|'special'|'kong'; typ
 export type WinPlan = {id: string; family: 'standard'|'seven'|'orphans'|'gates'; groups: PlanGroup[];
   assignments: {tile: number; type: number}[]; fans: Fan[]; multiplier: string; hitTypes: number[]; incomingType: number; middle: boolean};
 export type WinContext = {round: string; hand: number[]; melds: Meld[]; wildcard: number; incoming: number;
-  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean};
+  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean;selfDrawUnit?:number};
 type Shape = {kind: PlanGroup['kind']; types: number[]; wild: boolean[]};
 export const effectiveType = (tile: number, wildcard: number) => tileType(tile) === 33 && wildcard >= 0 ? wildcard : tileType(tile);
 export const isWild = (tile: number, wildcard: number) => wildcard >= 0 && tileType(tile) === wildcard;
@@ -33,6 +33,8 @@ function score(ctx: WinContext, family: WinPlan['family'], groups: PlanGroup[], 
   if (ctx.melds.filter(m=>m.kind === 'kong').length === 4) ids.add('fourKongs');
   if (ctx.melds.every(m=>m.concealed)) ids.add('closed');
   if (!wildCount) ids.add('noWild');
+  // Missing field belongs to saved ham-v1 choices; never change an in-flight old plan.
+  if (ctx.winType === 'self' && ctx.selfDrawUnit === 2) ids.add('selfDraw');
   if (ctx.flower && ctx.winType === 'self') ids.add('flower');
   if (ctx.winType === 'rob') ids.add('rob');
   if (ctx.heaven) ids.add('heaven');

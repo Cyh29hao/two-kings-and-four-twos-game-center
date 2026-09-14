@@ -2,13 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {winPlans,canWin,effectiveType,isWild,type WinContext} from '../lib/mahjong/solver.ts';
 import {newModern,modernSeat,dealModern,modernOptions,moveModern,timeoutModern,closeModern,modernView,type ModernGame} from '../lib/mahjong/modern.ts';
-import {HAM,BASIC_CHIPS} from '../lib/mahjong/rules.ts';
+import {HAM,HAM_V1,BASIC_CHIPS,isHamRules} from '../lib/mahjong/rules.ts';
+import {isModern} from '../lib/mahjong/game.ts';
 import {isWinning,type Meld} from '../lib/mahjong/engine.ts';
 import {publicRound,roundReport} from '../lib/mahjong/report.ts';
 const physical=(types:number[])=>{const c=Array(34).fill(0);return types.map(t=>{assert(c[t]<4);return t*4+c[t]++;});};
 function ctx(types:number[],patch:Partial<WinContext>={}):WinContext{const hand=physical(types);return {round:'test',hand,melds:[],wildcard:32,incoming:hand.at(-1)!,winType:'self',flower:false,heaven:false,earth:false,...patch};}
 const ids=(p:ReturnType<typeof winPlans>[number])=>p.fans.map(f=>f.id);
 const normal=[0,1,2,9,10,11,18,19,20,30,30,2,4,3];
+test('ham-v2 self draw is an independent factor on every complete plan, including special hands',()=>{
+ for(const types of [normal,[0,0,1,1,9,9,10,10,18,18,27,27,28,28],[0,1,2,9,10,11,18,19,20,27,27,32,32,4]]){
+  const before=winPlans(ctx(types,{selfDrawUnit:1})),after=winPlans(ctx(types,{selfDrawUnit:2}));
+  assert(before.length);assert.equal(after.length,before.length);
+  for(const p of before){const next=after.find(n=>n.id===p.id)!;assert(next);assert.deepEqual(next.groups,p.groups);assert.deepEqual(next.assignments,p.assignments);assert.deepEqual(next.hitTypes,p.hitTypes);
+   assert.equal(next.multiplier,(BigInt(p.multiplier)*2n).toString());assert.deepEqual(next.fans.filter(f=>f.id==='selfDraw'),[{id:'selfDraw',name:'自摸',multiplier:'2'}]);
+  }
+ }
+ const normalSelf=winPlans(ctx(normal,{selfDrawUnit:2}))[0];assert.equal(normalSelf.multiplier,'8');
+ const flower=winPlans(ctx(normal,{selfDrawUnit:2,flower:true}))[0];assert.equal(flower.multiplier,'16');assert(ids(flower).includes('selfDraw'));assert(ids(flower).includes('flower'));
+ for(const winType of ['discard','rob'] as const){const old=winPlans(ctx(normal,{winType,selfDrawUnit:1})),next=winPlans(ctx(normal,{winType,selfDrawUnit:2}));assert.deepEqual(next,old);assert(next.every(p=>!ids(p).includes('selfDraw')));}
+ assert(!canWin(ctx([0,1,2,9,10,11,18,19,20,30,30,1,3,2],{selfDrawUnit:2})), 'self draw does not waive the middle restriction');
+});
 test('ordinary middle 4–8, exclusions and incoming wildcard',()=>{
  const ps=winPlans(ctx(normal));assert(ps.length);assert(ps.every(p=>p.middle&&p.incomingType===3&&p.multiplier==='4'));
  assert(!canWin(ctx([0,1,2,9,10,11,18,19,20,30,30,1,3,2])));
@@ -75,6 +89,24 @@ function fixture(types:number[],patch:Partial<ModernGame>={}):ModernGame {
  const g=newModern('p0','小满');g.seats=['小满','阿北','桃子','小川'].map((n,i)=>modernSeat('p'+i,n,'1000'));dealModern(g);g.wildcard=32;g.opening=false;
  g.seats[0].hand=physical(types);const unused=Array.from({length:136},(_,i)=>i).filter(t=>!g.seats[0].hand.includes(t));for(let i=1;i<4;i++)g.seats[i].hand=unused.splice(0,13);g.wall=unused;g.drawn=g.seats[0].hand.at(-1)!;return Object.assign(g,patch);
 }
+test('self draw settlement pays three players after awards and exposes the same factor in reports',()=>{
+ const g=fixture(normal);assert.equal(g.rules.id,'ham-v2');assert.equal(g.rules.selfDrawUnit,2);moveModern(g,0,{action:'hu'});assert.equal(g.choice!.selfDrawUnit,2);
+ const p=winPlans(g.choice!)[0];assert.equal(p.multiplier,'8');const hits=g.wall.slice(-2).filter(t=>p.hitTypes.includes(effectiveType(t,g.wildcard))).length;
+ const payment=10n*BigInt(1+hits)*8n;moveModern(g,0,{action:'confirm_win',candidateId:p.id});
+ assert.deepEqual(g.deltas,[String(payment*3n),String(-payment),String(-payment),String(-payment)]);assert.equal(g.entries.filter(e=>e.kind==='win').length,1);
+ const report=roundReport('自摸测试',g.result!).rounds[0];assert.equal(report.multiplier,'8');assert(report.fans.some(f=>f.id==='selfDraw'&&f.multiplier==='2'));assert.deepEqual(report.players.map(p=>p.delta),g.deltas);
+});
+test('ham-v1 rooms and saved choosing states keep their original multiplier; basic rooms stay unchanged',()=>{
+ assert(isHamRules(HAM.id)&&isHamRules(HAM_V1.id));assert(isModern(fixture(normal)));assert(isModern(fixture(normal,{rules:HAM_V1})));
+ for(const missingField of [false,true]){
+  const g=fixture(normal,{rules:structuredClone(HAM_V1)});moveModern(g,0,{action:'hu'});assert.equal(g.choice!.selfDrawUnit,1);if(missingField)delete g.choice!.selfDrawUnit;
+  const restored=JSON.parse(JSON.stringify(g)) as ModernGame,p=winPlans(restored.choice!)[0];assert.equal(p.multiplier,'4');assert(!ids(p).includes('selfDraw'));
+  if(missingField)timeoutModern(restored,restored.deadline);else moveModern(restored,0,{action:'confirm_win',candidateId:p.id});
+  assert.equal(restored.result!.plan!.multiplier,'4');const savedReport=roundReport('旧桌',JSON.parse(JSON.stringify(restored.result!)));assert(!savedReport.rounds[0].fans.some(f=>f.id==='selfDraw'));
+  dealModern(restored);assert.equal(restored.rules.id,'ham-v1');assert.equal(restored.rules.selfDrawUnit,1);
+ }
+ const basic=fixture(normal,{rules:BASIC_CHIPS,wildcard:-1});moveModern(basic,0,{action:'hu'});assert.equal(basic.phase,'finished');assert.deepEqual(basic.deltas,['30','-10','-10','-10']);assert.equal(basic.result!.plan,null);
+});
 test('choose before awards, immutable selection, exact payment, redacted public report',()=>{
  const g=fixture(normal,{baseChips:'100000000000000000000'});moveModern(g,0,{action:'hu'});assert.equal(g.phase,'choosing');
  const before=g.wall.length,serialized=JSON.stringify(modernView(g,'p1'));assert(!serialized.includes('"wall"'));assert(!serialized.includes('"choice"'));assert(!serialized.includes('"awards"'));

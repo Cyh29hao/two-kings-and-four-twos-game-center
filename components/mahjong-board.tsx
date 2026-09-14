@@ -2,7 +2,7 @@
 import {Timer,Layers3,Maximize2} from 'lucide-react';
 import type {ReactNode} from 'react';
 import type {MahjongView} from '@/lib/mahjong/game';
-import {HAM} from '@/lib/mahjong/rules';
+import {isHamRules} from '@/lib/mahjong/rules';
 import {chips} from '@/lib/mahjong/report';
 import {typeName} from '@/lib/mahjong/solver';
 import {MahjongTile} from './mahjong-tile';
@@ -23,12 +23,12 @@ function PlayerZone({g,index,position,seconds,own=false,botControls}:{g:MahjongV
 }
 export function MahjongSurface({g,seat,seconds,children,botControls}:{g:MahjongView;seat:number;seconds:number;children?:ReactNode;botControls?:BotSeatControls}){
  return <><div className="mj-board-top">
- {g.rules.id===HAM.id&&g.wildcard>=0?<div className="mj-wild-seat"><MahjongTile tile={g.wildcard*4} wildcard={g.wildcard} small/><div><b>本局赖子</b><span>白板代 {typeName(g.wildcard)}</span></div></div>:<span className="mj-board-label">{g.rules.name}</span>}
+ {isHamRules(g.rules.id)&&g.wildcard>=0?<div className="mj-wild-seat"><MahjongTile tile={g.wildcard*4} wildcard={g.wildcard} small/><div><b>本局赖子</b><span>白板代 {typeName(g.wildcard)}</span></div></div>:<span className="mj-board-label">{g.rules.name}</span>}
  <span className="mj-round-tag"><Layers3 size={16}/>{g.roundNumber?`第 ${g.roundNumber} 局`:'等待开局'}</span></div>
  <div className={`mj-surface phase-${g.phase}`}>
  <PlayerZone g={g} index={(seat+2)%4} position="north" seconds={seconds} botControls={botControls}/>
  <PlayerZone g={g} index={(seat+3)%4} position="west" seconds={seconds} botControls={botControls}/>
- <div className="mj-center">{g.phase==='playing'?<div className="mj-wall-count"><span>余牌</span><strong>{g.remaining}</strong><small>{g.rules.id===HAM.id?'保留 12 张':'张'}</small></div>:children}</div>
+ <div className="mj-center">{g.phase==='playing'?<div className="mj-wall-count"><span>余牌</span><strong>{g.remaining}</strong><small>{isHamRules(g.rules.id)?'保留 12 张':'张'}</small></div>:children}</div>
  <PlayerZone g={g} index={(seat+1)%4} position="east" seconds={seconds} botControls={botControls}/>
  <PlayerZone g={g} index={seat} position="south" seconds={seconds} own/>
  </div></>;

@@ -1,9 +1,9 @@
 import * as legacy from './engine.ts';
 import * as modern from './modern.ts';
-import {BASIC_136,BASIC_CHIPS,HAM} from './rules.ts';
+import {BASIC_136,BASIC_CHIPS,isHamRules} from './rules.ts';
 export type MahjongGame=legacy.MahjongGame|modern.ModernGame;
 export function isModern(g:MahjongGame):g is modern.ModernGame{
- if(g.schemaVersion===2&&[HAM.id,BASIC_CHIPS.id].includes(g.rules.id))return true;
+ if(g.schemaVersion===2&&(isHamRules(g.rules.id)||g.rules.id===BASIC_CHIPS.id))return true;
  if(g.schemaVersion===1&&g.rules.id===BASIC_136.id)return false;
  throw Error('无法识别这桌的规则版本，不能降级为旧玩法');
 }
