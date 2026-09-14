@@ -1,16 +1,16 @@
 import {AppError,body,config,db,json,limit,publicUser,requireUser,safe} from '@/lib/server';
-import {advance,commit,getRoom,isMahjong,type Room} from '@/lib/rooms';
+import {advance,commit,getRoom,isMahjong,isHoldem,type Room} from '@/lib/rooms';
 import {dealMahjong,moveMahjong,mahjongView,isModern,type MahjongGame} from '@/lib/mahjong/game';
 import {newSeat} from '@/lib/mahjong/engine';
 import {newModern,modernSeat,closeModern} from '@/lib/mahjong/modern';
-import {HAM,MODERN_PRESETS} from '@/lib/mahjong/rules';
+import {HAM,MODERN_PRESETS,customMahjongRules} from '@/lib/mahjong/rules';
 import {fillBots,addRoomBot,removeRoomBot,resetRosterReady,transferHumanHost} from '@/lib/practice/room';
 import {practiceMode,soloPractice} from '@/lib/practice/types';
 export const dynamic='force-dynamic';
 function visible(r:Room,g:MahjongGame,id:string){return {code:r.code,title:r.title,revision:r.revision,serverNow:Date.now(),game:mahjongView(g,id)};}
 export async function GET(req:Request){return safe(async()=>{
  const u=await requireUser(req),code=new URL(req.url).searchParams.get('room');
- if(code){let r=await getRoom(code);let g=JSON.parse(r.state);if(!isMahjong(g))throw new AppError('这是斗地主房间，请从斗地主入口进入',409);if(!g.seats.some(s=>s.id===u.id))throw new AppError('请先加入这个房间',403);r=await advance(r);g=JSON.parse(r.state);return json(visible(r,g,u.id));}
+ if(code){let r=await getRoom(code);let g=JSON.parse(r.state);if(isHoldem(g))throw new AppError('这是德州扑克房间，请从德州入口进入',409);if(!isMahjong(g))throw new AppError('这是斗地主房间，请从斗地主入口进入',409);if(!g.seats.some(s=>s.id===u.id))throw new AppError('请先加入这个房间',403);r=await advance(r);g=JSON.parse(r.state);return json(visible(r,g,u.id));}
  const [c,member,records,tables]=await Promise.all([
   config(),db().prepare("SELECT room_code,COALESCE(json_extract(rooms.state,'$.kind'),'landlord') AS kind FROM members JOIN rooms ON rooms.code=members.room_code WHERE user_id=?").bind(u.id).first<{room_code:string;kind:string}>(),
   db().prepare("SELECT id,result,room_code,created FROM records WHERE json_extract(result,'$.kind')='mahjong' AND EXISTS(SELECT 1 FROM json_each(records.result,'$.seats') WHERE json_extract(value,'$.id')=?) ORDER BY created DESC LIMIT 12").bind(u.id).all(),
@@ -24,7 +24,7 @@ export async function POST(req:Request){return safe(async()=>{
   const c=await config();if(c.maintenance)throw new AppError('暂时暂停开新桌，请稍后再来');
   const rules=MODERN_PRESETS.find(r=>r.id===(b.rulesId??HAM.id));if(!rules)throw new AppError('请选择当前可用的麻将规则');
   const title=typeof b.title==='string'&&b.title.trim()?b.title.trim():`${u.display} 的麻将桌`;if(title.length>24)throw new AppError('房间名最多 24 个字符');
-  let g;try{g=newModern(u.id,u.display,c.seconds,rules,b.initialChips,b.baseChips);if(practiceMode(b.mode))fillBots(g);}catch(e){throw new AppError((e as Error).message);}
+  let g;try{g=newModern(u.id,u.display,c.seconds,customMahjongRules(rules,b.customRules),b.initialChips,b.baseChips);if(practiceMode(b.mode))fillBots(g);}catch(e){throw new AppError((e as Error).message);}
   const code=String(100000+crypto.getRandomValues(new Uint32Array(1))[0]%900000),now=Date.now();
   try{await db().batch([
    db().prepare("INSERT INTO rooms (code,title,state,phase,revision,op,created,updated) VALUES (?,?,?,'waiting',0,?,?,?)").bind(code,title,JSON.stringify(g),crypto.randomUUID(),now,now),
@@ -33,7 +33,8 @@ export async function POST(req:Request){return safe(async()=>{
   return json(visible(await getRoom(code),g,u.id));
  }
  if(typeof b.code!=='string'||!/^\d{6}$/.test(b.code))throw new AppError('请输入 6 位房间号');
- let r=await getRoom(b.code),g=JSON.parse(r.state) as MahjongGame;if(!isMahjong(g)){if(b.action==='join')return json({redirect:'/?room='+r.code});throw new AppError('这是斗地主房间',409);}
+ let r=await getRoom(b.code),g=JSON.parse(r.state) as MahjongGame;if(isHoldem(g)){if(b.action==='join')return json({redirect:'/holdem?room='+r.code});throw new AppError('请从德州入口进入',409);}
+ if(!isMahjong(g)){if(b.action==='join')return json({redirect:'/?room='+r.code});throw new AppError('这是斗地主房间',409);}
  if(b.action==='join'){
   if(g.phase==='closed')throw new AppError('该房间已关闭');if(g.seats.some(s=>s.id===u.id))return json(visible(r,g,u.id));
   if(soloPractice(g))throw new AppError('这是个人的人机测试房，不能加入其他玩家',403);

@@ -48,7 +48,7 @@ export function dealModern(g:ModernGame,now=Date.now()){
 }
 function context(g:ModernGame,seat:number,tile?:number,p?:Pending):WinContext {
   return {round:g.round,hand:tile===undefined?[...g.seats[seat].hand]:[...g.seats[seat].hand,tile],melds:g.seats[seat].melds,wildcard:g.wildcard,incoming:tile??g.drawn!,
-    winType:p?.kind==='added'?'rob':tile===undefined?'self':'discard',flower:tile===undefined&&g.flower,selfDrawUnit:g.rules.selfDrawUnit,noWildBonus:g.rules.noWildBonus,closedBonus:g.rules.closedBonus,fourWildWin:g.rules.fourWildWin,
+    winType:p?.kind==='added'?'rob':tile===undefined?'self':'discard',flower:tile===undefined&&g.flower,selfDrawUnit:g.rules.selfDrawUnit,noWildBonus:g.rules.noWildBonus,closedBonus:g.rules.closedBonus,fourWildWin:g.rules.fourWildWin,disabledWins:g.rules.disabledWins,
     heaven:tile===undefined&&g.opening&&g.discardCount===0&&seat===g.dealer,earth:!!p?.earth&&seat!==g.dealer};
 }
 function wins(g:ModernGame,seat:number,tile?:number,p?:Pending){return g.rules.wildcards?canWin(context(g,seat,tile,p)):isWinning(tile===undefined?g.seats[seat].hand:[...g.seats[seat].hand,tile],g.seats[seat].melds.length,false);}
@@ -56,12 +56,12 @@ function option(kind:Option['kind'],tiles:number[],meldIndex?:number):Option{ret
 function matching(g:ModernGame,seat:number,t:number){return g.seats[seat].hand.filter(tile=>!isWild(tile,g.wildcard)&&effectiveType(tile,g.wildcard)===t);}
 function claimOptions(g:ModernGame,seat:number,p:Pending):Option[]{
   if(seat===p.from)return [];const out:Option[]=[];
-  if(wins(g,seat,p.tile,p))out.push(option('hu',[]));
+  if((p.kind!=='added'||g.rules.allowRobAddedKong)&&wins(g,seat,p.tile,p))out.push(option('hu',[]));
   if(p.kind==='added'||isWild(p.tile,g.wildcard))return out;
   const t=effectiveType(p.tile,g.wildcard),same=matching(g,seat,t);
   if(same.length>=2)out.push(option('pong',same.slice(0,2)));
   if(same.length===3&&g.wall.length>g.rules.reserve)out.push(option('kong',same));
-  if((p.from+1)%4===seat&&t<27){for(let first=Math.max(t-t%9,t-2);first<=t&&first%9<=6;first++){
+  if(g.rules.allowChi&&(p.from+1)%4===seat&&t<27){for(let first=Math.max(t-t%9,t-2);first<=t&&first%9<=6;first++){
     const tiles=[first,first+1,first+2].filter(v=>v!==t).map(v=>matching(g,seat,v)[0]);if(tiles.every(v=>v!==undefined))out.push(option('chi',tiles));
   }}return out;
 }

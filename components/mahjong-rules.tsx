@@ -2,11 +2,11 @@ import {Info} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogTrigger,DialogDescription} from '@/components/ui/dialog';
 import {Table,TableHeader,TableHead,TableRow,TableBody,TableCell} from '@/components/ui/table';
-import {HAM,hamRulePreset,isHamRules,RULE_NOTES,FAN_TABLE} from '@/lib/mahjong/rules';
+import {HAM,hamRulePreset,isHamRules,RULE_NOTES,FAN_TABLE,type ModernRules} from '@/lib/mahjong/rules';
 import {FAN_DETAILS} from '@/lib/mahjong/rule-guide';
 
-export function MahjongRules({rulesId=HAM.id,name='ham 规'}:{rulesId?:string;name?:string}){
- const ham=isHamRules(rulesId),preset=hamRulePreset(rulesId),legacy=ham&&rulesId!==HAM.id;
+export function MahjongRules({rulesId=HAM.id,name='ham 规',snapshot}:{rulesId?:string;name?:string;snapshot?:Partial<ModernRules>}){
+ const ham=isHamRules(rulesId),preset={...hamRulePreset(rulesId),...snapshot},legacy=ham&&rulesId!==HAM.id;
  const closed=preset?.closedBonus!==false,noWild=preset?.noWildBonus!==false;
  const notes:readonly (readonly [string,string])[]=ham?[
   ['先认识几个词','顺子：同一花色连续三张，如三、四、五万。刻子：三张同牌。杠：四张同牌。面子指一副顺子、刻子或杠；将牌指一对同牌。字牌为东、南、西、北、中、发、白；幺九指数牌的 1 和 9。'],
@@ -24,11 +24,11 @@ export function MahjongRules({rulesId=HAM.id,name='ham 规'}:{rulesId?:string;na
   ['一局与整桌','一人胡牌即结束本局。筹码在本桌独立记账，首局后固定四位玩家，支持重连。房主在两局之间结束整桌。管理员中止未完成的一局，包括选方案和翻奖牌期间，撤销本局全部杠分，保留此前各局的结算。'],
  ]:RULE_NOTES.map(([title,text],i)=>[title,rulesId==='basic-136-v2'&&i===3?'一人胡牌即结束。自摸三家各付本桌基础筹码；点炮、抢杠由出牌者付一次。摸完牌墙流局，杠不计分，下一局顺序轮庄。筹码仅在本桌独立记录。':rulesId==='basic-136-v2'&&i===4?'出牌沿用房间时限；响应固定 8 秒，无人能响应则直接推进。响应超时视为放弃；出牌超时打出刚摸的牌，吃碰后打出最右一张。':text]);
  return <Dialog><DialogTrigger asChild><Button variant="ghost" className="mahjong-rules-trigger" aria-label="本桌规则"><Info size={17}/><span>本桌规则</span></Button></DialogTrigger><DialogContent className="rules-modal ham-rules-modal"><DialogHeader><DialogTitle>{name} · 本桌规则</DialogTitle><DialogDescription>{legacy?'本桌沿用建房时的旧版规则；下方倍数按本桌版本展示。':'按建房时的规则与基础筹码结算。可向下查看每种牌型的条件和例子。'}</DialogDescription></DialogHeader>
- <div className="rules-list ham-rule-guide">{notes.map(([title,text])=><section key={title}><h3>{title}</h3><p>{text}</p></section>)}</div>
+ <section className="house-rule-summary"><b>本桌自选规则</b><p>吃牌：{preset.allowChi===false?'不允许':'允许'} · 抢补杠胡：{preset.allowRobAddedKong===false?'不允许':'允许'}</p>{!!preset.disabledWins?.length&&<p>禁止胡法：{FAN_TABLE.filter(([id])=>preset.disabledWins?.includes(id)).map(([,label])=>label==='七小对'?'七小对及全部豪华七对':label).join('、')}。符合禁用类型的方案不能选择，即使同时满足其他牌型也不例外。</p>}</section><div className="rules-list ham-rule-guide">{notes.map(([title,text])=><section key={title}><h3>{title}</h3><p>{text}</p></section>)}</div>
  {ham&&<><section className="ham-rule-example"><h3>算一笔就明白</h3><p>基础筹码 10，两张奖牌都命中，最终有效倍数合计 4 倍：每位付款者付 <b>10 ×（1 + 2）× 4 = 120</b>。自摸由三家各付 120，合计收 360；点炮只由点炮者付 120。</p><p>这里的“最终 4 倍”已经包含适用的自摸或牌型因素，不能再重复乘一次。杠分最后另外相加。</p></section>
  <section className="ham-fan-guide"><h3>牌型倍数与成立条件</h3><p>先按普通、特殊牌型或本桌允许的四赖胡确认胡牌资格，再乘符合条件的倍数。不同拆法分别计算，不能把两套方案的奖励拼在一起。表中没有写明排除的独立因素可以相乘。</p><Table className="ham-fan-table"><TableHeader><TableRow><TableHead>牌型</TableHead><TableHead>倍数</TableHead><TableHead>怎样成立 · 怎样叠加</TableHead></TableRow></TableHeader><TableBody>
  <TableRow><TableCell>普通胡</TableCell><TableCell>×1</TableCell><TableCell><p>四副面子加一对将，最后进牌是顺子中间的 4–8。</p><small>没有其他有效牌型因素时按 1 倍；自摸因素仍按本桌规则计算。</small></TableCell></TableRow>
- {FAN_TABLE.filter(([id])=>id==='selfDraw'?preset?.selfDrawUnit===2:id==='noWild'?noWild:id==='closed'?closed:id==='fourWild'?!!preset?.fourWildWin:true).map(([id,label,m])=><TableRow key={id}><TableCell>{label}</TableCell><TableCell>×{m}</TableCell><TableCell><p>{FAN_DETAILS[id].condition}</p><small>{FAN_DETAILS[id].note}</small></TableCell></TableRow>)}
+ {FAN_TABLE.filter(([id])=>id==='selfDraw'?preset?.selfDrawUnit===2:id==='noWild'?noWild:id==='closed'?closed:id==='fourWild'?!!preset?.fourWildWin:true).map(([id,label,m])=><TableRow key={id}><TableCell>{label}{(preset.disabledWins?.includes(id)||id.startsWith('luxury')&&preset.disabledWins?.includes('seven'))&&<b className="house-disabled">本桌禁用</b>}</TableCell><TableCell>×{m}</TableCell><TableCell><p>{FAN_DETAILS[id].condition}</p><small>{FAN_DETAILS[id].note}</small></TableCell></TableRow>)}
  </TableBody></Table></section></>}
  </DialogContent></Dialog>;
 }

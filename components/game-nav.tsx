@@ -1,0 +1,1 @@
+export function GameNav({current}:{current:'landlord'|'mahjong'|'holdem'}){return <nav className="game-nav" aria-label="选择游戏"><a href="/" aria-current={current==='landlord'?'page':undefined}>斗地主</a><a href="/mahjong" aria-current={current==='mahjong'?'page':undefined}>麻将</a><a href="/holdem" aria-current={current==='holdem'?'page':undefined}>德州扑克</a></nav>}

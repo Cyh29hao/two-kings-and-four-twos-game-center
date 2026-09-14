@@ -12,6 +12,7 @@ export function pokerSpeech(combo:Combo){const r=points[combo.rank],range=`${poi
  case '飞机':return '飞机，'+range;case '飞机带单':return '飞机带单，'+range;case '飞机带对':return '飞机带对，'+range;case '四带二':return '四个'+r+'，带两张';case '四带两对':return '四个'+r+'，带两对';default:return combo.kind;
 }}
 function parsePoker(suffix:string):Cue|null{
+ if(suffix==='加倍 ×2'||suffix==='不加倍')return {speech:suffix==='不加倍'?'不加倍':'加倍',effect:'claim'};
  if(suffix==='不出'||suffix==='不叫')return {speech:suffix,effect:'pass'};
  if(/^[123] 分$/.test(suffix))return {speech:['','一分','两分','三分'][Number(suffix[0])],effect:'claim'};
  const split=suffix.indexOf(' ');if(split<0)return null;const kind=suffix.slice(0,split),tokens=suffix.slice(split+1).split(' '),used=new Map<number,number>(),cards:number[]=[];
@@ -26,9 +27,11 @@ export function mahjongSpeech(label:string){
 export function logCue(log:PublicLog,g:SoundGame):Cue|null{
  const text=log.text;if(text.startsWith('发牌完成')||/^第 \d+ 局开始，/.test(text))return {speech:'开始发牌',effect:'deal'};
  if(text.includes('本局流局')&&text.startsWith('牌墙'))return {speech:'本局流局',effect:'pass'};
+ if(g.kind==='holdem'){if(text.startsWith('发出'))return {speech:text.slice(2),effect:'card'};if(text==='摊牌结算完成'||text==='其余玩家弃牌，本局结束')return {speech:'本手结束',effect:'win'};}
  if(text.startsWith('地主获胜')||text.startsWith('农民获胜'))return {speech:text.startsWith('地主')?'地主获胜':'农民获胜',effect:'win'};
  for(const s of [...g.seats].sort((a,b)=>b.name.length-a.name.length)){
   const prefix=g.kind==='mahjong'?s.name+' ':text.startsWith(s.name+'：')?s.name+'：':s.name+' ';if(!text.startsWith(prefix))continue;const tail=text.slice(prefix.length);
+  if(g.kind==='holdem'){const move=/^(弃牌|过牌|全下跟注|跟注|全下至|加注至)(?: |$)/.exec(tail);return move?{speech:move[1].startsWith('全下')?'全下':move[1].startsWith('加注')?'加注':move[1],effect:move[1]==='弃牌'?'pass':'claim'}:null;}
   if(g.kind!=='mahjong'){if(tail==='成为地主')return {speech:'地主就位',effect:'deal'};return parsePoker(tail);}
   if(tail.startsWith('打出 ')){const speech=mahjongSpeech(tail.slice(3));return speech?{speech,effect:'tile'}:null;}
   if(/^胡牌，正在选择/.test(tail))return {speech:'胡了',effect:'claim'};

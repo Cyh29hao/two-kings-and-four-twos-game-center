@@ -1,21 +1,37 @@
+import {isHoldem,timeoutHoldem,type HoldemGame} from './holdem/engine';
+import {advanceHoldemBot} from './holdem/bot';
+export {isHoldem} from './holdem/engine';
 import {AppError,db} from './server';
 import {type Game,view,timeout} from './game/engine';
 import {type MahjongGame,timeoutMahjong,isModern} from './mahjong/game';
 import {advanceBot,scheduleBots} from './practice/room';
-export type RoomGame=Game|MahjongGame;
+export type RoomGame=Game|MahjongGame|HoldemGame;
 export function isMahjong(g:RoomGame):g is MahjongGame{return 'kind' in g&&g.kind==='mahjong';}
 export type Room={code:string;title:string;state:string;phase:string;revision:number;op:string;created:number;updated:number};
 export async function getRoom(code:string){const r=await db().prepare('SELECT * FROM rooms WHERE code=?').bind(code).first<Room>();if(!r)throw new AppError('没有找到这个房间',404);return r;}
-export function roomView(r:Room,g:Game,id:string){return{code:r.code,title:r.title,revision:r.revision,game:view(g,id),serverNow:Date.now()};}
-export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>D1PreparedStatement[]){const op=crypto.randomUUID(),now=Date.now();if(!isMahjong(g)||isModern(g))scheduleBots(g,now);const guard='EXISTS (SELECT 1 FROM rooms WHERE code=? AND op=?)';const statements=[db().prepare('UPDATE rooms SET state=?,phase=?,revision=revision+1,op=?,updated=? WHERE code=? AND revision=?').bind(JSON.stringify(g),g.phase,op,now,r.code,r.revision)];
+export async function roomView(r:Room,g:Game,id:string){
+ // Derive the table total from committed results, including older rooms and practice rounds.
+ const scores=await db().prepare(`WITH totals AS (
+  SELECT json_extract(s.value,'$.id') AS id,SUM(json_extract(s.value,'$.delta')) AS total
+  FROM records r,json_each(r.result,'$.seats') s WHERE r.room_code=?
+  GROUP BY json_extract(s.value,'$.id')
+ ) SELECT json_extract(s.value,'$.id') AS id,u.score AS accountScore,COALESCE(t.total,0) AS tableScore
+ FROM json_each(?) s LEFT JOIN users u ON u.id=json_extract(s.value,'$.id')
+ LEFT JOIN totals t ON t.id=json_extract(s.value,'$.id')`).bind(r.code,JSON.stringify(g.seats.map(s=>({id:s.id})))).all<{id:string;accountScore:number|null;tableScore:number}>();
+ const byId=new Map(scores.results.map(s=>[s.id,s])),visible=view(g,id);
+ return{code:r.code,title:r.title,revision:r.revision,game:{...visible,seats:visible.seats.map(s=>({...s,accountScore:s.bot?null:byId.get(s.id)?.accountScore??null,tableScore:byId.get(s.id)?.tableScore??0}))},serverNow:Date.now()};
+}
+export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>D1PreparedStatement[]){const op=crypto.randomUUID(),now=Date.now();if(!isHoldem(g)&&(!isMahjong(g)||isModern(g)))scheduleBots(g,now);const guard='EXISTS (SELECT 1 FROM rooms WHERE code=? AND op=?)';const statements=[db().prepare('UPDATE rooms SET state=?,phase=?,revision=revision+1,op=?,updated=? WHERE code=? AND revision=?').bind(JSON.stringify(g),g.phase,op,now,r.code,r.revision)];
  const before=JSON.parse(r.state) as RoomGame;
- if(isMahjong(g)&&isModern(g)){
+ if(isHoldem(g)){
+ if(g.result&&g.result.id!==(isHoldem(before)?before.result?.id:undefined))statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.result.id,r.code,JSON.stringify(g.result),g.result.ended,r.code,op));
+ }else if(isMahjong(g)&&isModern(g)){
  const prior=isMahjong(before)&&isModern(before)?before:null;
  const oldIds=new Set(prior?.entries.map(e=>e.id)||[]);
  for(const e of g.entries.filter(e=>!oldIds.has(e.id)))statements.push(db().prepare(`INSERT INTO chip_entries (id,room_code,round_id,kind,entry,created) SELECT ?,?,?,?,?,? WHERE ${guard}`).bind(e.id,r.code,e.round,e.kind,JSON.stringify(e),e.at,r.code,op));
  if(g.result&&g.result.id!==prior?.result?.id)statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.result.id,r.code,JSON.stringify(g.result),g.result.ended,r.code,op));
  }else if(g.phase==='finished'&&before.phase!=='finished'){
- statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.round,r.code,JSON.stringify({...(g.practice?{practice:true}:{}),seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,delta:g.deltas[i]})),winner:g.winner,log:g.log,...(isMahjong(g)?{kind:'mahjong',rules:g.rules,winType:g.winType,source:g.source}:{kind:'landlord',landlord:g.landlord,bid:g.bid,multiplier:g.multiplier,spring:g.spring})}),now,r.code,op));
+ statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.round,r.code,JSON.stringify({...(g.practice?{practice:true}:{}),seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,delta:g.deltas[i]})),winner:g.winner,log:g.log,...(isMahjong(g)?{kind:'mahjong',rules:g.rules,winType:g.winType,source:g.source}:{kind:'landlord',landlord:g.landlord,bid:g.bid,multiplier:g.multiplier,spring:g.spring,rules:g.rules,doubles:g.doubles})}),now,r.code,op));
  if(!g.practice)g.seats.forEach((s,i)=>statements.push(db().prepare(`UPDATE users SET score=score+? WHERE id=? AND ${guard}`).bind(g.deltas[i],s.id,r.code,op)));
  }
  if(extra)statements.push(...extra(guard,op));
@@ -23,4 +39,4 @@ export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>
  if(!results[0].meta.changes)throw new AppError('牌桌已更新，请重试',409);
  return{...r,state:JSON.stringify(g),phase:g.phase,revision:r.revision+1,op,updated:now};
 }
-export async function advance(r:Room){const g=JSON.parse(r.state) as RoomGame;const botChanged=(!isMahjong(g)||isModern(g))&&advanceBot(g);if(botChanged||(isMahjong(g)?timeoutMahjong(g):timeout(g))){try{return await commit(r,g)}catch(e){if(e instanceof AppError&&e.status===409)return getRoom(r.code);throw e;}}return r;}
+export async function advance(r:Room){const g=JSON.parse(r.state) as RoomGame;const botChanged=isHoldem(g)?advanceHoldemBot(g):(!isMahjong(g)||isModern(g))&&advanceBot(g);if(botChanged||(isHoldem(g)?timeoutHoldem(g):isMahjong(g)?timeoutMahjong(g):timeout(g))){try{return await commit(r,g)}catch(e){if(e instanceof AppError&&e.status===409)return getRoom(r.code);throw e;}}return r;}

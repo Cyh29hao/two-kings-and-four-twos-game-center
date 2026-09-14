@@ -29,7 +29,7 @@ for(const [index,kind] of ['landlord','ham','basic'].entries()){
  let actions=0;
  for(let round=0;round<2;round++){
   await post({action:'ready'});assert(['bidding','playing'].includes(room.game.phase));
-  while(['bidding','playing','choosing','revealing'].includes(room.game.phase)){
+  while(['bidding','doubling','playing','choosing','revealing'].includes(room.game.phase)){
    assert(++actions<600);const g=state();
    if(nextBot(g)>=0){g.practice.nextAt=1;persist(g);
     const before=sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision as number;
@@ -37,7 +37,8 @@ for(const [index,kind] of ['landlord','ham','basic'].entries()){
     room=race[0].data;assert.equal(sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision,before+1);await get();
    }else{
     await get();const v=room.game,me=v.seats[0];assert.equal(me.id,client.data.user.id);
-    if(v.phase==='revealing'){await post({action:'flip_award',awardIndex:v.awardReveal.awards.length});}
+    if(v.phase==='doubling'){await post({action:'double',value:true});}
+    else if(v.phase==='revealing'){await post({action:'flip_award',awardIndex:v.awardReveal.awards.length});}
     else if(v.phase==='choosing'){assert(v.canChoose);const old=room.revision;await get();assert.equal(room.revision,old);const options=(await req('/api/mahjong/win-options?room='+code,undefined,client.cookie)).data;await post({action:'confirm_win',candidateId:options.plans[0].id});}
     else if(kind==='landlord'){
      const opponents=v.seats.filter((_:any,i:number)=>(i===v.landlord)!==(0===v.landlord));

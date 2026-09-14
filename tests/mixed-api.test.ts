@@ -32,13 +32,14 @@ for(const kind of ['landlord','ham','basic']){
  for(let round=0;round<2;round++){
   await post({action:'ready'});assert(['waiting','finished'].includes(room.game.phase));await post({action:'ready'},1);assert(['playing','bidding'].includes(room.game.phase));
   await post({action:'add_bot'},0,400);await post({action:'remove_bot',botId:room.game.seats[2].id},0,400);
-  while(['bidding','playing','choosing','revealing'].includes(room.game.phase)){
+  while(['bidding','doubling','playing','choosing','revealing'].includes(room.game.phase)){
    assert(++actions<700);let g=state();
    if(nextBot(g)>=0){g.practice.nextAt=1;persist(g);const rev=sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision;await Promise.all([get(),get(1)]);assert.equal(sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision,Number(rev)+1);room=await get();}
    else{
-    const actor=['choosing','revealing'].includes(g.phase)?g.winner:g.pending?g.pending.eligible.find((s:number)=>!Object.hasOwn(g.pending.responses,String(s))):g.turn;
+    const actor=g.phase==='doubling'?g.doubles.findIndex((v:any,i:number)=>v===null&&!g.seats[i].bot):['choosing','revealing'].includes(g.phase)?g.winner:g.pending?g.pending.eligible.find((s:number)=>!Object.hasOwn(g.pending.responses,String(s))):g.turn;
     assert(actor===0||actor===1);room=await get(actor);const v=room.game,me=v.seats[actor];
-    if(v.phase==='revealing'){await post({action:'flip_award',awardIndex:v.awardReveal.awards.length},actor);}
+    if(v.phase==='doubling'){await post({action:'double',value:true},actor);}
+    else if(v.phase==='revealing'){await post({action:'flip_award',awardIndex:v.awardReveal.awards.length},actor);}
     else if(v.phase==='choosing'){assert(v.canChoose);const options=(await req('/api/mahjong/win-options?room='+code,undefined,clients[actor].cookie)).data;await post({action:'confirm_win',candidateId:options.plans[0].id},actor);}
     else if(kind==='landlord'){
      const opponents=v.seats.filter((_:any,i:number)=>(i===v.landlord)!==(actor===v.landlord)),next=(actor+1)%3;

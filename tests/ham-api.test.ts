@@ -11,7 +11,7 @@ for(let i=0;i<4;i++)clients.push(await req('/api/auth',{action:'register',userna
 const admin=await req('/api/auth',{action:'login',username:'MartinHamburger',password:'Local-reset-test-only-913!'});
 const ids=clients.map(c=>c.data.user.id),beforeScores=clients.map(c=>c.data.user.score);
 let room=(await req('/api/mahjong',{action:'create',title:'周末朋友桌',initialChips:'1000',baseChips:'10'},clients[0].cookie)).data;const code=room.code;
-assert.equal(room.game.rules.id,'ham-v4');assert.equal(room.game.rules.closedBonus,false);assert.equal(room.game.rules.forbidWildDiscard,true);assert.equal(room.game.rules.selfDrawUnit,2);assert.equal(room.game.rules.noWildBonus,false);assert.equal(room.game.session.baseChips,'10');
+assert.equal(room.game.rules.id,'ham-v5');assert.equal(room.game.rules.closedBonus,false);assert.equal(room.game.rules.forbidWildDiscard,true);assert.equal(room.game.rules.selfDrawUnit,2);assert.equal(room.game.rules.noWildBonus,false);assert.equal(room.game.session.baseChips,'10');
 await req('/api/mahjong?room='+code,undefined,clients[1].cookie,403);
 await req('/api/game',{action:'create'},clients[0].cookie,409);
 for(let i=1;i<4;i++)room=(await req('/api/mahjong',{action:'join',code},clients[i].cookie)).data;

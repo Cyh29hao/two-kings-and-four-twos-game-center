@@ -1,0 +1,4 @@
+import type {HoldemResult} from '@/lib/holdem/engine';
+import {Card} from './poker-table';
+import {chips} from '@/lib/mahjong/report';
+export function HoldemResultDetails({result:r}:{result:HoldemResult}){return <div className="th-record-detail"><p>{r.type==='aborted'?'本局中止，退回本局下注':r.type==='fold'?'其余玩家弃牌，本手结束':'摊牌结算'} · 第 {r.roundNumber} 局</p><div className="th-public-cards">{r.board.map(c=><Card key={c} card={c} small/>)}</div>{r.seats.map(s=><div className="audit-row" key={s.id}><b>{s.name} · 本局 {chips(s.delta,true)}</b><span>剩余 {chips(s.stack)} · 累计带入 {chips(s.brought)} · 净输赢 {chips((BigInt(s.stack)-BigInt(s.brought)).toString(),true)}</span>{!!s.hand.length&&<div className="th-public-cards">{s.hand.map(c=><Card key={c} card={c} small/>)}<span>{s.value?.name}</span></div>}</div>)}{r.pots.map((p,i)=><p key={i}>{p.refund?'未被跟注退回':i===0?'主池':`边池 ${i}`} {chips(p.amount)} → {p.winners.map(w=>r.seats[w].name).join('、')}</p>)}</div>}

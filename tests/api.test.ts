@@ -26,6 +26,9 @@ assert.equal(room.game.phase,'bidding');
 for(const client of clients){const r=(await req('/api/game?room='+room.code,undefined,client.cookie)).data;assert.equal(r.game.bottom.length,0);r.game.seats.forEach((s:any)=>assert.equal(s.hand.length,s.id===client.data.user.id?17:0));}
 let index=room.game.turn;
 room=(await req('/api/game',{action:'bid',code:room.code,revision:room.revision,value:3},clients[index].cookie)).data;
+assert.equal(room.game.phase,'doubling');
+for(let i=0;i<3;i++)room=(await req('/api/game',{action:'double',code:room.code,revision:room.revision,value:i!==2},clients[i].cookie)).data;
+assert.equal(room.game.phase,'playing');
 const mine=(await req('/api/game?room='+room.code,undefined,clients[index].cookie)).data;
 const bad=Array.from({length:54},(_,i)=>i).find(i=>!mine.game.seats[index].hand.includes(i));
 await req('/api/game',{action:'play',code:room.code,revision:room.revision,cards:[bad]},clients[index].cookie,400);
@@ -43,6 +46,7 @@ while(room.game.phase==='playing'){
 }
 assert.equal(room.game.phase,'finished');assert.equal(room.game.deltas.reduce((x:number,y:number)=>x+y,0),0);
 assert.deepEqual(room.game.tableActions[room.game.winner].cards,room.game.last.cards);
+for(let i=0;i<3;i++){const v=(await req('/api/game?room='+room.code,undefined,clients[i].cookie)).data.game;assert.equal(v.seats[i].tableScore,v.deltas[i]);assert.equal(v.seats[i].accountScore,clients[i].data.user.score+v.deltas[i]);}
 const lobby=(await req('/api/game',undefined,a.cookie)).data;assert.equal(lobby.records.length,1);
 await req('/api/game',{action:'play',code:room.code,revision:room.revision-1,cards:[]},a.cookie,409);
 assert.equal((await req('/api/game',undefined,a.cookie)).data.records.length,1);
@@ -58,10 +62,4 @@ await req('/api/game',{action:'create'},admin.cookie,400);
 await req('/api/admin',{action:'settings',seconds:30,announcement:'欢迎来娱乐中心。建个房间，把房间号发给朋友就能入座。',maintenance:false},admin.cookie);
 await req('/api/admin',{action:'close',code:room.code},admin.cookie);
 assert.equal((await req('/api/game',undefined,a.cookie)).data.activeRoom,null);
-const priorAdmin=(await req('/api/game',undefined,admin.cookie)).data.activeRoom;
-if(priorAdmin)await req('/api/admin',{action:'close',code:priorAdmin},admin.cookie);
-const adminRoom=(await req('/api/game',{action:'create',title:'周末的快乐牌桌'},admin.cookie)).data;
-await req('/api/game',{action:'join',code:adminRoom.code},a.cookie);
-await req('/api/game',{action:'join',code:adminRoom.code},c.cookie);
-writeFileSync('work/local-qa.json',JSON.stringify({admin:admin.cookie,room:adminRoom.code,players:[a,c].map(x=>x.cookie)}));
-console.log(JSON.stringify({result:'PASS',assertions:'auth, CSRF, ownership, hidden cards, 3-player match, double submission, single settlement, admin permissions, bans, maintenance, close room',turns,scoreAfter,previewRoom:adminRoom.code}));
+console.log(JSON.stringify({result:'PASS',assertions:'auth, CSRF, hidden cards, simultaneous doubling, table/account scores, 3-player match, race, admin permissions, bans, maintenance, close room',turns,scoreAfter}));

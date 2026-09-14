@@ -6,7 +6,7 @@ export type PlanGroup = {kind: 'sequence'|'triplet'|'pair'|'special'|'kong'; typ
 export type WinPlan = {id: string; family: 'standard'|'seven'|'orphans'|'gates'|'fourWild'; groups: PlanGroup[];
   assignments: {tile: number; type: number}[]; fans: Fan[]; multiplier: string; hitTypes: number[]; incomingType: number; middle: boolean};
 export type WinContext = {round: string; hand: number[]; melds: Meld[]; wildcard: number; incoming: number;
-  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean;selfDrawUnit?:number;noWildBonus?:boolean;closedBonus?:boolean;fourWildWin?:boolean};
+  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean;selfDrawUnit?:number;noWildBonus?:boolean;closedBonus?:boolean;fourWildWin?:boolean;disabledWins?:string[]};
 type Shape = {kind: PlanGroup['kind']; types: number[]; wild: boolean[]};
 export const effectiveType = (tile: number, wildcard: number) => tileType(tile) === 33 && wildcard >= 0 ? wildcard : tileType(tile);
 export const isWild = (tile: number, wildcard: number) => wildcard >= 0 && tileType(tile) === wildcard;
@@ -48,6 +48,9 @@ function score(ctx: WinContext, family: WinPlan['family'], groups: PlanGroup[], 
   const middle = incomingGroup.kind === 'sequence' && incomingGroup.incoming === 1 && incomingType % 9 >= 3 && incomingType % 9 <= 7;
   const preWild = wildCount - Number(isWild(ctx.incoming, ctx.wildcard));
   if (family === 'standard' && middle && preWild === 2 && incomingGroup.wild.every((w,i)=>i === incomingGroup.incoming || w)) ids.add('doubleWild');
+  // Check structural/composition tags before multiplier exclusions; a banned pure
+  // hand cannot bypass the rule by selecting its nine-gates interpretation.
+  if(ctx.disabledWins?.some(id=>ids.has(id)||id==='seven'&&family==='seven'))return null;
   const exempt = family !== 'standard' || ['fourWild','pong','smallDragons','bigDragons','smallWinds','bigWinds','honors','mixedTerminals','terminals','fourKongs','heaven','earth'].some(id=>ids.has(id));
   if (!middle && !exempt) return null;
   if (family !== 'standard' || ctx.heaven || ctx.earth) ids.delete('closed');
@@ -151,7 +154,7 @@ export function visitWinPlans(ctx: WinContext, visit: (plan: WinPlan)=>boolean |
     const targets:number[]=[];
     function assign(start:number){
       if(stopped)return;
-      if(targets.length===4){if(visit(fourWildPlan(ctx,targets))===false)stopped=true;return;}
+      if(targets.length===4){const p=fourWildPlan(ctx,targets);if(p&&visit(p)===false)stopped=true;return;}
       for(let t=start;t<34&&!stopped;t++)if(full[t]<4){full[t]++;targets.push(t);assign(t);targets.pop();full[t]--;}
     }
     assign(0);
@@ -160,12 +163,12 @@ export function visitWinPlans(ctx: WinContext, visit: (plan: WinPlan)=>boolean |
 
 /** Called only after validating the context and the target multiset. Interchanging
  * identical loose wildcards cannot change a pattern, payout, prize or winning slot. */
-function fourWildPlan(ctx:WinContext,targets:readonly number[]):WinPlan {
+function fourWildPlan(ctx:WinContext,targets:readonly number[]):WinPlan|null {
   const wildTiles=ctx.hand.filter(t=>isWild(t,ctx.wildcard)).sort((a,b)=>a-b);
   const naturals=ctx.hand.filter(t=>!isWild(t,ctx.wildcard)).sort((a,b)=>effectiveType(a,ctx.wildcard)-effectiveType(b,ctx.wildcard)||a-b);
   const group=(tiles:number[],types:number[],wild:boolean[],kind:PlanGroup['kind']='special',exposed=false):PlanGroup=>({kind,tiles,types,wild,incoming:tiles.indexOf(ctx.incoming),exposed});
   const groups=[group(naturals,naturals.map(t=>effectiveType(t,ctx.wildcard)),naturals.map(()=>false)),group(wildTiles,[...targets],[true,true,true,true]),...ctx.melds.map(m=>group([...m.tiles],m.tiles.map(t=>effectiveType(t,ctx.wildcard)),m.tiles.map(()=>false),m.kind==='chi'?'sequence':m.kind==='pong'?'triplet':'kong',true))];
-  const scored=score(ctx,'fourWild',groups,[],4)!;
+  const scored=score(ctx,'fourWild',groups,[],4);if(!scored)return null;
   return {id:`${ctx.round}|fourWild|${targets.map(t=>String(t).padStart(2,'0')).join('.')}`,family:'fourWild',groups,assignments:wildTiles.map((tile,i)=>({tile,type:targets[i]})),...scored,hitTypes:[...new Set(groups.flatMap(g=>g.types))].sort((a,b)=>a-b)};
 }
 
@@ -204,7 +207,7 @@ function planIndex(ctx:WinContext):PlanIndex {
   indexCache.set(k,value);return value;
 }
 function materialize(ctx:WinContext,entry:PlanIndexEntry):WinPlan {
-  if(entry.loose)return fourWildPlan(ctx,[0,1,2,3].map(i=>(entry.targets>>>(i*6))&63));
+  if(entry.loose)return fourWildPlan(ctx,[0,1,2,3].map(i=>(entry.targets>>>(i*6))&63))!;
   let found:WinPlan|undefined;visitWinPlans(ctx,p=>{if(p.id===entry.id){found=p;return false;}},false);
   if(!found)throw Error('胡牌方案无法恢复');return found;
 }
