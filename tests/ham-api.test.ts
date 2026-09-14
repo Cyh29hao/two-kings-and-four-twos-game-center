@@ -11,7 +11,7 @@ for(let i=0;i<4;i++)clients.push(await req('/api/auth',{action:'register',userna
 const admin=await req('/api/auth',{action:'login',username:'MartinHamburger',password:'Local-reset-test-only-913!'});
 const ids=clients.map(c=>c.data.user.id),beforeScores=clients.map(c=>c.data.user.score);
 let room=(await req('/api/mahjong',{action:'create',title:'周末朋友桌',initialChips:'1000',baseChips:'10'},clients[0].cookie)).data;const code=room.code;
-assert.equal(room.game.rules.id,'ham-v2');assert.equal(room.game.rules.selfDrawUnit,2);assert.equal(room.game.session.baseChips,'10');
+assert.equal(room.game.rules.id,'ham-v3');assert.equal(room.game.rules.selfDrawUnit,2);assert.equal(room.game.rules.noWildBonus,false);assert.equal(room.game.session.baseChips,'10');
 await req('/api/mahjong?room='+code,undefined,clients[1].cookie,403);
 await req('/api/game',{action:'create'},clients[0].cookie,409);
 for(let i=1;i<4;i++)room=(await req('/api/mahjong',{action:'join',code},clients[i].cookie)).data;
@@ -65,6 +65,7 @@ room=(await req('/api/mahjong?room='+code,undefined,clients[0].cookie)).data;con
 room=await race('/api/mahjong',{action:'kong',code,revision:room.revision,key:kong.key},clients[0].cookie);assert.deepEqual(room.game.deltas,['60','-20','-20','-20']);
 g=readGame();setHand(g,[9,10,11,18,19,20,27,27,2,4,3]);persist(g);
 room=(await req('/api/mahjong?room='+code,undefined,clients[0].cookie)).data;room=(await req('/api/mahjong',{action:'hu',code,revision:room.revision},clients[0].cookie)).data;const c=(await req('/api/mahjong/win-options?room='+code,undefined,clients[0].cookie)).data;
+assert(c.plans.every((p:any)=>!p.fans.some((f:any)=>f.id==='noWild')));assert.equal(c.plans[0].multiplier,'8');
 const simultaneous=await Promise.all([
  fetch(origin+'/api/mahjong',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,cookie:clients[0].cookie},body:JSON.stringify({action:'confirm_win',code,revision:room.revision,candidateId:c.plans[0].id})}),
  fetch(origin+'/api/admin',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,cookie:admin.cookie},body:JSON.stringify({action:'close',code})}),

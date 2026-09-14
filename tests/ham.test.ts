@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {winPlans,canWin,effectiveType,isWild,type WinContext} from '../lib/mahjong/solver.ts';
 import {newModern,modernSeat,dealModern,modernOptions,moveModern,timeoutModern,closeModern,modernView,type ModernGame} from '../lib/mahjong/modern.ts';
-import {HAM,HAM_V1,BASIC_CHIPS,isHamRules} from '../lib/mahjong/rules.ts';
+import {HAM,HAM_V1,HAM_V2,BASIC_CHIPS,isHamRules} from '../lib/mahjong/rules.ts';
 import {isModern} from '../lib/mahjong/game.ts';
 import {isWinning,type Meld} from '../lib/mahjong/engine.ts';
 import {publicRound,roundReport} from '../lib/mahjong/report.ts';
@@ -29,6 +29,20 @@ test('ordinary middle 4–8, exclusions and incoming wildcard',()=>{
  assert(!canWin(ctx([0,1,2,9,10,11,18,19,20,30,30,6,7,8])));
  const wild=winPlans(ctx([...normal.slice(0,-1),32]));assert(wild.some(p=>p.incomingType===3&&p.middle));assert(wild.every(p=>p.incomingType%9>=3&&p.incomingType%9<=7));
  const invalid=ctx([27,27,27,28,28,29,29,30,30,31,31,31,31,32]);assert(!canWin({...invalid,wildcard:0,heaven:true}));
+});
+test('ham-v3 removes only the no-wildcard bonus for every win source and complete plan',()=>{
+ const hands=[normal,[0,0,1,1,9,9,10,10,18,18,27,27,28,28],[0,0,0,1,2,3,4,5,6,7,8,8,8,4],[0,1,2,9,10,11,18,19,20,27,27,32,32,4]];
+ for(const hand of hands)for(const winType of ['self','discard','rob'] as const){
+  const before=winPlans(ctx(hand,{winType,selfDrawUnit:2})),after=winPlans(ctx(hand,{winType,selfDrawUnit:2,noWildBonus:false}));
+  assert(before.length);assert.equal(after.length,before.length);
+  for(const p of before){const next=after.find(n=>n.id===p.id)!;assert(next);assert.deepEqual(next.groups,p.groups);assert.deepEqual(next.hitTypes,p.hitTypes);assert.deepEqual(next.assignments,p.assignments);
+   assert(!ids(next).includes('noWild'));assert.equal(BigInt(next.multiplier),BigInt(p.multiplier)/(ids(p).includes('noWild')?2n:1n));
+   assert.deepEqual(next.fans.filter(f=>f.id!=='ordinary'),p.fans.filter(f=>f.id!=='noWild'&&f.id!=='ordinary'));
+  }
+ }
+ const melds:Meld[]=[{kind:'chi',tiles:[0,4,8],from:3,concealed:false}];
+ const c={...ctx(normal),hand:[36,40,44,72,76,80,120,121,9,16,12],incoming:12,melds,selfDrawUnit:2,noWildBonus:false};
+ assert.equal(winPlans({...c,winType:'discard'})[0].multiplier,'1');assert.equal(winPlans({...c,winType:'self'})[0].multiplier,'2');assert.equal(winPlans({...c,winType:'self',flower:true})[0].multiplier,'4');
 });
 test('seven pairs, three luxury levels and naturally held quads',()=>{
  for(const [types,lux] of [
@@ -89,8 +103,21 @@ function fixture(types:number[],patch:Partial<ModernGame>={}):ModernGame {
  const g=newModern('p0','小满');g.seats=['小满','阿北','桃子','小川'].map((n,i)=>modernSeat('p'+i,n,'1000'));dealModern(g);g.wildcard=32;g.opening=false;
  g.seats[0].hand=physical(types);const unused=Array.from({length:136},(_,i)=>i).filter(t=>!g.seats[0].hand.includes(t));for(let i=1;i<4;i++)g.seats[i].hand=unused.splice(0,13);g.wall=unused;g.drawn=g.seats[0].hand.at(-1)!;return Object.assign(g,patch);
 }
-test('self draw settlement pays three players after awards and exposes the same factor in reports',()=>{
- const g=fixture(normal);assert.equal(g.rules.id,'ham-v2');assert.equal(g.rules.selfDrawUnit,2);moveModern(g,0,{action:'hu'});assert.equal(g.choice!.selfDrawUnit,2);
+test('ham-v3 snapshots no-wildcard policy through choosing, settlement and reports; saved ham-v2 is unchanged',()=>{
+ const old=fixture(normal,{rules:HAM_V2}),current=structuredClone(old);current.rules={...HAM};
+ assert(isModern(old)&&isModern(current));assert(isHamRules('ham-v1')&&isHamRules('ham-v2')&&isHamRules('ham-v3'));
+ moveModern(old,0,{action:'hu'});moveModern(current,0,{action:'hu'});assert.equal(current.choice!.noWildBonus,false);
+ // A serialized pre-update choosing state has no noWildBonus field in either snapshot or context.
+ const restored=JSON.parse(JSON.stringify(old)) as ModernGame;assert(!Object.hasOwn(restored.choice!,'noWildBonus'));
+ const p=winPlans(current.choice!)[0],previous=winPlans(restored.choice!)[0];assert.equal(p.multiplier,'4');assert.equal(previous.multiplier,'8');assert(ids(previous).includes('noWild'));
+ moveModern(current,0,{action:'confirm_win',candidateId:p.id});timeoutModern(restored,restored.deadline);
+ assert(current.deltas.every((d,i)=>BigInt(d)*2n===BigInt(restored.deltas[i])));assert.equal(current.deltas.reduce((n,d)=>n+BigInt(d),0n),0n);
+ const report=roundReport('新规则',current.result!).rounds[0];assert.equal(report.multiplier,'4');assert(!report.fans.some(f=>f.id==='noWild'));assert(report.fans.some(f=>f.id==='selfDraw'));assert.deepEqual(report.players.map(p=>p.delta),current.deltas);
+ const historical=roundReport('旧规则',JSON.parse(JSON.stringify(restored.result!))).rounds[0];assert.equal(historical.multiplier,'8');assert(historical.fans.some(f=>f.id==='noWild'));
+ dealModern(current);dealModern(restored);assert.equal(current.rules.noWildBonus,false);assert.equal(restored.rules.id,'ham-v2');assert.notEqual(restored.rules.noWildBonus,false);
+});
+test('ham-v2 self draw settlement pays three players after awards and exposes the same factor in reports',()=>{
+ const g=fixture(normal,{rules:HAM_V2});assert.equal(g.rules.id,'ham-v2');assert.equal(g.rules.selfDrawUnit,2);moveModern(g,0,{action:'hu'});assert.equal(g.choice!.selfDrawUnit,2);
  const p=winPlans(g.choice!)[0];assert.equal(p.multiplier,'8');const hits=g.wall.slice(-2).filter(t=>p.hitTypes.includes(effectiveType(t,g.wildcard))).length;
  const payment=10n*BigInt(1+hits)*8n;moveModern(g,0,{action:'confirm_win',candidateId:p.id});
  assert.deepEqual(g.deltas,[String(payment*3n),String(-payment),String(-payment),String(-payment)]);assert.equal(g.entries.filter(e=>e.kind==='win').length,1);

@@ -12,6 +12,8 @@ export const BASIC_136: MahjongRules = {
 export type ModernRules = MahjongRules & {
   chipLedger: true; reserve: number; claimSeconds: 8; chooseSeconds: number;
   wildcards: boolean; kongPayments: boolean; dealerPolicy: 'rotate' | 'dealer-stays';
+  /** Missing on saved ham-v1/v2 snapshots, which retain the original bonus. */
+  noWildBonus?: boolean;
 };
 export const BASIC_CHIPS: ModernRules = {
   ...BASIC_136, id: 'basic-136-v2', version: 2, name: '基础试玩', chipLedger: true,
@@ -21,8 +23,10 @@ export const HAM_V1: ModernRules = {
   ...BASIC_CHIPS, id: 'ham-v1', version: 1, name: 'ham 规', sevenPairs: true,
   reserve: 12, chooseSeconds: 60, wildcards: true, kongPayments: true, dealerPolicy: 'dealer-stays',
 };
-export const HAM: ModernRules = {...HAM_V1,id:'ham-v2',version:2,selfDrawUnit:2};
-export const isHamRules=(id:string)=>id===HAM.id||id===HAM_V1.id;
+export const HAM_V2: ModernRules = {...HAM_V1,id:'ham-v2',version:2,selfDrawUnit:2};
+export const HAM: ModernRules = {...HAM_V2,id:'ham-v3',version:3,noWildBonus:false};
+export const hamRulePreset=(id:string)=>[HAM,HAM_V2,HAM_V1].find(r=>r.id===id);
+export const isHamRules=(id:string)=>!!hamRulePreset(id);
 export const MODERN_PRESETS = [HAM, BASIC_CHIPS] as const;
 export const FAN_TABLE = [
   ['seven', '七小对', 2], ['luxury1', '豪华七小对', 4], ['luxury2', '双豪华七小对', 8], ['luxury3', '三豪华七小对', 16],
@@ -37,7 +41,7 @@ export const HAM_NOTES = [
   ['胡牌限制', '普通胡必须胡顺子中间的 4–8；七对、碰碰胡、三元四喜、字一色、幺九、十三幺、九莲、四杠、天地胡免除此限制，但仍需完整胡牌结构。'],
   ['双赖子', '胡前恰好两赖，其余有效 11 张自然组成三副面子加一对将。两赖必须与胡进的牌组成同一顺子，胡进牌居中为 4–8，计 4 倍。'],
   ['赖子选择与奖牌', '胡牌后有 60 秒选择完整方案，确认后才翻末尾两张奖牌。奖牌匹配所选代表牌（包括吃碰杠），每张命中加一单位基础筹码。超时选最高倍数，并列按固定顺序。'],
-  ['筹码公式', '每位付款者付：基础筹码 ×（1 + 命中奖牌数）× 倍数。自摸独立计 2 倍，三家各付；可与杠上开花等独立倍数相乘。点炮、抢杠只有出牌者付一次，不计自摸倍数。倍数不封顶，可负余额；庄家不另外加倍。'],
+  ['筹码公式', '每位付款者付：基础筹码 ×（1 + 命中奖牌数）× 倍数。自摸独立计 2 倍，三家各付；可与杠上开花等独立倍数相乘。点炮 1 倍，牌型照常加倍；点炮、抢杠只有出牌者付一次，不计自摸倍数。无赖子不额外加倍。倍数不封顶，可负余额；庄家不另外加倍。'],
   ['杠与流局', '明杠、补杠三家各付一单位；暗杠三家各付两单位。成功即记账，牌尾补牌。抢补杠不收该杠分。摸牌需保留 12 张，最后一轮可完成出牌与响应；流局保留杠分。'],
   ['响应与坐庄', '胡优先于碰杠，碰杠优先于吃；同级取离出牌者最近的一位，只能吃上家。可响应时等 8 秒，无响应立即推进。庄家胡或流局连庄，闲家胡后原庄下一位坐庄。'],
   ['牌型细节', '豪华七对须自然四张同牌，赖子凑的四张不算豪华。门前清允许暗杠。天地胡只认原始开局，先杠即取消资格。十三幺、九莲与七对不允许任何吃碰杠。'],
