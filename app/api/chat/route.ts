@@ -9,8 +9,8 @@ async function member(code:unknown,id:string){
 }
 export async function GET(req:Request){return safe(async()=>{
  const user=await requireUser(req),room=await member(new URL(req.url).searchParams.get('room'),user.id);
- const rows=await db().prepare('SELECT id,display AS name,text,created,author_id=? AS own FROM room_messages WHERE room_code=? ORDER BY id DESC LIMIT 80').bind(user.id,room.code).all();
- return json({messages:rows.results.reverse(),closed:room.phase==='closed'});
+ const rows=await db().prepare('SELECT id,author_id AS senderId,display AS name,text,created,author_id=? AS own FROM room_messages WHERE room_code=? ORDER BY id DESC LIMIT 80').bind(user.id,room.code).all();
+ return json({messages:rows.results.reverse(),serverNow:Date.now(),closed:room.phase==='closed'});
 });}
 export async function POST(req:Request){return safe(async()=>{
  const user=await requireUser(req),b=await body(req),room=await member(b.code,user.id);

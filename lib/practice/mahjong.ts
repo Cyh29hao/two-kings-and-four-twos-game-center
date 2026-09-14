@@ -1,8 +1,8 @@
-import {canWin,effectiveType,isWild,winPlans,type WinContext} from '../mahjong/solver.ts';
+import {canWin,effectiveType,isWild,bestWinPlan,type WinContext} from '../mahjong/solver.ts';
 import {isWinning,type Meld,type Option} from '../mahjong/engine.ts';
 import type {ModernMove} from '../mahjong/modern.ts';
 
-export type MahjongInformation={hand:number[];melds:Meld[];wildcard:number;remaining:number;visible:number[];river:number[];options:{canHu:boolean;canPass:boolean;claims:Option[];kongs:Option[]};pending:{tile:number;from:number}|null};
+export type MahjongInformation={hand:number[];melds:Meld[];wildcard:number;remaining:number;visible:number[];river:number[];options:{canHu:boolean;canPass:boolean;claims:Option[];kongs:Option[];discardable?:number[]};pending:{tile:number;from:number}|null};
 const orphans=[0,8,9,17,18,26,27,28,29,30,31,32,33];
 /** Structural distance is an estimate for wildcards; actual winning draws use the complete rule solver. */
 function distanceEvaluator(){
@@ -28,7 +28,9 @@ function distanceEvaluator(){
 export function mahjongDiscard(info:MahjongInformation){
  const distance=distanceEvaluator(),known=new Set(info.visible),seen=Array<number>(34).fill(0),discarded=Array<number>(34).fill(0);
  for(const tile of known)seen[effectiveType(tile,info.wildcard)]++;for(const t of info.river)discarded[effectiveType(t,info.wildcard)]++;
- const unique=[...new Map(info.hand.map(t=>[Math.floor(t/4),t])).values()];
+ const allowed=info.options.discardable??info.hand;
+ const unique=[...new Map(allowed.map(t=>[Math.floor(t/4),t])).values()];
+ if(!unique.length)throw Error('没有可打出的手牌');
  const candidates=unique.map(tile=>{const rest=info.hand.filter(t=>t!==tile),d=distance(rest,info.melds.length,info.wildcard);return {tile,rest,d};});
  const min=Math.min(...candidates.map(c=>c.d));let best=candidates[0],bestScore=-Infinity;
  for(const c of candidates){
@@ -53,7 +55,7 @@ export function mahjongDecision(info:MahjongInformation):ModernMove{
   let best:Option|undefined,bestD=before;
   for(const claim of o.claims.filter(c=>c.kind==='chi'||c.kind==='pong')){
    const rest=info.hand.filter(t=>!claim.tiles.includes(t));const d=Math.min(...rest.map(t=>distance(rest.filter(c=>c!==t),info.melds.length+1,info.wildcard)));
-   // Opening a hand costs the closed-hand multiplier, so require real progress.
+   // Require structural progress before exposing a meld.
    if(d<bestD||(d===bestD&&best&&claim.kind==='pong')){best=claim;bestD=d;}
   }return best?{action:'claim',key:best.key}:{action:'pass'};
  }
@@ -64,4 +66,4 @@ export function mahjongDecision(info:MahjongInformation):ModernMove{
  return {action:'discard',tile:mahjongDiscard(info)};
 }
 /** Plan choice cannot consult the wall or prize tiles. */
-export function mahjongPlan(ctx:WinContext){const p=winPlans(ctx)[0];if(!p)throw Error('机器人没有可用胡牌方案');return p.id;}
+export function mahjongPlan(ctx:WinContext){const p=bestWinPlan(ctx);if(!p)throw Error('机器人没有可用胡牌方案');return p.id;}

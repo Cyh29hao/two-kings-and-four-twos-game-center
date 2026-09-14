@@ -53,9 +53,9 @@ test('complete robot games terminate legally, conserve cards and keep zero-sum c
   for(let i=0;i<8;i++){
    const g=kind==='landlord'?newGame('human','H'):newModern('human','H',30,kind==='ham'?HAM:BASIC_CHIPS);fillBots(g);g.seats[0].bot=true;g.practice!.botIds.push(g.seats[0].id);
    if('kind' in g)dealModern(g);else deal(g);let moves=0,now=1000;
-   while(['bidding','playing','choosing'].includes(g.phase)){
+   while(['bidding','playing','choosing','revealing'].includes(g.phase)){
     assert(++moves<500);scheduleBots(g,now);assert(nextBot(g)>=0);const start=performance.now();assert(advanceBot(g,now+900));times.push(performance.now()-start);now+=1000;
-    if('kind' in g){const all=[...g.wall,...g.seats.flatMap(s=>[...s.hand,...s.river,...s.melds.flatMap(m=>m.tiles)]),...(g.result?.awards.map(a=>a.tile)||[])];assert.equal(all.length,136);assert.equal(new Set(all).size,136);assert.equal(g.seats.reduce((n,s)=>n+BigInt(s.balance),0n),4000n);}
+    if('kind' in g){const all=[...g.wall,...g.seats.flatMap(s=>[...s.hand,...s.river,...s.melds.flatMap(m=>m.tiles)]),...(g.result?.awards.map(a=>a.tile)||g.reveal?.awards.map(a=>a.tile)||[])];assert.equal(all.length,136);assert.equal(new Set(all).size,136);assert.equal(g.seats.reduce((n,s)=>n+BigInt(s.balance),0n),4000n);}
     else{assert(g.seats.every(s=>s.hand.every(c=>Number.isInteger(c)&&rank(c)>=3)));}
    }
    assert.equal(g.phase,'finished');if(g.winner>=0)wins++;scheduleBots(g,now);assert(g.seats.every(s=>s.ready));

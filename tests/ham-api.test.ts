@@ -11,7 +11,7 @@ for(let i=0;i<4;i++)clients.push(await req('/api/auth',{action:'register',userna
 const admin=await req('/api/auth',{action:'login',username:'MartinHamburger',password:'Local-reset-test-only-913!'});
 const ids=clients.map(c=>c.data.user.id),beforeScores=clients.map(c=>c.data.user.score);
 let room=(await req('/api/mahjong',{action:'create',title:'周末朋友桌',initialChips:'1000',baseChips:'10'},clients[0].cookie)).data;const code=room.code;
-assert.equal(room.game.rules.id,'ham-v3');assert.equal(room.game.rules.selfDrawUnit,2);assert.equal(room.game.rules.noWildBonus,false);assert.equal(room.game.session.baseChips,'10');
+assert.equal(room.game.rules.id,'ham-v4');assert.equal(room.game.rules.closedBonus,false);assert.equal(room.game.rules.forbidWildDiscard,true);assert.equal(room.game.rules.selfDrawUnit,2);assert.equal(room.game.rules.noWildBonus,false);assert.equal(room.game.session.baseChips,'10');
 await req('/api/mahjong?room='+code,undefined,clients[1].cookie,403);
 await req('/api/game',{action:'create'},clients[0].cookie,409);
 for(let i=1;i<4;i++)room=(await req('/api/mahjong',{action:'join',code},clients[i].cookie)).data;
@@ -19,8 +19,9 @@ for(let i=0;i<4;i++)room=(await req('/api/mahjong',{action:'ready',code,revision
 await req('/api/mahjong',{action:'leave',code,revision:room.revision},clients[0].cookie,400);
 await req('/api/mahjong/shares',{action:'create',code},clients[0].cookie,400);
 let moves=0;
-while(['playing','choosing'].includes(room.game.phase)){
+while(['playing','choosing','revealing'].includes(room.game.phase)){
  assert(++moves<650);let i=room.game.turn;
+ if(room.game.phase==='revealing'){i=room.game.winner;room=(await req('/api/mahjong?room='+code,undefined,clients[i].cookie)).data;room=(await req('/api/mahjong',{action:'flip_award',awardIndex:room.game.awardReveal.awards.length,code,revision:room.revision},clients[i].cookie)).data;continue;}
  if(room.game.phase==='choosing'){
   i=room.game.winner;room=(await req('/api/mahjong?room='+code,undefined,clients[i].cookie)).data;const plans=(await req('/api/mahjong/win-options?room='+code,undefined,clients[i].cookie)).data;
   room=(await req('/api/mahjong',{action:'confirm_win',code,revision:room.revision,candidateId:plans.plans[0].id},clients[i].cookie)).data;continue;
@@ -28,7 +29,7 @@ while(['playing','choosing'].includes(room.game.phase)){
  if(room.game.pending){for(let j=0;j<4;j++){const d=(await req('/api/mahjong?room='+code,undefined,clients[j].cookie)).data;if(d.game.phase!=='playing'){room=d;break;}if(d.game.options.canPass){room=d;i=j;break;}}}else room=(await req('/api/mahjong?room='+code,undefined,clients[i].cookie)).data;
  if(room.game.phase!=='playing')continue;const o=room.game.options;let action;
  if(o.canPass){const best=o.claims.find((c:any)=>c.kind==='hu')||o.claims.find((c:any)=>c.kind==='kong')||o.claims.find((c:any)=>c.kind==='pong');action=best?{action:'claim',key:best.key}:{action:'pass'};}
- else if(o.canHu)action={action:'hu'};else if(o.kongs.length)action={action:'kong',key:o.kongs[0].key};else{const h=room.game.seats[i].hand;action={action:'discard',tile:h[(moves*7)%h.length]};}
+ else if(o.canHu)action={action:'hu'};else if(o.kongs.length)action={action:'kong',key:o.kongs[0].key};else{const h=o.discardable;action={action:'discard',tile:h[(moves*7)%h.length]};}
  room=(await req('/api/mahjong',{...action,code,revision:room.revision},clients[i].cookie)).data;
 }
 assert.equal(room.game.phase,'finished');
@@ -48,9 +49,15 @@ await req('/api/mahjong/win-options?room='+code,undefined,clients[1].cookie,403)
 const blind=(await req('/api/mahjong?room='+code,undefined,clients[1].cookie)).data;assert(!JSON.stringify(blind).includes('"wall"'));assert(!JSON.stringify(blind).includes('"awards"'));assert(!JSON.stringify(blind).includes('"choice"'));
 const page1=(await req('/api/mahjong/win-options?room='+code,undefined,clients[0].cookie)).data;const allIds=new Set<string>();for(let page=0;page<Math.ceil(page1.total/12);page++){const r=(await req(`/api/mahjong/win-options?room=${code}&page=${page}`,undefined,clients[0].cookie)).data;for(const p of r.plans){assert(!allIds.has(p.id));allIds.add(p.id);}}assert.equal(allIds.size,page1.total);
 const filtered=(await req('/api/mahjong/win-options?room='+code+'&target=32',undefined,clients[0].cookie)).data;const plan=filtered.plans.find((p:any)=>p.assignments.every((a:any)=>a.type===32));assert(plan);
-assert(plan.fans.some((f:any)=>f.id==='selfDraw'&&f.multiplier==='2'));assert.equal(plan.multiplier,'4');
+assert(plan.fans.some((f:any)=>f.id==='selfDraw'&&f.multiplier==='2'));assert.equal(plan.multiplier,'2');assert(!plan.fans.some((f:any)=>f.id==='closed'));
 await req('/api/mahjong',{action:'confirm_win',code,revision:room.revision,candidateId:'forged',multiplier:'999'},clients[0].cookie,400);
 room=await race('/api/mahjong',{action:'confirm_win',code,revision:room.revision,candidateId:plan.id},clients[0].cookie);
+assert.equal(room.game.phase,'revealing');assert.equal(room.game.awardReveal.awards.length,0);assert.equal(room.game.result,null);
+await req('/api/mahjong',{action:'flip_award',awardIndex:0,code,revision:room.revision},clients[1].cookie,400);
+await req('/api/mahjong',{action:'flip_award',awardIndex:1,code,revision:room.revision},clients[0].cookie,400);
+room=await race('/api/mahjong',{action:'flip_award',awardIndex:0,code,revision:room.revision},clients[0].cookie);assert.equal(room.game.awardReveal.awards.length,1);assert.equal(room.game.result,null);
+const observing=(await req('/api/mahjong?room='+code,undefined,clients[1].cookie)).data;assert.equal(observing.game.awardReveal.canFlip,false);assert.equal(observing.game.awardReveal.awards.length,1);assert(!JSON.stringify(observing).includes('"wall"'));
+room=await race('/api/mahjong',{action:'flip_award',awardIndex:1,code,revision:room.revision},clients[0].cookie);
 assert.deepEqual(room.game.result.awards.map((a:any)=>a.hit),[true,true]);assert.equal(room.game.deltas[0],(10n*3n*BigInt(plan.multiplier)*3n).toString());
 const wonRound=room.game.round;assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM records WHERE id=?').get(wonRound)!.n,1);assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM chip_entries WHERE round_id=? AND kind='win'").get(wonRound)!.n,1);
 for(let i=0;i<4;i++)assert.equal((await req('/api/auth',undefined,clients[i].cookie)).data.user.score,beforeScores[i]);
@@ -65,7 +72,7 @@ room=(await req('/api/mahjong?room='+code,undefined,clients[0].cookie)).data;con
 room=await race('/api/mahjong',{action:'kong',code,revision:room.revision,key:kong.key},clients[0].cookie);assert.deepEqual(room.game.deltas,['60','-20','-20','-20']);
 g=readGame();setHand(g,[9,10,11,18,19,20,27,27,2,4,3]);persist(g);
 room=(await req('/api/mahjong?room='+code,undefined,clients[0].cookie)).data;room=(await req('/api/mahjong',{action:'hu',code,revision:room.revision},clients[0].cookie)).data;const c=(await req('/api/mahjong/win-options?room='+code,undefined,clients[0].cookie)).data;
-assert(c.plans.every((p:any)=>!p.fans.some((f:any)=>f.id==='noWild')));assert.equal(c.plans[0].multiplier,'8');
+assert(c.plans.every((p:any)=>!p.fans.some((f:any)=>f.id==='noWild')));assert.equal(c.plans[0].multiplier,'4');assert(c.plans.every((p:any)=>!p.fans.some((f:any)=>f.id==='closed')));
 const simultaneous=await Promise.all([
  fetch(origin+'/api/mahjong',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,cookie:clients[0].cookie},body:JSON.stringify({action:'confirm_win',code,revision:room.revision,candidateId:c.plans[0].id})}),
  fetch(origin+'/api/admin',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,cookie:admin.cookie},body:JSON.stringify({action:'close',code})}),

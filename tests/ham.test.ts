@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {winPlans,canWin,effectiveType,isWild,type WinContext} from '../lib/mahjong/solver.ts';
 import {newModern,modernSeat,dealModern,modernOptions,moveModern,timeoutModern,closeModern,modernView,type ModernGame} from '../lib/mahjong/modern.ts';
-import {HAM,HAM_V1,HAM_V2,BASIC_CHIPS,isHamRules} from '../lib/mahjong/rules.ts';
+import {HAM,HAM_V1,HAM_V2,HAM_V3,BASIC_CHIPS,isHamRules} from '../lib/mahjong/rules.ts';
 import {isModern} from '../lib/mahjong/game.ts';
 import {isWinning,type Meld} from '../lib/mahjong/engine.ts';
 import {publicRound,roundReport} from '../lib/mahjong/report.ts';
@@ -100,11 +100,11 @@ test('all wildcard assignments match an independent exhaustive ordinary/seven/or
  }
 });
 function fixture(types:number[],patch:Partial<ModernGame>={}):ModernGame {
- const g=newModern('p0','小满');g.seats=['小满','阿北','桃子','小川'].map((n,i)=>modernSeat('p'+i,n,'1000'));dealModern(g);g.wildcard=32;g.opening=false;
+ const g=newModern('p0','小满',30,HAM_V3);g.seats=['小满','阿北','桃子','小川'].map((n,i)=>modernSeat('p'+i,n,'1000'));dealModern(g);g.wildcard=32;g.opening=false;
  g.seats[0].hand=physical(types);const unused=Array.from({length:136},(_,i)=>i).filter(t=>!g.seats[0].hand.includes(t));for(let i=1;i<4;i++)g.seats[i].hand=unused.splice(0,13);g.wall=unused;g.drawn=g.seats[0].hand.at(-1)!;return Object.assign(g,patch);
 }
 test('ham-v3 snapshots no-wildcard policy through choosing, settlement and reports; saved ham-v2 is unchanged',()=>{
- const old=fixture(normal,{rules:HAM_V2}),current=structuredClone(old);current.rules={...HAM};
+ const old=fixture(normal,{rules:HAM_V2}),current=structuredClone(old);current.rules={...HAM_V3};
  assert(isModern(old)&&isModern(current));assert(isHamRules('ham-v1')&&isHamRules('ham-v2')&&isHamRules('ham-v3'));
  moveModern(old,0,{action:'hu'});moveModern(current,0,{action:'hu'});assert.equal(current.choice!.noWildBonus,false);
  // A serialized pre-update choosing state has no noWildBonus field in either snapshot or context.
@@ -160,11 +160,12 @@ test('50 complete ham games conserve all 136 tiles and chips',()=>{
  let wins=0,kongs=0,choices=0;
  for(let run=0;run<50;run++){
   const g=newModern('p0','A',30,HAM);g.seats=['A','B','C','D'].map((n,i)=>modernSeat('p'+i,n,'1000'));dealModern(g);let moves=0;
-  while(['playing','choosing'].includes(g.phase)){
+  while(['playing','choosing','revealing'].includes(g.phase)){
    assert(++moves<650);
+   if(g.phase==='revealing'){timeoutModern(g,g.deadline);continue;}
    if(g.phase==='choosing'){choices++;timeoutModern(g,g.deadline);continue;}
    if(g.pending){const i=g.pending.eligible.find(i=>!Object.hasOwn(g.pending!.responses,String(i)))!;const options=modernOptions(g,i);const best=options.claims.find(c=>c.kind==='hu')||options.claims.find(c=>c.kind==='kong')||options.claims.find(c=>c.kind==='pong');moveModern(g,i,best?{action:'claim',key:best.key}:{action:'pass'});}
-   else {const o=modernOptions(g,g.turn);if(o.canHu)moveModern(g,g.turn,{action:'hu'});else if(o.kongs.length){kongs++;moveModern(g,g.turn,{action:'kong',key:o.kongs[0].key});}else{const h=g.seats[g.turn].hand;moveModern(g,g.turn,{action:'discard',tile:h[(moves*7)%h.length]});}}
+   else {const o=modernOptions(g,g.turn);if(o.canHu)moveModern(g,g.turn,{action:'hu'});else if(o.kongs.length){kongs++;moveModern(g,g.turn,{action:'kong',key:o.kongs[0].key});}else{const h=o.discardable;moveModern(g,g.turn,{action:'discard',tile:h[(moves*7)%h.length]});}}
    const all=[...g.wall,...g.seats.flatMap(s=>[...s.hand,...s.river,...s.melds.flatMap(m=>m.tiles)]),...(g.result?.awards.map(a=>a.tile)||[])];assert.equal(all.length,136);assert.equal(new Set(all).size,136);assert.equal(g.seats.reduce((n,s)=>n+BigInt(s.balance),0n),4000n);
   }if(g.winner>=0)wins++;
  }console.log({hamGames:50,wins,kongs,choices});

@@ -29,7 +29,7 @@ for(const [index,kind] of ['landlord','ham','basic'].entries()){
  let actions=0;
  for(let round=0;round<2;round++){
   await post({action:'ready'});assert(['bidding','playing'].includes(room.game.phase));
-  while(['bidding','playing','choosing'].includes(room.game.phase)){
+  while(['bidding','playing','choosing','revealing'].includes(room.game.phase)){
    assert(++actions<600);const g=state();
    if(nextBot(g)>=0){g.practice.nextAt=1;persist(g);
     const before=sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision as number;
@@ -37,14 +37,15 @@ for(const [index,kind] of ['landlord','ham','basic'].entries()){
     room=race[0].data;assert.equal(sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision,before+1);await get();
    }else{
     await get();const v=room.game,me=v.seats[0];assert.equal(me.id,client.data.user.id);
-    if(v.phase==='choosing'){assert(v.canChoose);const old=room.revision;await get();assert.equal(room.revision,old);const options=(await req('/api/mahjong/win-options?room='+code,undefined,client.cookie)).data;await post({action:'confirm_win',candidateId:options.plans[0].id});}
+    if(v.phase==='revealing'){await post({action:'flip_award',awardIndex:v.awardReveal.awards.length});}
+    else if(v.phase==='choosing'){assert(v.canChoose);const old=room.revision;await get();assert.equal(room.revision,old);const options=(await req('/api/mahjong/win-options?room='+code,undefined,client.cookie)).data;await post({action:'confirm_win',candidateId:options.plans[0].id});}
     else if(kind==='landlord'){
      const opponents=v.seats.filter((_:any,i:number)=>(i===v.landlord)!==(0===v.landlord));
      await post(landlordDecision({hand:me.hand,phase:v.phase,bid:v.bid,last:v.last?.combo??null,lastIsTeammate:!!v.last&&v.landlord!==0&&v.last.seat!==v.landlord,nextOpponentCount:(1===v.landlord)!==(0===v.landlord)?v.seats[1].count:0,opponentMinimum:Math.min(...opponents.map((s:any)=>s.count))}));
     }else await post(mahjongDecision({hand:me.hand,melds:me.melds,wildcard:v.wildcard,remaining:v.remaining,visible:v.seats.flatMap((s:any)=>[...s.hand,...s.river,...s.melds.flatMap((m:any)=>m.tiles)]),river:v.seats.flatMap((s:any)=>s.river),options:v.options,pending:v.pending}));
    }
    assert(!JSON.stringify(room.game).includes('"wall"'));
-   if(kind!=='landlord'){const s=state(),tiles=[...s.wall,...s.seats.flatMap((p:any)=>[...p.hand,...p.river,...p.melds.flatMap((m:any)=>m.tiles)]),...(s.result?.awards.map((a:any)=>a.tile)||[])];assert.equal(tiles.length,136);assert.equal(new Set(tiles).size,136);}
+   if(kind!=='landlord'){const s=state(),tiles=[...s.wall,...s.seats.flatMap((p:any)=>[...p.hand,...p.river,...p.melds.flatMap((m:any)=>m.tiles)]),...(s.result?.awards.map((a:any)=>a.tile)||s.reveal?.awards.map((a:any)=>a.tile)||[])];assert.equal(tiles.length,136);assert.equal(new Set(tiles).size,136);}
   }
   assert.equal(room.game.phase,'finished');assert(room.game.seats.slice(1).every((s:any)=>s.ready));
   assert.equal((await req('/api/auth',undefined,client.cookie)).data.user.score,client.data.user.score);

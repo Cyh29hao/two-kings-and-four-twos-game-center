@@ -31,6 +31,7 @@ export async function createReportImage(report:Report,shareUrl=''){
  y+=10;rule();text(`完成 ${report.stats.completed} 局　·　流局 ${report.stats.draws} 局　·　中止 ${report.stats.aborted} 局`,64,y,28,muted);y+=65;
  if(round){
   text(`第 ${round.number} 局 · ${resultName(round)}`,64,y,38,ink,650);y+=62;
+  if(round.family==='fourWild'){y=wrap('四赖直胡 · 下方为已选牌张身份，不要求成型',64,y,952,27,muted)+15;}
   if(round.groups.length){
    let x=64;for(const g of round.groups){const required=g.types.length*48+20;if(x+required>1016&&x>64){x=64;y+=90;}
     for(let i=0;i<g.types.length;i++){if(x+44>1016){x=64;y+=90;}tile(g.types[i],x,y-25,43,66,g.incoming===i);if(g.wild[i]){c.fillStyle='#f9e6b0';c.beginPath();c.roundRect(x+26,y-31,20,20,5);c.fill();text('赖',x+29,y-16,13,gold,600);}x+=48;}x+=20;

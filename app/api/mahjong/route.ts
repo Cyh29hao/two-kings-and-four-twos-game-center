@@ -69,8 +69,8 @@ export async function POST(req:Request){return safe(async()=>{
   g.wall=[];g.pending=null;g.deadline=0;g.drawn=null;g.lastDiscard=null;g.winner=-1;g.source=-1;g.winType=null;g.deltas=[];g.dealer=0;g.turn=0;g.roundNumber=0;
   if(isModern(g)&&g.phase==='closed')g.ended=Date.now();
   await commit(r,g,(guard,op)=>[db().prepare(`DELETE FROM members WHERE user_id=? AND ${guard}`).bind(u.id,r.code,op)]);return json({left:true});
- }else if(['discard','claim','pass','hu','kong','confirm_win'].includes(b.action)){
-  if(!['playing','choosing'].includes(g.phase)||g.deadline<=Date.now()){await advance(r);throw new AppError('本次操作已结束或超时，请刷新牌桌',409);}
+ }else if(['discard','claim','pass','hu','kong','confirm_win','flip_award'].includes(b.action)){
+  if(!['playing','choosing','revealing'].includes(g.phase)||g.deadline<=Date.now()){await advance(r);throw new AppError('本次操作已结束或超时，请刷新牌桌',409);}
   try{moveMahjong(g,seat,b);}catch(e){throw new AppError((e as Error).message);}
  }else throw new AppError('未知操作');
  r=await commit(r,g);return json(visible(r,g,u.id));

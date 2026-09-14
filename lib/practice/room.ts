@@ -39,9 +39,9 @@ export function fillBots(g:PracticeGame){
  }g.practice={difficulty:'advanced',botIds,nextAt:0};
 }
 export function nextBot(g:PracticeGame){
- if(!g.practice||!['bidding','playing','choosing'].includes(g.phase))return -1;
+ if(!g.practice||!['bidding','playing','choosing','revealing'].includes(g.phase))return -1;
  const bot=(i:number)=>!!g.seats[i]?.bot&&g.practice!.botIds.includes(g.seats[i].id);
- if(mahjong(g)&&g.phase==='choosing')return bot(g.winner)?g.winner:-1;
+ if(mahjong(g)&&['choosing','revealing'].includes(g.phase))return bot(g.winner)?g.winner:-1;
  if(mahjong(g)&&g.pending)return g.pending.eligible.find(i=>bot(i)&&!Object.hasOwn(g.pending!.responses,String(i)))??-1;
  return bot(g.turn)?g.turn:-1;
 }
@@ -55,6 +55,7 @@ export function advanceBot(g:PracticeGame,now=Date.now()){
  const seat=nextBot(g);if(seat<0||!g.practice!.nextAt||g.practice!.nextAt>now)return false;
  if(mahjong(g)&&g.pending&&g.deadline<=now)return false;
  if(mahjong(g)){
+  if(g.phase==='revealing'){moveModern(g,seat,{action:'flip_award',awardIndex:g.reveal!.awards.length},now);return true;}
   if(g.phase==='choosing'){confirmWin(g,seat,mahjongPlan(g.choice!),now);return true;}
   const v=modernView(g,g.seats[seat].id),me=v.seats[seat];
   const action=mahjongDecision({hand:me.hand,melds:me.melds,wildcard:v.wildcard,remaining:v.remaining,visible:v.seats.flatMap(s=>[...s.hand,...s.river,...s.melds.flatMap(m=>m.tiles)]),river:v.seats.flatMap(s=>s.river),options:v.options,pending:v.pending});

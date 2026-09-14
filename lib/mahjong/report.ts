@@ -1,6 +1,7 @@
 import type {ModernGame,RoundResult} from './modern.ts';
-import type {Fan} from './solver.ts';
+import type {Fan,WinPlan} from './solver.ts';
 export type PublicRound = {
+  family?:WinPlan['family'];
   number:number;winner:string|null;source:string|null;type:RoundResult['winType'];ended:number;wildcard:number;base:string;
   multiplier:string;automatic:boolean;fans:Fan[];groups:{kind:string;types:number[];wild:boolean[];incoming:number;exposed:boolean}[];
   awards:{tile:number;type:number;hit:boolean}[];players:{name:string;bot?:boolean;delta:string;balance:string}[];
@@ -15,7 +16,7 @@ export type Report = {
 /** Public data is constructed field by field; never spread a room, seat or persisted result. */
 export function publicRound(r:RoundResult):PublicRound {
   return {number:r.roundNumber,winner:r.seats[r.winner]?.name??null,source:r.source!==r.winner?r.seats[r.source]?.name??null:null,type:r.winType,ended:r.ended,wildcard:r.wildcard,base:r.baseChips,
-    multiplier:r.plan?.multiplier??'1',automatic:r.automatic,fans:r.plan?.fans.map(f=>({id:f.id,name:f.name,multiplier:f.multiplier}))??[],
+    family:r.plan?.family,multiplier:r.plan?.multiplier??'1',automatic:r.automatic,fans:r.plan?.fans.map(f=>({id:f.id,name:f.name,multiplier:f.multiplier}))??[],
     groups:r.plan?.groups.map(g=>({kind:g.kind,types:[...g.types],wild:[...g.wild],incoming:g.incoming,exposed:!!g.exposed}))??[],
     awards:r.awards.map(a=>({tile:a.tile,type:a.type,hit:a.hit})),players:r.seats.map(s=>({name:s.name,bot:!!s.bot,delta:s.delta,balance:s.balance})),
     entries:r.entries.map(e=>({kind:e.kind,description:e.description,deltas:[...e.deltas]}))};

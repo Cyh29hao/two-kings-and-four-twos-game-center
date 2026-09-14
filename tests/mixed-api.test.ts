@@ -32,20 +32,21 @@ for(const kind of ['landlord','ham','basic']){
  for(let round=0;round<2;round++){
   await post({action:'ready'});assert(['waiting','finished'].includes(room.game.phase));await post({action:'ready'},1);assert(['playing','bidding'].includes(room.game.phase));
   await post({action:'add_bot'},0,400);await post({action:'remove_bot',botId:room.game.seats[2].id},0,400);
-  while(['bidding','playing','choosing'].includes(room.game.phase)){
+  while(['bidding','playing','choosing','revealing'].includes(room.game.phase)){
    assert(++actions<700);let g=state();
    if(nextBot(g)>=0){g.practice.nextAt=1;persist(g);const rev=sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision;await Promise.all([get(),get(1)]);assert.equal(sql.prepare('SELECT revision FROM rooms WHERE code=?').get(code)!.revision,Number(rev)+1);room=await get();}
    else{
-    const actor=g.phase==='choosing'?g.winner:g.pending?g.pending.eligible.find((s:number)=>!Object.hasOwn(g.pending.responses,String(s))):g.turn;
+    const actor=['choosing','revealing'].includes(g.phase)?g.winner:g.pending?g.pending.eligible.find((s:number)=>!Object.hasOwn(g.pending.responses,String(s))):g.turn;
     assert(actor===0||actor===1);room=await get(actor);const v=room.game,me=v.seats[actor];
-    if(v.phase==='choosing'){assert(v.canChoose);const options=(await req('/api/mahjong/win-options?room='+code,undefined,clients[actor].cookie)).data;await post({action:'confirm_win',candidateId:options.plans[0].id},actor);}
+    if(v.phase==='revealing'){await post({action:'flip_award',awardIndex:v.awardReveal.awards.length},actor);}
+    else if(v.phase==='choosing'){assert(v.canChoose);const options=(await req('/api/mahjong/win-options?room='+code,undefined,clients[actor].cookie)).data;await post({action:'confirm_win',candidateId:options.plans[0].id},actor);}
     else if(kind==='landlord'){
      const opponents=v.seats.filter((_:any,i:number)=>(i===v.landlord)!==(actor===v.landlord)),next=(actor+1)%3;
      await post(landlordDecision({hand:me.hand,phase:v.phase,bid:v.bid,last:v.last?.combo??null,lastIsTeammate:!!v.last&&actor!==v.landlord&&v.last.seat!==v.landlord,nextOpponentCount:(next===v.landlord)!==(actor===v.landlord)?v.seats[next].count:0,opponentMinimum:Math.min(...opponents.map((s:any)=>s.count))}),actor);
     }else await post(mahjongDecision({hand:me.hand,melds:me.melds,wildcard:v.wildcard,remaining:v.remaining,visible:v.seats.flatMap((s:any)=>[...s.hand,...s.river,...s.melds.flatMap((m:any)=>m.tiles)]),river:v.seats.flatMap((s:any)=>s.river),options:v.options,pending:v.pending}),actor);
    }
    if(room.game.phase!=='finished')assert(room.game.seats.filter((s:any)=>s.id!==clients[0].data.user.id&&s.id!==clients[1].data.user.id).every((s:any)=>s.hand.length===0));
-   if(kind!=='landlord'){const g=state(),all=[...g.wall,...g.seats.flatMap((s:any)=>[...s.hand,...s.river,...s.melds.flatMap((m:any)=>m.tiles)]),...(g.result?.awards.map((a:any)=>a.tile)||[])];assert.equal(all.length,136);assert.equal(new Set(all).size,136);}
+   if(kind!=='landlord'){const g=state(),all=[...g.wall,...g.seats.flatMap((s:any)=>[...s.hand,...s.river,...s.melds.flatMap((m:any)=>m.tiles)]),...(g.result?.awards.map((a:any)=>a.tile)||g.reveal?.awards.map((a:any)=>a.tile)||[])];assert.equal(all.length,136);assert.equal(new Set(all).size,136);}
   }
   assert.equal(room.game.phase,'finished');assert(room.game.seats.filter((s:any)=>s.bot).every((s:any)=>s.ready));
   const records=sql.prepare('SELECT result FROM records WHERE room_code=?').all(code);assert.equal(records.length,round+1);assert(records.every(r=>JSON.parse(r.result as string).practice));
