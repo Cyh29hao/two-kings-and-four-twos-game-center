@@ -1,0 +1,11 @@
+Music:
+"Carefree" and "Local Forecast - Elevator" by Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0 License
+https://creativecommons.org/licenses/by/4.0/
+Source: https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1400037
+Source: https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1300012
+Downloads obtained from the author's mp3-royaltyfree directory on 2026-09-14.
+Changes: transcoded to 112 kbps MP3; no musical arrangement changes. Playback uses low volume, loops, and ducks under speech.
+
+Voice: the user's device provides Mandarin speech via the browser's Speech Synthesis API. No commercial game voice recordings are distributed.
+Effects: original short sound effects synthesized at runtime for Entertainment Center.

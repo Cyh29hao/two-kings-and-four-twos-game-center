@@ -1,8 +1,8 @@
 import {AppError,body,config,db,json,limit,publicUser,requireUser,safe} from '@/lib/server';
 import {advance,commit,getRoom,roomView,isMahjong} from '@/lib/rooms';
 import {bid,deal,newGame,play,type Game} from '@/lib/game/engine';
-import {fillBots} from '@/lib/practice/room';
-import {practiceMode} from '@/lib/practice/types';
+import {fillBots,addRoomBot,removeRoomBot,resetRosterReady,transferHumanHost} from '@/lib/practice/room';
+import {practiceMode,soloPractice} from '@/lib/practice/types';
 export const dynamic='force-dynamic';
 export async function GET(req:Request){return safe(async()=>{
  const u=await requireUser(req),code=new URL(req.url).searchParams.get('room');
@@ -25,15 +25,20 @@ export async function POST(req:Request){return safe(async()=>{
  if(b.action==='join'){
  if(g.phase==='closed')throw new AppError('该房间已关闭');
  if(g.seats.some(s=>s.id===u.id))return json(roomView(r,g,u.id));
- if(g.practice)throw new AppError('这是个人的人机测试房，不能加入其他玩家',403);
+ if(soloPractice(g))throw new AppError('这是个人的人机测试房，不能加入其他玩家',403);
  if(g.phase!=='waiting'||g.seats.length>=3)throw new AppError('该房间已满或正在对局');
  if((await config()).maintenance)throw new AppError('暂时暂停加入新桌');
- g.seats.push({id:u.id,name:u.display,hand:[],ready:false,plays:0,last:''});r=await commit(r,g,(guard,op)=>[db().prepare(`INSERT INTO members (user_id,room_code) SELECT ?,? WHERE ${guard}`).bind(u.id,r.code,r.code,op)]);return json(roomView(r,g,u.id));
+ g.seats.push({id:u.id,name:u.display,hand:[],ready:false,plays:0,last:''});resetRosterReady(g);r=await commit(r,g,(guard,op)=>[db().prepare(`INSERT INTO members (user_id,room_code) SELECT ?,? WHERE ${guard}`).bind(u.id,r.code,r.code,op)]);return json(roomView(r,g,u.id));
  }
  const seat=g.seats.findIndex(s=>s.id===u.id);if(seat<0)throw new AppError('你不在这个房间',403);
  if(b.revision!==r.revision)throw new AppError('牌桌已更新，请重试',409);
+ if(b.action==='add_bot'||b.action==='remove_bot'){
+  if(g.host!==u.id)throw new AppError('只有房主可以调整人机座位',403);
+  try{if(b.action==='add_bot')addRoomBot(g);else removeRoomBot(g,b.botId);}catch(e){throw new AppError((e as Error).message);}
+  r=await commit(r,g);return json(roomView(r,g,u.id));
+ }
  if(b.action==='end_practice'){
-  if(!g.practice||g.host!==u.id)throw new AppError('只有房主可以结束自己的人机测试',403);
+  if(!soloPractice(g)||g.host!==u.id)throw new AppError('只有个人测试房的房主可以使用结束测试',403);
   g.phase='closed';g.deadline=0;g.log.push({text:'房主结束人机测试，未完成对局不计分',at:Date.now()});
   r=await commit(r,g,(guard,op)=>[db().prepare(`DELETE FROM members WHERE room_code=? AND ${guard}`).bind(r.code,r.code,op)]);return json({left:true});
  }
@@ -44,9 +49,10 @@ export async function POST(req:Request){return safe(async()=>{
  else if(b.action==='pass'){try{play(g,seat,[])}catch(e){throw new AppError((e as Error).message)}}
  else if(b.action==='leave'){
  if(g.phase==='closed')return json({left:true});
- if(g.practice)throw new AppError('请使用结束测试，系统会关闭整个人机房');
+ if(soloPractice(g))throw new AppError('请使用结束测试，系统会关闭整个人机房');
  if(!['waiting','finished'].includes(g.phase))throw new AppError('对局中请留在房间；关闭页面后仍会超时托管');
  g.seats.splice(seat,1);g.phase=g.seats.length?'waiting':'closed';g.seats.forEach(s=>{s.ready=false;s.hand=[];s.last=''});g.host=g.seats[0]?.id||'';g.bottom=[];g.last=null;g.tableActions=[];g.winner=-1;g.deltas=[];g.deadline=0;g.landlord=-1;g.bid=0;g.turn=0;g.multiplier=1;g.spring=false;
+ transferHumanHost(g);
  r=await commit(r,g,(guard,op)=>[db().prepare(`DELETE FROM members WHERE user_id=? AND ${guard}`).bind(u.id,r.code,op)]);return json({left:true});
  }else throw new AppError('未知操作');
  r=await commit(r,g);return json(roomView(r,g,u.id));

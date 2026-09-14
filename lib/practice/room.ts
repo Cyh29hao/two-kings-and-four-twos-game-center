@@ -1,10 +1,35 @@
 import {bid,play,view,type Game} from '../game/engine.ts';
 import {modernSeat,modernView,moveModern,confirmWin,type ModernGame} from '../mahjong/modern.ts';
-import {BOT_DELAY_MS,BOT_NAMES} from './types.ts';
+import {BOT_DELAY_MS,BOT_NAMES,soloPractice} from './types.ts';
 import {landlordDecision} from './landlord.ts';
 import {mahjongDecision,mahjongPlan} from './mahjong.ts';
 type PracticeGame=Game|ModernGame;
 const mahjong=(g:PracticeGame):g is ModernGame=>'kind' in g&&g.kind==='mahjong';
+function rosterEditable(g:PracticeGame){
+ if(g.phase!=='waiting'||(mahjong(g)&&g.fixedIds.length))throw Error('只能在开局前调整人机座位');
+ if(soloPractice(g))throw Error('个人测试房的陪练座位固定，请另开好友房');
+}
+/** Every human confirms readiness again after a roster change. Bots never ready a human. */
+export function resetRosterReady(g:PracticeGame){g.seats.forEach(s=>{s.ready=!!s.bot;});}
+export function addRoomBot(g:PracticeGame){
+ rosterEditable(g);if(g.seats.length>=(mahjong(g)?4:3))throw Error('座位已满');
+ const id='bot:'+crypto.randomUUID(),name=BOT_NAMES.find(n=>!g.seats.some(s=>s.name===n))||'陪练'+(g.seats.filter(s=>s.bot).length+1);
+ if(mahjong(g))g.seats.push({...modernSeat(id,name,g.initialChips),bot:true,ready:true});
+ else g.seats.push({id,name,hand:[],ready:true,plays:0,last:'',bot:true});
+ g.practice??={difficulty:'advanced',roomType:'mixed',botIds:[],nextAt:0};g.practice.botIds.push(id);g.practice.nextAt=0;resetRosterReady(g);
+ return id;
+}
+export function removeRoomBot(g:PracticeGame,id:string){
+ rosterEditable(g);const index=g.seats.findIndex(s=>s.id===id&&s.bot);if(index<0)throw Error('只能移除人机座位');
+ g.seats.splice(index,1);g.practice!.botIds=g.seats.filter(s=>s.bot).map(s=>s.id);g.practice!.nextAt=0;
+ if(!g.practice!.botIds.length)delete g.practice;resetRosterReady(g);
+}
+/** A robot cannot inherit room ownership or keep an empty waiting room alive. */
+export function transferHumanHost(g:PracticeGame){
+ g.host=g.seats.find(s=>!s.bot)?.id||'';
+ if(!g.host){g.seats=[];g.phase='closed';if(g.practice){g.practice.botIds=[];g.practice.nextAt=0;}}
+ resetRosterReady(g);
+}
 export function fillBots(g:PracticeGame){
  if(g.seats.length!==1||g.phase!=='waiting')throw Error('只能在建房时选择人机测试');
  const botIds:string[]=[];

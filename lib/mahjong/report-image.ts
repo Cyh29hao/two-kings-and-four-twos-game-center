@@ -20,7 +20,7 @@ export async function createReportImage(report:Report,shareUrl=''){
   c.fillStyle='#8db3a2';c.beginPath();c.roundRect(x,yy+4,w,h,7);c.fill();
   const glaze=c.createLinearGradient(x,yy,x+w,yy+h);glaze.addColorStop(0,'#ffffff');glaze.addColorStop(1,'#f5f2e8');c.fillStyle=glaze;c.strokeStyle=marked?gold:'#cbd7c9';c.lineWidth=marked?3:1;c.beginPath();c.roundRect(x,yy,w,h,7);c.fill();c.stroke();c.drawImage(faces.get(type)!,x+3,yy+3,w-6,h-6);
  }
- text('娱 乐 中 心'+(report.practice?' · 人机测试':''),64,y,26,green,700);text(report.scope==='table'?'整 桌 战 报':'本 局 战 报',804,y,24,muted,500);y+=80;
+ text('娱 乐 中 心'+(report.practice?' · 人机对局':''),64,y,26,green,700);text(report.scope==='table'?'整 桌 战 报':'本 局 战 报',804,y,24,muted,500);y+=80;
  y=wrap(report.title,64,y,952,58,ink,650)+15;
  pill(report.ruleName,64,y,report.ruleName==='ham 规'?150:170);text(`基础 ${chips(report.baseChips)} 筹码`,250,y,27,muted);y+=65;
  text(new Date(report.ended).toLocaleString('zh-CN',{hour12:false}),64,y,25,muted);y+=45;rule();

@@ -182,7 +182,7 @@ export function closeModern(g:ModernGame,force=false,now=Date.now(),reason:'admi
 }
 export function modernView(g:ModernGame,id:string){
   const own=g.seats.findIndex(s=>s.id===id),reveal=g.phase==='finished';
-  return {practice:g.practice?{difficulty:g.practice.difficulty}:null,kind:g.kind,schemaVersion:2 as const,rules:g.rules,phase:g.phase,host:g.host,turn:g.turn,dealer:g.dealer,round:g.round,roundNumber:g.roundNumber,seconds:g.seconds,deadline:g.deadline,
+  return {practice:g.practice?{difficulty:g.practice.difficulty,roomType:g.practice.roomType}:null,kind:g.kind,schemaVersion:2 as const,rules:g.rules,phase:g.phase,host:g.host,turn:g.turn,dealer:g.dealer,round:g.round,roundNumber:g.roundNumber,seconds:g.seconds,deadline:g.deadline,
     remaining:g.wall.length,drawn:own===g.turn?g.drawn:null,lastDiscard:g.lastDiscard,pending:g.pending?{kind:g.pending.kind,from:g.pending.from,tile:g.pending.tile}:null,
     winner:g.winner,source:g.source,winType:g.winType,deltas:g.deltas,log:g.log,options:modernOptions(g,own),wildcard:g.wildcard,result:g.result,
     session:{initialChips:g.initialChips,baseChips:g.baseChips,started:g.started,ended:g.ended,stats:g.stats,streak:g.streak,fixed:g.fixedIds.length>0},
