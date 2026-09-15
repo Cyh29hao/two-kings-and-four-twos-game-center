@@ -1,6 +1,6 @@
 "use client";
 import {createContext,useCallback,useContext,useEffect,useRef,useState,useSyncExternalStore,type ReactNode,type SetStateAction} from 'react';
-import Link from 'next/link';import {usePathname,useRouter} from 'next/navigation';
+import Link from '@/components/site-navigation';import {usePathname} from 'next/navigation';import {useSiteRouter} from '@/components/site-navigation';
 import {Club,History,LogOut,Settings} from 'lucide-react';
 import {gamePaths,gameAPIs,roomDestination} from '@/lib/club/routes';
 import type {HistoryGame} from '@/lib/club/history';
@@ -38,7 +38,7 @@ export function useClubState<T>(key:string,initial:T):[T,(value:SetStateAction<T
 function ClubChrome(){const {user,logout}=useClub(),path=usePathname();if(!user||!['/','/mahjong','/holdem','/history'].includes(path))return null;return <header className="app-header club-header"><Link href="/" className="brand"><span className="brand-icon"><Club size={21}/></span><span>娱乐中心<small>好 友 游 戏 室</small></span></Link><GameNav current={path==='/mahjong'?'mahjong':path==='/holdem'?'holdem':path==='/history'?'history':'landlord'}/><div className="header-right"><Link href="/history" className={`club-history-link ${path==='/history'?'is-current':''}`} aria-current={path==='/history'?'page':undefined}><History size={17}/><span>对局记录</span></Link>{user.role==='admin'&&<Button variant="ghost" size="icon" asChild><Link href="/admin" aria-label="管理后台"><Settings size={18}/></Link></Button>}<span className="club-user" title={user.name}>{user.name}</span><Button variant="ghost" size="icon" aria-label="退出登录" onClick={()=>void logout().catch(()=>{})}><LogOut size={18}/></Button></div></header>}
 export function HistoryEntry({game}:{game:'landlord'|'mahjong'|'holdem'}){return <Link href={'/history?game='+game} className="club-history-entry"><History size={21}/><div><b>对局记录</b><span>查看过去的输赢与战报</span></div><span aria-hidden="true">→</span></Link>}
 
-export function useRoomNavigation(){const {memory,loadLobby}=useClub(),router=useRouter();
+export function useRoomNavigation(){const {memory,loadLobby}=useClub(),router=useSiteRouter();
  const enter=useCallback(async(game:HistoryGame,code:string,join=false)=>{const epoch=memory.epoch;const r=await api(gameAPIs[game]+(join?'':'?room='+code),join?{action:'join',code}:undefined);if(memory.epoch!==epoch)return;if(r.redirect)throw Error('房间类型发生变化，请重试');memory.set<any>(game+':room',(old:any)=>old?.code===r.code&&old.revision>r.revision?old:{...r,receivedAt:Date.now()},null,epoch);await loadLobby(true);if(memory.epoch===epoch)router.push(gamePaths[game]);return r;},[memory,loadLobby,router]);
  const followRoom=useCallback((href:string)=>{const {game,code}=roomDestination(href);return enter(game,code,true)},[enter]);
  return {openRoom:enter,followRoom};

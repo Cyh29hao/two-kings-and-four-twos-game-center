@@ -1,5 +1,5 @@
 "use client";
-import Link from 'next/link';
+import Link from '@/components/site-navigation';
 import {useSearchParams} from 'next/navigation';
 import {useClub,useClubState,useRoomNavigation,HistoryEntry} from '@/components/club-provider';
 import {DEFAULT_LANDLORD_RULES,type LandlordRules} from '@/lib/game/engine';

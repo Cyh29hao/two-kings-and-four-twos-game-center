@@ -1,2 +1,2 @@
-import Link from 'next/link';
-export function GameNav({current}:{current:'landlord'|'mahjong'|'holdem'|'history'}){return <nav className="game-nav" aria-label="选择游戏"><Link href="/" prefetch aria-current={current==='landlord'?'page':undefined}>斗地主</Link><Link href="/mahjong" prefetch aria-current={current==='mahjong'?'page':undefined}>麻将</Link><Link href="/holdem" prefetch aria-current={current==='holdem'?'page':undefined}>德州扑克</Link></nav>}
+import Link from '@/components/site-navigation';
+export function GameNav({current}:{current:'landlord'|'mahjong'|'holdem'|'history'}){return <nav className="game-nav" aria-label="选择游戏"><Link href="/" aria-current={current==='landlord'?'page':undefined}>斗地主</Link><Link href="/mahjong" aria-current={current==='mahjong'?'page':undefined}>麻将</Link><Link href="/holdem" aria-current={current==='holdem'?'page':undefined}>德州扑克</Link></nav>}

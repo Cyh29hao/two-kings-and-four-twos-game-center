@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from 'react';import Link from 'next/link';import {useRouter,useSearchParams} from 'next/navigation';
+import {useEffect,useState} from 'react';import Link from '@/components/site-navigation';import {useSearchParams} from 'next/navigation';import {useSiteRouter} from '@/components/site-navigation';
 import {ArrowLeft,ArrowUpRight,ChevronLeft,ChevronRight,History,RefreshCw} from 'lucide-react';
 import {useClub,useClubState} from '@/components/club-provider';import AuthScreen from '@/components/auth-screen';import {Button} from '@/components/ui/button';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from '@/components/ui/dialog';
@@ -8,7 +8,7 @@ import {chips,publicRound} from '@/lib/mahjong/report';import {api} from '@/lib/
 type HistoryData={items:HistoryItem[];page:number;pageSize:number;total:number;scope:string;game:string};
 const names={landlord:'斗地主',mahjong:'麻将',holdem:'德州扑克'};
 export default function HistoryPage(){
- const {user,setUser,loaded,loadLobby}=useClub(),params=useSearchParams(),router=useRouter();
+ const {user,setUser,loaded,loadLobby}=useClub(),params=useSearchParams(),router=useSiteRouter();
  const raw=params.get('game')??'all',game=['all','landlord','mahjong','holdem'].includes(raw)?raw:'all',scope=params.get('scope')==='tables'?'tables':'rounds',page=/^\d{1,6}$/.test(params.get('page')??'0')?Number(params.get('page')??0):0;
  const query=`game=${game}&scope=${scope}&page=${page}`;
  const [data,setData]=useClubState<HistoryData|null>('history:'+query,null),[detail,setDetail]=useClubState<any>('history:detail',null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
