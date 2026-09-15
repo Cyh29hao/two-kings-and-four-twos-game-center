@@ -14,7 +14,10 @@ export function useChatBubbles(code?:string,userId=''){
   if(!code||tracker.current.code!==code||document.hidden)return;
   const old=tracker.current.state;
   tracker.current.state=receiveBubbles(old,snapshot,Date.now());
-  const newest=Object.values(tracker.current.state.bubbles).filter(b=>b.message.kind==='emote'&&b.message.id>(old.cursor??Infinity)).sort((a,b)=>b.message.id-a.message.id)[0];
+  const newest=Object.values(tracker.current.state.bubbles).filter(b=>{
+   const previous=old.bubbles[b.message.senderId??''];
+   return b.message.kind==='emote'&&!b.pending&&(!previous||previous.pending||(previous.message.clientId??previous.message.id)!==(b.message.clientId??b.message.id));
+  }).sort((a,b)=>b.message.id-a.message.id)[0];
   if(newest?.message.emoteId&&preferences.current.sound)window.dispatchEvent(new CustomEvent<EmoteSoundEvent>(EMOTE_SOUND_EVENT,{detail:{code,emoteId:newest.message.emoteId,expires:newest.expires}}));
   setDisplay({code,bubbles:tracker.current.state.bubbles});
  },[code]);
@@ -31,5 +34,5 @@ export function useChatBubbles(code?:string,userId=''){
  return {bubbles:display.code===code?Object.fromEntries(Object.entries(display.bubbles).filter(([,b])=>b.message.kind!=='emote'||b.message.own||prefs.animateOthers)):{},onSnapshot};
 }
 export function PlayerChat({bubble,align='center',children}:{bubble?:ChatBubble;align?:'start'|'center'|'end';children:ReactNode}){
- return <div className={`chat-avatar chat-align-${align}`}>{children}{bubble&&<div key={bubble.message.id} className={`seat-chat-bubble${bubble.message.kind==='emote'?' seat-emote-bubble':''}`} role="note" aria-label={`${bubble.message.name}：${bubble.message.text}`} title={bubble.message.text}>{bubble.message.kind==='emote'?<EmoteImage id={bubble.message.emoteId??''} animate eager startAt={bubble.expires-EMOTE_MS} expiresAt={bubble.expires}/>:<p>{bubble.message.text}</p>}</div>}</div>;
+ return <div className={`chat-avatar chat-align-${align}`}>{children}{bubble&&<div key={bubble.message.clientId??bubble.message.id} className={`seat-chat-bubble${bubble.message.kind==='emote'?' seat-emote-bubble':''}`} role="note" aria-label={`${bubble.message.name}：${bubble.message.text}`} title={bubble.message.text}>{bubble.message.kind==='emote'?<EmoteImage id={bubble.message.emoteId??''} animate eager startAt={bubble.expires-EMOTE_MS} expiresAt={bubble.expires}/>:<p>{bubble.message.text}</p>}</div>}</div>;
 }
