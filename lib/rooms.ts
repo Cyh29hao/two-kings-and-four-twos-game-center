@@ -3,13 +3,15 @@ import {advanceHoldemBot} from './holdem/bot';
 export {isHoldem} from './holdem/engine';
 import {AppError,db} from './server';
 import {type Game,view,timeout} from './game/engine';
+import {isLandlordV3,timeoutV3,viewV3,type V3Game} from './game/landlord-v3';
 import {type MahjongGame,timeoutMahjong,isModern} from './mahjong/game';
 import {advanceBot,scheduleBots} from './practice/room';
-export type RoomGame=Game|MahjongGame|HoldemGame;
+export type RoomGame=Game|V3Game|MahjongGame|HoldemGame;
 export function isMahjong(g:RoomGame):g is MahjongGame{return 'kind' in g&&g.kind==='mahjong';}
 export type Room={code:string;title:string;state:string;phase:string;revision:number;op:string;created:number;updated:number};
 export async function getRoom(code:string){const r=await db().prepare('SELECT * FROM rooms WHERE code=?').bind(code).first<Room>();if(!r)throw new AppError('没有找到这个房间',404);return r;}
-export async function roomView(r:Room,g:Game,id:string){
+export async function roomView(r:Room,g:Game|V3Game,id:string){
+ if(isLandlordV3(g))return{code:r.code,title:r.title,revision:r.revision,game:viewV3(g,id),serverNow:Date.now()};
  // Derive the table total from committed results, including older rooms and practice rounds.
  const scores=await db().prepare(`WITH totals AS (
   SELECT json_extract(s.value,'$.id') AS id,SUM(json_extract(s.value,'$.delta')) AS total
@@ -30,6 +32,8 @@ export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>
  const oldIds=new Set(prior?.entries.map(e=>e.id)||[]);
  for(const e of g.entries.filter(e=>!oldIds.has(e.id)))statements.push(db().prepare(`INSERT INTO chip_entries (id,room_code,round_id,kind,entry,created) SELECT ?,?,?,?,?,? WHERE ${guard}`).bind(e.id,r.code,e.round,e.kind,JSON.stringify(e),e.at,r.code,op));
  if(g.result&&g.result.id!==prior?.result?.id)statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.result.id,r.code,JSON.stringify(g.result),g.result.ended,r.code,op));
+ }else if(isLandlordV3(g)){
+ if(g.champion>=0&&(!isLandlordV3(before)||before.champion<0))statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.round, r.code,JSON.stringify({kind:'landlord-v3',...(g.practice?{practice:true}:{}),rules:g.rules,seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,coins:g.coins[i],victoryPoints:g.victoryPoints[i],equipment:g.equipment[i]})),winner:g.champion,rounds:g.roundHistory,log:g.log}),now,r.code,op));
  }else if(g.phase==='finished'&&before.phase!=='finished'){
  statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.round,r.code,JSON.stringify({...(g.practice?{practice:true}:{}),seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,delta:g.deltas[i]})),winner:g.winner,log:g.log,...(isMahjong(g)?{kind:'mahjong',rules:g.rules,winType:g.winType,source:g.source}:{kind:'landlord',landlord:g.landlord,bid:g.bid,multiplier:g.multiplier,spring:g.spring,rules:g.rules,doubles:g.doubles})}),now,r.code,op));
  if(!g.practice)g.seats.forEach((s,i)=>statements.push(db().prepare(`UPDATE users SET score=score+? WHERE id=? AND ${guard}`).bind(g.deltas[i],s.id,r.code,op)));
@@ -39,4 +43,4 @@ export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>
  if(!results[0].meta.changes)throw new AppError('牌桌已更新，请重试',409);
  return{...r,state:JSON.stringify(g),phase:g.phase,revision:r.revision+1,op,updated:now};
 }
-export async function advance(r:Room){const g=JSON.parse(r.state) as RoomGame;const botChanged=isHoldem(g)?advanceHoldemBot(g):(!isMahjong(g)||isModern(g))&&advanceBot(g);if(botChanged||(isHoldem(g)?timeoutHoldem(g):isMahjong(g)?timeoutMahjong(g):timeout(g))){try{return await commit(r,g)}catch(e){if(e instanceof AppError&&e.status===409)return getRoom(r.code);throw e;}}return r;}
+export async function advance(r:Room){const g=JSON.parse(r.state) as RoomGame;const botChanged=isHoldem(g)?advanceHoldemBot(g):(!isMahjong(g)||isModern(g))&&advanceBot(g as Game);if(botChanged||(isHoldem(g)?timeoutHoldem(g):isMahjong(g)?timeoutMahjong(g):isLandlordV3(g)?timeoutV3(g):timeout(g as Game))){try{return await commit(r,g)}catch(e){if(e instanceof AppError&&e.status===409)return getRoom(r.code);throw e;}}return r;}

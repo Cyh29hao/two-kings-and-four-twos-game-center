@@ -6,7 +6,9 @@ import { mkdirSync, openSync, closeSync, writeFileSync } from 'node:fs';
 import { once } from 'node:events';
 
 // A fresh local database for every run. There is deliberately no remote URL option.
-const state = `.wrangler/smoke-${crypto.randomUUID()}`;
+// D1 adds a long content-addressed filename beneath this directory; keep the
+// unique segment short enough for Windows workspaces nested under Codex paths.
+const state = `.wrangler/s${crypto.randomUUID().slice(0, 4)}`;
 mkdirSync('work', { recursive: true });
 const logPath = 'work/smoke-local.log', log = openSync(logPath, 'w');
 const migrate = spawnSync(process.execPath, ['scripts/setup-local.mjs', '--state', state], { stdio: ['ignore', log, log] });
@@ -72,6 +74,25 @@ try {
     await request('/api/history', undefined, player.cookie);
     await request('/api/admin', undefined, player.cookie, 403);
   }
+  const v3Player = await signup('landlordv3' + Date.now().toString(36));
+  let v3 = (await request('/api/game', { action: 'create', mode: 'practice', title: 'v3 本机验收', rules: { id: 'landlord-v3' } }, v3Player.cookie)).data;
+  assert.equal(v3.game.kind, 'landlord-v3');
+  assert.deepEqual(v3.game.coins, ['2', '2', '2']);
+  v3 = (await request('/api/game', { action: 'ready', code: v3.code, revision: v3.revision }, v3Player.cookie)).data;
+  assert.equal(v3.game.phase, 'shopping');
+  assert.equal(v3.game.shops[0].offers.length, 12);
+  const offer = v3.game.shops[0].offers[0];
+  v3 = (await request('/api/game', { action: 'shop_buy', code: v3.code, revision: v3.revision, offerId: offer.offerId }, v3Player.cookie)).data;
+  assert.equal(v3.game.equipment[0].length, 1);
+  v3 = (await request('/api/game', { action: 'shop_sell', code: v3.code, revision: v3.revision, instanceId: v3.game.equipment[0][0].instanceId }, v3Player.cookie)).data;
+  assert.equal(v3.game.coins[0], '1');
+  v3 = (await request('/api/game', { action: 'shop_done', code: v3.code, revision: v3.revision }, v3Player.cookie)).data;
+  await pause(1000);
+  v3 = (await request('/api/game?room=' + v3.code, undefined, v3Player.cookie)).data;
+  await pause(1000);
+  v3 = (await request('/api/game?room=' + v3.code, undefined, v3Player.cookie)).data;
+  assert.equal(v3.game.phase, 'bidding');
+  assert.equal(v3.game.seats.filter(seat => seat.bot).length, 2);
   const info = (await request('/build-info.json')).data;
   assert.match(info.commit, /^[a-f0-9]{40}$/);
   writeFileSync('work/smoke-local.json', JSON.stringify({ status: 'passed', checks, commit: info.commit, state }, null, 2) + '\n');

@@ -1,9 +1,10 @@
 import {bid,play,view,doubleChoice,rank,type Game} from '../game/engine.ts';
+import {isLandlordV3,v3BotAction,type V3Game} from '../game/landlord-v3.ts';
 import {modernSeat,modernView,moveModern,confirmWin,type ModernGame} from '../mahjong/modern.ts';
 import {BOT_DELAY_MS,BOT_NAMES,soloPractice} from './types.ts';
 import {landlordDecision} from './landlord.ts';
 import {mahjongDecision,mahjongPlan} from './mahjong.ts';
-type PracticeGame=Game|ModernGame;
+type PracticeGame=Game|V3Game|ModernGame;
 const mahjong=(g:PracticeGame):g is ModernGame=>'kind' in g&&g.kind==='mahjong';
 function rosterEditable(g:PracticeGame){
  if(g.phase!=='waiting'||(mahjong(g)&&g.fixedIds.length))throw Error('只能在开局前调整人机座位');
@@ -39,8 +40,9 @@ export function fillBots(g:PracticeGame){
  }g.practice={difficulty:'advanced',botIds,nextAt:0};
 }
 export function nextBot(g:PracticeGame){
- if(!g.practice||!['bidding','doubling','playing','choosing','revealing'].includes(g.phase))return -1;
+ if(!g.practice||!['shopping','bidding','doubling','playing','choosing','revealing'].includes(g.phase))return -1;
  const bot=(i:number)=>!!g.seats[i]?.bot&&g.practice!.botIds.includes(g.seats[i].id);
+ if(isLandlordV3(g))return g.phase==='shopping'?g.seats.findIndex((s,i)=>bot(i)&&s.last!=='商店完成'):bot(g.turn)?g.turn:-1;
  if(!mahjong(g)&&g.phase==='doubling')return g.seats.findIndex((s,i)=>bot(i)&&g.doubles?.[i]===null);
  if(mahjong(g)&&['choosing','revealing'].includes(g.phase))return bot(g.winner)?g.winner:-1;
  if(mahjong(g)&&g.pending)return g.pending.eligible.find(i=>bot(i)&&!Object.hasOwn(g.pending!.responses,String(i)))??-1;
@@ -55,6 +57,7 @@ export function scheduleBots(g:PracticeGame,now=Date.now()){
 export function advanceBot(g:PracticeGame,now=Date.now()){
  const seat=nextBot(g);if(seat<0||!g.practice!.nextAt||g.practice!.nextAt>now)return false;
  if(mahjong(g)&&g.pending&&g.deadline<=now)return false;
+ if(isLandlordV3(g)){v3BotAction(g,seat,now);return true;}
  if(!mahjong(g)&&g.phase==='doubling'){const hand=g.seats[seat].hand;doubleChoice(g,seat,hand.filter(c=>rank(c)>=14).length>=5||[...new Set(hand.map(rank))].some(r=>hand.filter(c=>rank(c)===r).length===4),now);return true;}
  if(mahjong(g)){
   if(g.phase==='revealing'){moveModern(g,seat,{action:'flip_award',awardIndex:g.reveal!.awards.length},now);return true;}
