@@ -9,10 +9,21 @@
     "install:ci": "node scripts/install-ci.mjs",
     "dev": "node scripts/run-framework.mjs dev",
     "build": "node scripts/run-framework.mjs build",
-    "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
+    "start": "node scripts/preview.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test": "node --experimental-strip-types --test tests/engine.test.ts tests/mahjong.test.ts tests/ham.test.ts tests/practice.test.ts tests/tile-art.test.ts tests/selection.test.ts tests/audio.test.ts tests/audio-player.test.ts tests/chat-bubbles.test.ts tests/ham-v4.test.ts tests/holdem.test.ts tests/room-rules.test.ts tests/club.test.ts tests/navigation.test.ts tests/emotes.test.ts tests/motion-timeline.test.ts tests/motion-events.test.ts tests/motion-cache.test.ts"
+    "test": "node --experimental-strip-types --test tests/engine.test.ts tests/mahjong.test.ts tests/ham.test.ts tests/practice.test.ts tests/tile-art.test.ts tests/selection.test.ts tests/audio.test.ts tests/audio-player.test.ts tests/chat-bubbles.test.ts tests/ham-v4.test.ts tests/holdem.test.ts tests/room-rules.test.ts tests/club.test.ts tests/navigation.test.ts tests/emotes.test.ts tests/motion-timeline.test.ts tests/motion-events.test.ts tests/motion-cache.test.ts tests/unit/*.test.ts",
+    "setup:local": "node scripts/setup-local.mjs",
+    "db:local": "node scripts/setup-local.mjs",
+    "assets:build": "node --experimental-strip-types scripts/build-motion-cache.mjs",
+    "assets:check": "node --experimental-strip-types scripts/build-motion-cache.mjs --check",
+    "typecheck": "tsc --noEmit",
+    "docs:check": "node scripts/check-docs.mjs",
+    "check": "node scripts/run-checks.mjs",
+    "postbuild": "node scripts/build-info.mjs",
+    "test:smoke": "node scripts/smoke-local.mjs",
+    "release:prepare": "node scripts/release/prepare.mjs",
+    "release:verify": "node scripts/release/verify.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

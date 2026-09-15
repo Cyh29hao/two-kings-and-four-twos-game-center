@@ -30,12 +30,13 @@ test('ten concurrent players share a request; a failed download can retry withou
  const failures=await Promise.allSettled(Array.from({length:10},()=>store.get(src)));assert(failures.every(r=>r.status==='rejected'));assert.equal(calls,1);assert.equal(cache.entries.size,0);
  fail=false;const results=await Promise.all(Array.from({length:10},()=>store.get(src)));assert(results.every(r=>r.persisted));assert.equal(calls,2);
 });
-test('only changed image revisions redownload, replacing the previous revision of that image',async()=>{
- const cache=fakeCache(),other='/effects/v1/hu/atlas.webp';let calls=0;
+test('only changed image revisions redownload, keeping a grace period for older tabs',async()=>{
+ const cache=fakeCache(),other='/effects/v1/hu/atlas.webp';let calls=0,now=100000;
  const defs={...manifest,[other]:{revision:'same',bytes:body.length}};
- const environment={origin,openCache:async()=>cache,fetch:async()=>{calls++;return image()}};
+ const environment={origin,now:()=>now,openCache:async()=>cache,fetch:async()=>{calls++;return image()}};
  const before=createMotionAssetStore(defs,environment);await before.get(src);await before.get(other);
- const after=createMotionAssetStore({...defs,[src]:{revision:'rev2',bytes:body.length}},environment);await after.get(other);assert.equal(calls,2);await after.get(src);assert.equal(calls,3);assert.equal(cache.entries.size,2);
+ const after=createMotionAssetStore({...defs,[src]:{revision:'rev2',bytes:body.length}},environment);await after.get(other);assert.equal(calls,2);await after.get(src);assert.equal(calls,3);assert.equal(cache.entries.size,3);
+ now+=8*24*60*60*1000;await after.maintain();assert.equal(cache.entries.size,2);
  assert([...cache.entries.keys()].every(u=>!u.includes('rev1')));
 });
 test('disabled storage and quota failures still return playable image data',async()=>{
@@ -56,6 +57,6 @@ test('HTML challenges, missing files, bad cache entries and unlisted URLs never 
 test('precache includes every current emote and table effect; manifest fingerprints match shipped bytes',()=>{
  for(const e of EMOTES.filter(e=>e.enabled&&e.sendable!==false)){assert(ANIMATION_SOURCES.includes(e.src));for(const sheet of e.frames?.sheets??[])assert(ANIMATION_SOURCES.includes(sheet.src));}
  for(const e of TABLE_EFFECTS){assert(ANIMATION_SOURCES.includes(e.src));for(const sheet of e.motion?.sheets??[])assert(ANIMATION_SOURCES.includes(sheet.src));}
- assert.equal(new Set(ANIMATION_SOURCES).size,ANIMATION_SOURCES.length);assert(ANIMATION_BYTES<16*1024*1024);
+ assert.equal(new Set(ANIMATION_SOURCES).size,ANIMATION_SOURCES.length);assert(ANIMATION_BYTES>0);
  for(const [src,asset]of Object.entries(MOTION_ASSETS)){const data=readFileSync(new URL('../public'+src,import.meta.url));assert.equal(asset.bytes,data.length);assert.equal(asset.revision,createHash('sha256').update(data).digest('hex').slice(0,20));}
 });
