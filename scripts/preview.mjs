@@ -1,0 +1,10 @@
+import './sites-env.mjs';
+import { spawn } from 'node:child_process';
+import { accessSync } from 'node:fs';
+import { localOptions } from './local-options.mjs';
+const { port, state } = localOptions();
+accessSync('dist/server/wrangler.json');
+const child = spawn(process.execPath, ['node_modules/wrangler/bin/wrangler.js', 'dev', '--config', 'dist/server/wrangler.json', '--local', '--persist-to', state, '--ip', '127.0.0.1', '--port', String(port), '--inspector-port', '0'], { stdio: 'inherit' });
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
+child.on('error', error => { throw error; });
+child.on('exit', code => { process.exitCode = code ?? 1; });

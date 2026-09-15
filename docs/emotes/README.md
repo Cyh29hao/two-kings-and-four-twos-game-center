@@ -1,4 +1,14 @@
-# 经典国王与哥布林表情 · royale-v1
+# 表情素材记录
+
+## 当前包：royale-v2
+
+当前发送面板使用 21 个逐帧重绘表情。封面和图集在 `public/emotes/royale-v2/`，动作清单在 `lib/motion/emote-pack.ts`，来源与制作记录在 [SOURCES.json](../../public/emotes/royale-v2/SOURCES.json)。公开图鉴 `/emotes` 可逐个重播表情和牌型特效。
+
+按用户确认，哥布林嘘、暗夜女巫鼓掌、野猪骑士飞吻暂缓。不要把未完成的项目列为已发布。表情当前无自录音轨，后续配音由用户提供。
+
+新增内容和缓存维护按 [素材与缓存框架](../motion-cache.md) 执行。旧包编号仍服务历史聊天，不进入新发送面板。以下为旧版制作与实现记录。
+
+## 历史包：royale-v1
 
 按用户确认的方向，使用内置 GPT Image 2 逐张重绘 12 个《皇室战争》国王／哥布林表情。人物参考 [Supercell 官方表情展示](https://supercell.com/en/games/clashroyale/blog/news/season-7-global-tournament-2/)。这些是 AI 重绘素材，不是官方发布的素材包；角色归属 Supercell，不标注为本站原创人物。
 

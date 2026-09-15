@@ -47,3 +47,7 @@ next-env.d.ts
 
 !.env.example
 *.tsbuildinfo
+
+# Local credentials, generated release packages and receipts
+.dev.vars*
+/release/

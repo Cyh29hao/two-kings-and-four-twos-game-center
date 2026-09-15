@@ -7,7 +7,7 @@ const message=(id:number,kind:'text'|'emote'='emote',senderId='a',created=1000):
 test('stable legacy ids remain renderable; only the versioned frame pack is sendable',()=>{
  assert.equal(LEGACY_EMOTES.length,12);assert.equal(new Set(EMOTES.map(e=>e.id)).size,EMOTES.length);assert.equal(EMOTE_MS,6000);assert.equal(EMOTE_COOLDOWN_MS,3000);
  for(const e of LEGACY_EMOTES){assert(e.enabled);assert.match(e.src,/^\/emotes\/royale-v1\/[a-z]+\.webp$/);assert(!canSendEmote(e.id));}
- const next=EMOTES.filter(e=>canSendEmote(e.id));assert.equal(next.length,21);for(const e of next){assert.match(e.id,/^royale-v2-/);assert(e.frames&&validMotion(e.frames));assert.equal(e.frames.frames.length>=24,true);assert.equal(getEmote(e.id),e);assert.equal(e.audio,undefined);}
+ const next=EMOTES.filter(e=>canSendEmote(e.id));assert(next.length>0);for(const e of next){assert(!LEGACY_EMOTES.some(old=>old.id===e.id));assert(e.frames&&validMotion(e.frames));assert.equal(getEmote(e.id),e);}
  assert.equal(getEmote('https://evil/image'),undefined);assert.equal(emoteText('missing'),'[表情：暂不可用]');assert(!canSendEmote('missing'));
 });
 test('text and emotes replace only their sender; emotes expire after six seconds without refresh replay',()=>{

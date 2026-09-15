@@ -1,0 +1,40 @@
+# 代码地图：想改哪里，就从哪里进
+
+这是一套应用，不是三个各自部署的网站。顶层布局共享账号和导航；不同游戏保留各自的规则引擎，避免一款游戏的调整影响另一款。
+
+## 一次操作怎样走完
+
+`页面点击 → 游戏接口检查身份 → 引擎计算是否合法 → 房间版本校验并原子提交 → 返回本人可见状态 → 页面显示`
+
+筹码和胜负由服务端决定。客户端提交“出哪张牌”“选哪个方案”，不能提交可信的倍数或付款金额。两个设备同时操作时，只有符合当前房间版本的提交能成功。
+
+## 常改文件
+
+| 内容 | 入口与职责 |
+|---|---|
+| 页面入口 | `app/page.tsx`、`app/mahjong/page.tsx`、`app/holdem/page.tsx` |
+| 统一大厅与导航 | `components/club-provider.tsx`、`components/game-nav.tsx`、`lib/club/` |
+| 斗地主牌桌 | `components/poker-table.tsx`；规则在 `lib/game/engine.ts` |
+| 麻将牌桌 | `components/mahjong-board.tsx`、`mahjong-tile.tsx`；规则在 `lib/mahjong/` |
+| 德州规则 | `lib/holdem/engine.ts`、`evaluate.ts`、`bot.ts` |
+| 房间接口 | `app/api/game/`、`app/api/mahjong/`、`app/api/holdem/` |
+| 共用提交和结算 | `lib/rooms.ts`；认证、参数和响应工具在 `lib/server.ts` |
+| 聊天与气泡 | `app/api/chat/`、`components/use-room-messages.ts`、`room-chat.tsx`、`lib/chat-bubbles.ts` |
+| 动画播放与缓存 | `lib/motion/`、`components/frame-motion.tsx`、`motion-playback.tsx` |
+| 音乐与出牌播报 | `lib/audio/`、`components/table-sound.tsx` |
+| 战报和分享 | `lib/mahjong/report*.ts`、`components/mahjong-report*.tsx`、`app/share/` |
+| 数据结构与迁移 | `db/schema.ts`、`drizzle/` |
+| 样式 | `app/globals.css` 与 `tables.css`、`holdem.css`、`effects.css`、`emotes.css` 等专题样式 |
+| 本地工具和发布 | `scripts/`、`config/`、`.github/workflows/` |
+
+## 公共功能怎样复用
+
+- **导航和账号**：`ClubProvider` 管理当前登录状态与页面恢复。退出或换账号时清掉相关页面内存，防止串号。
+- **聊天**：每房间一个订阅；表情与文字走同一消息接口。聊天不修改房间版本、计时和筹码。
+- **动画**：所有游戏读同一素材登记表、缓存和播放器。加一款表情不应修改三个游戏页面。见 [缓存框架](motion-cache.md)。
+- **人机**：斗地主和麻将的陪练在 `lib/practice/`，德州在自己的 `bot.ts`。只使用该玩家可以看到的信息。
+- **公开信息**：渲染牌桌只能使用服务端过滤后的状态。不得为了播放特效把牌墙、别人的响应资格或提前的奖牌发给浏览器。
+
+## 加功能时保持的边界
+
+界面改动优先改组件；规则改动进入引擎并新增规则版本；账本改动集中在结算事务；数据库变更追加迁移。不要用昵称、聊天内容或日志文字来猜测牌局动作，也不要在组件里重算服务端筹码。

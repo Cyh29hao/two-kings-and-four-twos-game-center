@@ -1,7 +1,8 @@
 import {motionAssetStore} from './asset-cache.ts';
+import {MOTION_CACHE_POLICY} from './cache-policy.ts';
 type Sheet={promise:Promise<HTMLImageElement>;users:number;used:number;bytes:number;image?:HTMLImageElement};
 const sheets=new Map<string,Sheet>();
-const IDLE_BYTES=32*1024*1024;
+const IDLE_BYTES=MOTION_CACHE_POLICY.idleDecodedBytes;
 function evict(){
  let bytes=0;
  for(const [src,entry]of [...sheets].filter(([,e])=>e.users===0).sort((a,b)=>b[1].used-a[1].used)){
