@@ -6,6 +6,10 @@ const [command, ...args] = process.argv.slice(2);
 if (!["dev", "build"].includes(command)) throw new Error("Expected dev or build.");
 const managedLinux = readExecutionProfile() === "managed-linux";
 
+const manifest = spawnSync(process.execPath, ['--experimental-strip-types', fileURLToPath(new URL('./build-motion-cache.mjs', import.meta.url))], {stdio:'inherit'});
+if (manifest.error) throw manifest.error;
+if (manifest.status !== 0) process.exit(manifest.status ?? 1);
+
 if (managedLinux && command === "build") {
   const result = spawnSync("bash", [
     fileURLToPath(new URL("./build-verified.sh", import.meta.url)), ...args,

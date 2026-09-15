@@ -4,6 +4,7 @@ import {freshVisuals,publicVisuals,IMPORTANT_EFFECTS,type VisualEvent,type Visua
 import {getTableEffect} from '@/lib/motion/effects';
 import {useEmotePreferences} from './emote-preferences';
 import {MotionPlayback,useReducedMotion} from './motion-playback';
+import {MotionImage} from './motion-image';
 
 type Playing={event:VisualEvent;start:number;end:number};
 const Context=createContext<{enabled:boolean;playing:Record<string,Playing>;events:VisualEvent[]}>({enabled:false,playing:{},events:[]});
@@ -39,7 +40,7 @@ export function EffectBadge({id,eventId,detail,placement='seat'}:{id:EffectId;ev
  const run=eventId?playing[eventId]:undefined,active=!!run&&enabled;
  if(!art)return null;
  return <span className={`table-effect effect-${id} effect-at-${placement}${active?' effect-enter':''}${active&&IMPORTANT_EFFECTS.has(id)?' effect-emphasis':''}`} role="img" aria-label={art.label+(detail?' · '+detailLabel[detail]:'')} data-effect={id} data-event={eventId??''}>
-  {art.motion?<MotionPlayback motion={art.motion} animate={active} startAt={run?.start} expiresAt={run?.end}/>:failed?<b className="effect-text-fallback">{art.label}</b>:<img src={art.src} width={256} height={256} alt="" draggable={false} decoding="async" onError={()=>setFailed(true)}/>}
+  {art.motion?<MotionPlayback motion={art.motion} animate={active} startAt={run?.start} expiresAt={run?.end}/>:failed?<b className="effect-text-fallback">{art.label}</b>:<MotionImage src={art.src} width={256} height={256} alt="" draggable={false} decoding="async" onError={()=>setFailed(true)}/>}
   {detail&&<small>{detailLabel[detail]}</small>}
  </span>;
 }

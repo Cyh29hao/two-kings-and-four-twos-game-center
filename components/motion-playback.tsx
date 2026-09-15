@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
 import {FrameMotionView} from './frame-motion';
-import {motionDuration,type FrameMotion} from '@/lib/motion/timeline';
+import {frameAt,motionDuration,type FrameMotion} from '@/lib/motion/timeline';
 
 export function useReducedMotion(){
  const [reduced,setReduced]=useState(true);
@@ -12,16 +12,23 @@ export function useReducedMotion(){
 export function MotionPlayback({motion,animate,startAt,expiresAt,className=''}:{motion:FrameMotion;animate:boolean;startAt?:number;expiresAt?:number;className?:string}){
  const reduced=useReducedMotion(),[ready,setReady]=useState(false),[time,setTime]=useState(0),[hidden,setHidden]=useState(false),[expired,setExpired]=useState(false);
  const born=useRef(startAt??Date.now()),token=`${motion.id}:${startAt??''}`;
- const length=motionDuration(motion),deadline=expiresAt??born.current+length;
+ const length=motionDuration(motion),deadline=expiresAt??(startAt===undefined?Infinity:startAt+length);
  useEffect(()=>{born.current=startAt??Date.now();setTime(0);setReady(false);setExpired(false)},[token,animate]);
  useEffect(()=>{const hide=()=>{setHidden(document.hidden);if(document.hidden)setExpired(true)};hide();document.addEventListener('visibilitychange',hide);return()=>document.removeEventListener('visibilitychange',hide)},[]);
  const play=animate&&!reduced&&!hidden&&!expired;
  useEffect(()=>{
-  if(!play)return;let handle=0;
-  const tick=()=>{const now=Date.now(),elapsed=Math.max(0,now-born.current);setTime(Math.min(elapsed,length));if(now>=deadline||elapsed>=length){setExpired(true);return;}handle=requestAnimationFrame(tick)};
+  if(!play||!ready)return;let handle=0,previousFrame=-1;
+  // Local replays start after decoding; live cues retain their original deadline.
+  born.current=startAt??Date.now();
+  const tick=()=>{
+   const now=Date.now(),elapsed=Math.max(0,now-born.current),frame=frameAt(motion,elapsed);
+   // A held pose needs no React render. Ten-player tables share that saving.
+   if(frame!==previousFrame){previousFrame=frame;setTime(Math.min(elapsed,length));}
+   if(now>=deadline||elapsed>=length){setExpired(true);return;}handle=requestAnimationFrame(tick);
+  };
   tick();return()=>cancelAnimationFrame(handle);
- },[play,length,deadline,token]);
- const onReady=(value:boolean)=>{setReady(value);if(value&&(Date.now()>=deadline||Date.now()-born.current>=length))setExpired(true)};
+ },[play,ready,length,deadline,token,startAt,motion]);
+ const onReady=(value:boolean)=>{setReady(value);if(value&&Date.now()>=deadline)setExpired(true)};
  // At completion keep the final generated pose. On a failed/late decode keep cover.
  return <FrameMotionView motion={motion} time={expired&&ready?length:time} active={animate&&!reduced&&!hidden&&(ready||!expired)} className={className} onReady={onReady}/>;
 }
