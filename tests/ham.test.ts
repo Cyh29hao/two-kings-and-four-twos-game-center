@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {winPlans,canWin,effectiveType,isWild,type WinContext} from '../lib/mahjong/solver.ts';
+import {winPlans,winPlanPage,findWinPlan,bestWinPlan,canWin,effectiveType,isWild,type WinContext} from '../lib/mahjong/solver.ts';
 import {newModern,modernSeat,dealModern,modernOptions,moveModern,timeoutModern,closeModern,modernView,type ModernGame} from '../lib/mahjong/modern.ts';
-import {HAM,HAM_V1,HAM_V2,HAM_V3,BASIC_CHIPS,isHamRules} from '../lib/mahjong/rules.ts';
+import {HAM,HAM_V1,HAM_V2,HAM_V3,HAM_V5,BASIC_CHIPS,isHamRules,hamRulePreset} from '../lib/mahjong/rules.ts';
 import {isModern} from '../lib/mahjong/game.ts';
 import {isWinning,type Meld} from '../lib/mahjong/engine.ts';
 import {publicRound,roundReport} from '../lib/mahjong/report.ts';
@@ -83,6 +83,48 @@ test('double wildcard requires the same middle sequence, never mixes interpretat
  assert(ps.some(p=>!ids(p).includes('doubleWild')));
  const alternate=winPlans(ctx([1,1,1,2,2,2,3,3,3,4,4,32,32,3]));assert(alternate.some(p=>p.family==='seven'));assert(alternate.some(p=>ids(p).includes('doubleWild')));assert(alternate.every(p=>p.family!=='seven'||!ids(p).includes('doubleWild')));
  const incoming=winPlans(ctx([0,1,2,9,10,11,18,19,20,27,27,32,32,32]));assert(incoming.some(p=>ids(p).includes('doubleWild')));
+});
+test('ham-v6 double wild is x4 for self and discard, other factors still multiply per interpretation',()=>{
+ const policy={selfDrawUnit:2,closedBonus:false,noWildBonus:false,doubleWildIncludesSelfDraw:true};
+ const hand=[3,4,5,9,10,11,18,19,20,27,27,32,32,4];
+ const c=ctx(hand,policy),self=winPlans(c),discard=winPlans({...c,winType:'discard'});
+ assert(self.some(p=>ids(p).includes('doubleWild')));assert(self.some(p=>!ids(p).includes('doubleWild')));
+ for(const p of self){const d=discard.find(d=>d.id===p.id)!;assert(d);assert.deepEqual(d.groups,p.groups);assert.deepEqual(d.assignments,p.assignments);assert.deepEqual(d.hitTypes,p.hitTypes);
+  if(ids(p).includes('doubleWild')){assert.equal(p.multiplier,'4');assert.equal(d.multiplier,'4');assert(!ids(p).includes('selfDraw'));}
+  else {assert.equal(BigInt(p.multiplier),BigInt(d.multiplier)*2n);assert(ids(p).includes('selfDraw'));}
+ }
+ for(const winType of ['self','discard'] as const){const pure=winPlans(ctx([0,1,2,3,4,5,6,7,8,1,1,32,32,4],{...policy,winType})).filter(p=>ids(p).includes('doubleWild'));assert(pure.length);assert(pure.every(p=>ids(p).includes('pure')&&p.multiplier==='16'));}
+ for(const patch of [{flower:true},{winType:'rob' as const}]){const ps=winPlans({...c,...patch}).filter(p=>ids(p).includes('doubleWild'));assert(ps.length);assert(ps.every(p=>p.multiplier==='8'));}
+ const incoming=winPlans(ctx([0,1,2,9,10,11,18,19,20,27,27,32,32,32],policy)).filter(p=>ids(p).includes('doubleWild'));assert(incoming.length);assert(incoming.every(p=>p.multiplier==='4'));
+ assert(!canWin({...c,disabledWins:['selfDraw']}),'removing overlapping self bonus must not bypass strict self-draw ban');
+ const banned=winPlans({...c,disabledWins:['doubleWild']});assert(banned.length);assert(banned.every(p=>!ids(p).includes('doubleWild')&&ids(p).includes('selfDraw')));
+ const seven=winPlans(ctx([1,1,1,2,2,2,3,3,3,4,4,32,32,3],policy)).filter(p=>p.family==='seven');assert(seven.length);assert(seven.every(p=>ids(p).includes('selfDraw')&&!ids(p).includes('doubleWild')));
+ const page=winPlanPage(c,{fan:'doubleWild'});assert.equal(page.total,self.filter(p=>ids(p).includes('doubleWild')).length);assert(page.plans.every(p=>p.multiplier==='4'));for(const p of page.plans)assert.deepEqual(findWinPlan(c,p.id),p);assert.deepEqual(bestWinPlan(c),self[0]);
+});
+test('ham-v6 snapshots flow through manual prizes, zero-sum settlement and reports for both win sources',()=>{
+ const hand=[3,4,5,9,10,11,18,19,20,27,27,32,32,4];
+ assert.equal(newModern('p0','A').rules.id,'ham-v6');assert.equal(hamRulePreset('ham-v5'),HAM_V5);
+ for(const source of ['self','discard'] as const)for(const hits of [0,1,2]){
+  const g=source==='self'?fixture(hand,{rules:{...HAM}}):arranged([[4],hand.slice(0,-1)]);g.rules={...HAM};const winner=source==='self'?0:1;
+  if(source==='self')moveModern(g,0,{action:'hu'});else {moveModern(g,0,{action:'discard',tile:g.seats[0].hand[0]});const claim=modernOptions(g,1).claims.find(c=>c.kind==='hu');assert(claim);moveModern(g,1,{action:'claim',key:claim.key});}
+  assert.equal(g.phase,'choosing');assert.equal(g.choice!.doubleWildIncludesSelfDraw,true);
+  const restored=JSON.parse(JSON.stringify(g)) as ModernGame;
+  const plan=winPlans(restored.choice!).find(p=>ids(p).includes('doubleWild'))!;assert(plan);assert.equal(plan.multiplier,'4');
+  const yes=restored.wall.filter(t=>plan.hitTypes.includes(effectiveType(t,restored.wildcard))),no=restored.wall.filter(t=>!plan.hitTypes.includes(effectiveType(t,restored.wildcard)));
+  const awards=[...yes.slice(0,hits),...no.slice(0,2-hits)];assert.equal(awards.length,2);restored.wall=[...restored.wall.filter(t=>!awards.includes(t)),...awards];
+  moveModern(restored,winner,{action:'confirm_win',candidateId:plan.id});assert.equal(restored.phase,'revealing');assert.equal(restored.entries.length,0);
+  moveModern(restored,winner,{action:'flip_award',awardIndex:0});assert.equal(restored.entries.length,0);moveModern(restored,winner,{action:'flip_award',awardIndex:1});
+  const payment=40n*BigInt(1+hits),expected=restored.seats.map((_,i)=>String(i===winner?payment*(source==='self'?3n:1n):(source==='self'||i===0)?-payment:0n));
+  assert.deepEqual(restored.deltas,expected);assert.equal(restored.deltas.reduce((n,d)=>n+BigInt(d),0n),0n);assert.equal(restored.result!.awards.filter(a=>a.hit).length,hits);
+  const report=roundReport('双赖测试',restored.result!).rounds[0];assert.equal(report.multiplier,'4');assert(!report.fans.some(f=>f.id==='selfDraw'));assert.deepEqual(report.players.map(p=>p.delta),expected);
+ }
+});
+test('saved ham-v5 choices keep x8 double-wild self draw while new rooms use x4',()=>{
+ const hand=[3,4,5,9,10,11,18,19,20,27,27,32,32,4],old=fixture(hand,{rules:{...HAM_V5}});moveModern(old,0,{action:'hu'});
+ const restored=JSON.parse(JSON.stringify(old)) as ModernGame;assert(!Object.hasOwn(restored.choice!,'doubleWildIncludesSelfDraw'));
+ const p=winPlans(restored.choice!).find(p=>ids(p).includes('doubleWild'))!;assert.equal(p.multiplier,'8');assert(ids(p).includes('selfDraw'));
+ moveModern(restored,0,{action:'confirm_win',candidateId:p.id});moveModern(restored,0,{action:'flip_award',awardIndex:0});moveModern(restored,0,{action:'flip_award',awardIndex:1});assert.equal(restored.result!.plan!.multiplier,'8');
+ assert.equal(roundReport('旧桌',restored.result!).rounds[0].multiplier,'8');dealModern(restored);assert.equal(restored.rules.id,'ham-v5');assert.equal(restored.rules.doubleWildIncludesSelfDraw,undefined);
 });
 test('all wildcard assignments match an independent exhaustive ordinary/seven/orphan/gates oracle',()=>{
  for(let count=0;count<=4;count++){

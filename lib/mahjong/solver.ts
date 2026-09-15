@@ -6,7 +6,7 @@ export type PlanGroup = {kind: 'sequence'|'triplet'|'pair'|'special'|'kong'; typ
 export type WinPlan = {id: string; family: 'standard'|'seven'|'orphans'|'gates'|'fourWild'; groups: PlanGroup[];
   assignments: {tile: number; type: number}[]; fans: Fan[]; multiplier: string; hitTypes: number[]; incomingType: number; middle: boolean};
 export type WinContext = {round: string; hand: number[]; melds: Meld[]; wildcard: number; incoming: number;
-  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean;selfDrawUnit?:number;noWildBonus?:boolean;closedBonus?:boolean;fourWildWin?:boolean;disabledWins?:string[]};
+  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean;selfDrawUnit?:number;noWildBonus?:boolean;closedBonus?:boolean;fourWildWin?:boolean;disabledWins?:string[];doubleWildIncludesSelfDraw?:boolean};
 type Shape = {kind: PlanGroup['kind']; types: number[]; wild: boolean[]};
 export const effectiveType = (tile: number, wildcard: number) => tileType(tile) === 33 && wildcard >= 0 ? wildcard : tileType(tile);
 export const isWild = (tile: number, wildcard: number) => wildcard >= 0 && tileType(tile) === wildcard;
@@ -51,6 +51,9 @@ function score(ctx: WinContext, family: WinPlan['family'], groups: PlanGroup[], 
   // Check structural/composition tags before multiplier exclusions; a banned pure
   // hand cannot bypass the rule by selecting its nine-gates interpretation.
   if(ctx.disabledWins?.some(id=>ids.has(id)||id==='seven'&&family==='seven'))return null;
+  // Check strict self-draw bans first, then remove only the overlapping bonus.
+  // Missing policy keeps saved rooms and already-announced choices unchanged.
+  if (ctx.doubleWildIncludesSelfDraw && ids.has('doubleWild')) ids.delete('selfDraw');
   const exempt = family !== 'standard' || ['fourWild','pong','smallDragons','bigDragons','smallWinds','bigWinds','honors','mixedTerminals','terminals','fourKongs','heaven','earth'].some(id=>ids.has(id));
   if (!middle && !exempt) return null;
   if (family !== 'standard' || ctx.heaven || ctx.earth) ids.delete('closed');

@@ -20,6 +20,8 @@ export type ModernRules = MahjongRules & {
   fourWildWin?: boolean;
   revealSeconds?: number;
   disabledWins?: string[];
+  /** A double-wild plan already includes self draw; absent on historical rooms. */
+  doubleWildIncludesSelfDraw?: boolean;
 };
 export const BASIC_CHIPS: ModernRules = {
   ...BASIC_136, id: 'basic-136-v2', version: 2, name: '基础试玩', chipLedger: true,
@@ -32,8 +34,9 @@ export const HAM_V1: ModernRules = {
 export const HAM_V2: ModernRules = {...HAM_V1,id:'ham-v2',version:2,selfDrawUnit:2};
 export const HAM_V3: ModernRules = {...HAM_V2,id:'ham-v3',version:3,noWildBonus:false};
 export const HAM_V4: ModernRules = {...HAM_V3,id:'ham-v4',version:4,closedBonus:false,forbidWildDiscard:true,fourWildWin:true,revealSeconds:15};
-export const HAM: ModernRules = {...HAM_V4,id:'ham-v5',version:5,disabledWins:[]};
-export const hamRulePreset=(id:string)=>[HAM,HAM_V4,HAM_V3,HAM_V2,HAM_V1].find(r=>r.id===id);
+export const HAM_V5: ModernRules = {...HAM_V4,id:'ham-v5',version:5,disabledWins:[]};
+export const HAM: ModernRules = {...HAM_V5,id:'ham-v6',version:6,doubleWildIncludesSelfDraw:true};
+export const hamRulePreset=(id:string)=>[HAM,HAM_V5,HAM_V4,HAM_V3,HAM_V2,HAM_V1].find(r=>r.id===id);
 export const isHamRules=(id:string)=>!!hamRulePreset(id);
 export const MODERN_PRESETS = [HAM, BASIC_CHIPS] as const;
 export const FAN_TABLE = [

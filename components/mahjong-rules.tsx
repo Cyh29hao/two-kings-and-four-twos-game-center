@@ -8,6 +8,8 @@ import {FAN_DETAILS} from '@/lib/mahjong/rule-guide';
 export function MahjongRules({rulesId=HAM.id,name='ham 规',snapshot}:{rulesId?:string;name?:string;snapshot?:Partial<ModernRules>}){
  const ham=isHamRules(rulesId),preset={...hamRulePreset(rulesId),...snapshot},legacy=ham&&rulesId!==HAM.id;
  const closed=preset?.closedBonus!==false,noWild=preset?.noWildBonus!==false;
+ const doubleWildCombined=!!preset.doubleWildIncludesSelfDraw;
+ const fanNote=(id:typeof FAN_TABLE[number][0])=>doubleWildCombined&&id==='doubleWild'?FAN_DETAILS[id].note+' 双赖子自摸、点炮均以 ×4 为起点，不再额外乘自摸 ×2；清一色等其他牌型、杠上开花和抢杠胡照常相乘。例：双赖子＋清一色，自摸、点炮均为 ×16。':doubleWildCombined&&id==='selfDraw'?'通常乘 2；满足双赖子时，自摸已包含在双赖子的 ×4 中，不再额外加倍。四赖胡仍叠加自摸 ×2。付款人数与胡牌资格不变。':FAN_DETAILS[id].note;
  const notes:readonly (readonly [string,string])[]=ham?[
   ['先认识几个词','顺子：同一花色连续三张，如三、四、五万。刻子：三张同牌。杠：四张同牌。面子指一副顺子、刻子或杠；将牌指一对同牌。字牌为东、南、西、北、中、发、白；幺九指数牌的 1 和 9。'],
   ['开局与赖子',`四人、136 张，无花牌，不换三张、不定缺。每局从白板以外的 33 种牌中等概率选一种赖子，不抽走实体牌。例如五万为赖子：实体五万可在胡牌时代表任意 34 种牌，实体白板作为普通五万使用。${preset?.forbidWildDiscard?'实体赖子不能打出；摸到赖子后，超时会改打最右侧的非赖子。':''}白板仍可正常打出、吃碰杠。`],
@@ -17,7 +19,8 @@ export function MahjongRules({rulesId=HAM.id,name='ham 规',snapshot}:{rulesId?:
   ['哪些情况免中张限制',`七对及豪华、碰碰胡、三元、四喜、字一色、幺九类、十三幺、九莲、四杠、天胡、地胡可以免除上述限制，仍须组成完整合法结构。单独清一色、混一色、自摸、杠上开花、抢杠胡不免除。${preset?.fourWildWin?'四赖直胡是特例，不成型也可胡；字一色、幺九类奖励此时只按所选牌张组成判定。':''}`],
   ['选择方案后再翻奖牌',`宣布胡牌并确定胡牌者后，有 60 秒选择完整拆法和每张赖子的身份；即使只有一个方案也要确认。确认后锁定，再翻当前牌墙末尾两张作为奖牌。超时或掉线超时采用最高倍数，并列按固定顺序，选择不参考隐藏奖牌。${preset?.revealSeconds?'锁定方案后，由胡牌玩家依次点击两张牌背，其他玩家同步观看；每张 15 秒，超时自动翻开。未翻牌面不提前公开，两张揭晓后再结算。':''}`],
   ['奖牌怎样命中','奖牌与所选方案的完整代表牌比较，包括吃碰杠。白板奖牌先转换身份；实体赖子奖牌按它印着的原牌种比较，不自动中奖。每张奖牌最多命中一次，手中同种牌再多也不重复加分；两张相同奖牌都命中则算两次。赖子代表的牌即使没有自然牌，也可命中。'],
-  ['筹码怎么算',`设基础筹码为 B，命中奖牌数为 n（0、1 或 2），所有有效倍数相乘为 M：每位付款者付 B ×（1+n）× M。自摸本身 ×${preset?.selfDrawUnit}，另外三家各付一次；点炮本身 ×1，只有点炮者付一次，不包三家。抢杠胡只有补杠者付款，并计抢杠胡倍数。${closed?'本桌旧版保留门前清 ×2。':'门前清不加倍。'}${noWild?'本桌旧版保留无赖子 ×2。':'无赖子不加倍。'}独立倍数相乘、不封顶，筹码允许为负。`],
+  ['筹码怎么算',`设基础筹码为 B，命中奖牌数为 n（0、1 或 2），所有有效倍数相乘为 M：每位付款者付 B ×（1+n）× M。自摸本身 ×${preset?.selfDrawUnit}，另外三家各付一次；点炮本身 ×1，只有点炮者付一次，不包三家。抢杠胡只有补杠者付款，并计抢杠胡倍数。${closed?'本桌旧版保留门前清 ×2。':'门前清不加倍。'}${noWild?'本桌旧版保留无赖子 ×2。':'无赖子不加倍。'}${doubleWildCombined?'双赖子 ×4 已包含自摸，不再重复乘自摸；其余':''}独立倍数相乘、不封顶，筹码允许为负。`],
+  ...(doubleWildCombined?[["双赖子怎样计倍","符合双赖子条件的同一套方案，自摸和点炮都以 ×4 为起点，不再额外乘自摸 ×2。清一色等其他牌型继续相乘：双赖子＋清一色为 4 × 4 = 16 倍，自摸、点炮相同。杠上开花或抢杠胡仍各自另乘 ×2；奖牌仍先加后乘，自摸三家各付，点炮仅出牌者付。两赖分散在其他组合中不算双赖子，那套方案仍按普通自摸 ×2、点炮 ×1 计算。"]] as const:[]),
   ['杠分单独结算','明杠、补杠成功，另外三家各付 1B；暗杠成功，各付 2B。成功后立即记账，并从当前牌墙末尾补一张。只抢补杠；补杠被抢时该杠未完成，不收此次杠分。已成功的杠分不乘胡牌倍数，也不受奖牌加成影响。'],
   ['响应与超时','只有存在合法吃碰杠胡时才开启 8 秒响应；没有响应就直接下家。胡优先于碰杠，碰杠优先于吃，同级取距出牌者最近的一位；只有下家能吃。尚未响应的人已无法改变结果时提前执行。响应超时视为放弃，出牌按房间时限处理。'],
   ['流局与坐庄','牌墙留最后 12 张。从 13 张摸到剩 12 张后，可以完成本次出牌及响应；下一次需要摸牌时流局。剩 12 张不能再杠，胡后的两张奖牌仍可从中取。流局保留已成功的杠分，不抽奖。首局房主坐庄；庄家胡或流局连庄，闲家胡后由原庄下家坐庄；庄家和连庄次数不额外加倍。'],
@@ -28,7 +31,7 @@ export function MahjongRules({rulesId=HAM.id,name='ham 规',snapshot}:{rulesId?:
  {ham&&<><section className="ham-rule-example"><h3>算一笔就明白</h3><p>基础筹码 10，两张奖牌都命中，最终有效倍数合计 4 倍：每位付款者付 <b>10 ×（1 + 2）× 4 = 120</b>。自摸由三家各付 120，合计收 360；点炮只由点炮者付 120。</p><p>这里的“最终 4 倍”已经包含适用的自摸或牌型因素，不能再重复乘一次。杠分最后另外相加。</p></section>
  <section className="ham-fan-guide"><h3>牌型倍数与成立条件</h3><p>先按普通、特殊牌型或本桌允许的四赖胡确认胡牌资格，再乘符合条件的倍数。不同拆法分别计算，不能把两套方案的奖励拼在一起。表中没有写明排除的独立因素可以相乘。</p><Table className="ham-fan-table"><TableHeader><TableRow><TableHead>牌型</TableHead><TableHead>倍数</TableHead><TableHead>怎样成立 · 怎样叠加</TableHead></TableRow></TableHeader><TableBody>
  <TableRow><TableCell>普通胡</TableCell><TableCell>×1</TableCell><TableCell><p>四副面子加一对将，最后进牌是顺子中间的 4–8。</p><small>没有其他有效牌型因素时按 1 倍；自摸因素仍按本桌规则计算。</small></TableCell></TableRow>
- {FAN_TABLE.filter(([id])=>id==='selfDraw'?preset?.selfDrawUnit===2:id==='noWild'?noWild:id==='closed'?closed:id==='fourWild'?!!preset?.fourWildWin:true).map(([id,label,m])=><TableRow key={id}><TableCell>{label}{(preset.disabledWins?.includes(id)||id.startsWith('luxury')&&preset.disabledWins?.includes('seven'))&&<b className="house-disabled">本桌禁用</b>}</TableCell><TableCell>×{m}</TableCell><TableCell><p>{FAN_DETAILS[id].condition}</p><small>{FAN_DETAILS[id].note}</small></TableCell></TableRow>)}
+ {FAN_TABLE.filter(([id])=>id==='selfDraw'?preset?.selfDrawUnit===2:id==='noWild'?noWild:id==='closed'?closed:id==='fourWild'?!!preset?.fourWildWin:true).map(([id,label,m])=><TableRow key={id}><TableCell>{label}{(preset.disabledWins?.includes(id)||id.startsWith('luxury')&&preset.disabledWins?.includes('seven'))&&<b className="house-disabled">本桌禁用</b>}</TableCell><TableCell>×{m}</TableCell><TableCell><p>{FAN_DETAILS[id].condition}</p><small>{fanNote(id)}</small></TableCell></TableRow>)}
  </TableBody></Table></section></>}
  </DialogContent></Dialog>;
 }
