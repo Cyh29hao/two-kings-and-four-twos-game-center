@@ -3,6 +3,8 @@ import {useEffect,useRef,type CSSProperties,type PointerEvent as ReactPointerEve
 import {Timer} from 'lucide-react';
 import {face,suit,type TableAction} from '@/lib/game/engine';
 import {crossedCards,brushSelection,type HitRegion} from '@/lib/game/selection';
+import {DDZ_EFFECTS} from '@/lib/motion/events';
+import {EffectBadge} from './table-effects';
 
 export function Card({card,selected=false,onClick,small=false}:{card:number;selected?:boolean;onClick?:()=>void;small?:boolean}){
  const red=card===53||(card<52&&[1,3].includes(card%4));
@@ -12,7 +14,9 @@ export function Card({card,selected=false,onClick,small=false}:{card:number;sele
 }
 
 export function SeatAction({action,active,seconds,bidding,doubling=false,name}:{action?:TableAction|null;active:boolean;seconds:number;bidding:boolean;doubling?:boolean;name:string}){
- return <div className={`seat-action ${active?'is-turn':''}`} aria-label={`${name}面前的出牌区`}>
+ const effect=!active&&action?.kind==='play'?DDZ_EFFECTS[action.label]:undefined;
+ return <div className={`seat-action ${active?'is-turn':''}${effect?' has-effect':''}`} aria-label={`${name}面前的出牌区`}>
+  {effect&&action?.kind==='play'&&<EffectBadge key={action.eventId??effect} id={effect} eventId={action.eventId}/>}
   {active?<div className={`seat-timer ${seconds<=5?'is-urgent':''}`}><Timer size={18}/><strong>{seconds}</strong><small>秒</small><span>{bidding?'叫分':doubling?'加倍':'出牌'}</span></div>:action?.kind==='play'?<><div className="seat-played-cards" style={{'--cards':action.cards.length} as CSSProperties}>{action.cards.map(c=><Card card={c} key={c} small/>)}</div><span className="seat-action-caption">{action.label}</span></>:action?.kind==='pass'?<span className="seat-pass">不出</span>:action?.kind==='double'?<span className="seat-pass">{action.value?'加倍 ×2':'不加倍'}</span>:action?.kind==='bid'?<span className="seat-pass">{action.value?`${action.value} 分`:'不叫'}</span>:null}
  </div>;
 }

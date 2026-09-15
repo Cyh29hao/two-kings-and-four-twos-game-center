@@ -4,7 +4,7 @@ const source=f.groups[2],actor=source.clients[9],row=db.prepare('SELECT * FROM r
 for(let i=0;i<6;i++){
  const code=String(900000+Math.floor(Math.random()*90000));assert(!db.prepare('SELECT 1 FROM rooms WHERE code=?').get(code));
  db.prepare('INSERT INTO rooms(code,title,state,phase,revision,op,created,updated) VALUES(?,?,?,?,?,?,?,?)').run(code,'本地关闭竞争测试',row.state,row.phase,0,crypto.randomUUID(),Date.now(),Date.now());
- const post=fetch('http://localhost:5173/api/chat',{method:'POST',headers:{Origin:'http://localhost:5173','Content-Type':'application/json',cookie:actor.cookie},body:JSON.stringify({code,kind:'emote',emoteId:'hello',clientId:crypto.randomUUID()})});
+ const post=fetch('http://localhost:5173/api/chat',{method:'POST',headers:{Origin:'http://localhost:5173','Content-Type':'application/json',cookie:actor.cookie},body:JSON.stringify({code,kind:'emote',emoteId:'royale-v2-king-laugh',clientId:crypto.randomUUID()})});
  if(i%2)await new Promise(r=>setTimeout(r,20));
  db.prepare("UPDATE rooms SET phase='closed' WHERE code=?").run(code);
  const countAtClose=Number(db.prepare('SELECT count(*) n FROM room_messages WHERE room_code=?').get(code)!.n);

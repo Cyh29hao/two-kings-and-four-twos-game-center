@@ -1,0 +1,246 @@
+{
+  "notice": "非官方重绘，无音轨。经典角色归各自权利人所有。本说明不是官方授权声明。",
+  "omitted": [
+    {
+      "name": "野猪骑士飞吻",
+      "reason": "未核实完整动作参考；用户确认本轮省略"
+    },
+    {
+      "name": "哥布林嘘、暗夜女巫鼓掌",
+      "reason": "尚无通过检查的生成素材；用户确认本轮暂缓"
+    }
+  ],
+  "emotes": [
+    {
+      "id": "royale-v2-king-laugh",
+      "name": "国王大笑",
+      "reference": "https://tenor.com/view/clash-royale-laugh-lol-lmao-gif-11336783",
+      "referenceRangeSeconds": [
+        0,
+        0.8
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-princess-yawn",
+      "name": "公主哈欠",
+      "reference": "https://creatorset.com/products/clash-royale-princess-yawning-emote-green-screen",
+      "referenceRangeSeconds": [
+        0,
+        2.1688333333333336
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-skeleton-cry",
+      "name": "骷髅哭",
+      "reference": "https://tenor.com/en-GB/view/clash-royale-skeleton-crying-emote-gif-22035041",
+      "referenceRangeSeconds": [
+        0,
+        3.15
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-king-cry",
+      "name": "国王大哭",
+      "reference": "https://tenor.com/view/clash-royale-king-crying-king-cry-crying-gif-15900032593961451233",
+      "referenceRangeSeconds": [
+        0,
+        2.63
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-king-angry",
+      "name": "国王愤怒",
+      "reference": "https://tenor.com/view/heheheha-clashroyal-angry-gif-26400670",
+      "referenceRangeSeconds": [
+        0,
+        0.65
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-king-thumbs-up",
+      "name": "国王点赞",
+      "reference": "https://tenor.com/view/clash-royale-king-happy-thumbs-up-gif-14246121",
+      "referenceRangeSeconds": [
+        0,
+        2.2
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-goblin-laugh",
+      "name": "哥布林大笑",
+      "reference": "https://tenor.com/view/clash-royale-goblin-laugh-gif-13901438",
+      "referenceRangeSeconds": [
+        0,
+        0.4
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-goblin-eye-roll",
+      "name": "哥布林白眼",
+      "reference": "https://tenor.com/view/clash-royale-clash-royale-emote-supercell-gobling-rolling-eyes-rolling-eyes-gif-11174250047316429883",
+      "referenceRangeSeconds": [
+        0,
+        3.43
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-goblin-tongue",
+      "name": "哥布林吐舌",
+      "reference": "https://tenor.com/view/you-wish-bleh-tongue-out-gif-14161802",
+      "referenceRangeSeconds": [
+        0,
+        2.2
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-goblin-cry",
+      "name": "哥布林搓眼哭",
+      "reference": "https://tenor.com/view/clash-royale-mimimi-boohoo-gif-8588369585732444896",
+      "referenceRangeSeconds": [
+        0,
+        2.43
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-goblin-facepalm",
+      "name": "哥布林捂脸",
+      "reference": "https://tenor.com/view/facepalm-goblin-clash-royale-emotes-gif-24376565",
+      "referenceRangeSeconds": [
+        0,
+        2.45
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-goblin-fire",
+      "name": "火中强装镇定",
+      "reference": "https://tenor.com/view/goblin-clash-royale-this-is-fine-gif-24808003/",
+      "referenceRangeSeconds": [
+        0,
+        2.05
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-princess-whistle",
+      "name": "公主吹口哨",
+      "reference": "https://tenor.com/en-CA/view/clash-royale-princess-clash-royale-princess-whistling-princess-whistling-clash-royale-princess-emote-gif-22424948",
+      "referenceRangeSeconds": [
+        0,
+        3.3
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-skeleton-dance",
+      "name": "骷髅跳舞",
+      "reference": "https://tenor.com/view/clash-royale-skeleton-skeleton-meme-dancing-skeleton-dancing-clash-royale-clash-royale-tournament-gif-25888940",
+      "referenceRangeSeconds": [
+        0,
+        3
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-electro-laugh",
+      "name": "电法大笑",
+      "reference": "https://tenor.com/view/me-again-happy-laugh-clash-royale-gif-14485768",
+      "referenceRangeSeconds": [
+        0,
+        2.45
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-barbarian-laugh",
+      "name": "野蛮人大笑",
+      "reference": "https://tenor.com/view/clash-royale-barbarian-laughing-emote-gif-22270471",
+      "referenceRangeSeconds": [
+        0,
+        2.8
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-hog-scream",
+      "name": "野猪骑士惊叫",
+      "reference": "https://tenor.com/view/hog-scream-scream-hog-ahhh-gif-13135971",
+      "referenceRangeSeconds": [
+        0,
+        3
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-hog-think",
+      "name": "野猪骑士疑惑",
+      "reference": "https://tenor.com/view/clash-royale-chevaucheur-hog-rider-question-mark-thinking-gif-17679823",
+      "referenceRangeSeconds": [
+        0,
+        2.6
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-little-prince-cry",
+      "name": "小王子哭",
+      "reference": "https://tenor.com/en-GB/view/little-prince-crying-clash-royale-emote-gif-15887636481738215262",
+      "referenceRangeSeconds": [
+        0,
+        2.26
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-chicken",
+      "name": "小鸡",
+      "reference": "https://tenor.com/view/clash-royale-clash-clash-royale-emote-clash-chicken-gif-15277977",
+      "referenceRangeSeconds": [
+        0,
+        5.5
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    },
+    {
+      "id": "royale-v2-pig-twerk",
+      "name": "猪猪扭腰",
+      "reference": "https://tenor.com/en-GB/view/twerking-pig-clash-royale-emote-clash-royale-emote-gif-25561353",
+      "referenceRangeSeconds": [
+        0,
+        2.45
+      ],
+      "generator": "GPT Image 2, built-in image generation",
+      "note": "非官方逐帧重绘；参考来源不代表官方授权。原版参考不随站点发布。"
+    }
+  ]
+}

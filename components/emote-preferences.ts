@@ -1,14 +1,14 @@
 "use client";
 import {useCallback,useSyncExternalStore} from 'react';
-import {getEmote} from '@/lib/emotes';
-export type EmotePreferences={animateOthers:boolean;sound:boolean;favorites:string[]};
-const DEFAULT:EmotePreferences={animateOthers:true,sound:true,favorites:[]};
+import {canSendEmote} from '@/lib/emotes';
+export type EmotePreferences={animateOthers:boolean;sound:boolean;effects:boolean;favorites:string[]};
+const DEFAULT:EmotePreferences={animateOthers:true,sound:true,effects:true,favorites:[]};
 const cache=new Map<string,{raw:string|null;value:EmotePreferences}>();
 const changed='yule:emote-preferences';
 const key=(id:string)=>`yule-emotes-v1:${id}`;
 export function parseEmotePreferences(raw:string|null):EmotePreferences{
  try{const p=JSON.parse(raw||'null');if(!p||typeof p!=='object')return DEFAULT;
-  return {animateOthers:typeof p.animateOthers==='boolean'?p.animateOthers:true,sound:typeof p.sound==='boolean'?p.sound:true,favorites:Array.isArray(p.favorites)?[...new Set(p.favorites.filter((id:unknown)=>getEmote(id)?.enabled))] as string[]:[]};
+  return {animateOthers:typeof p.animateOthers==='boolean'?p.animateOthers:true,sound:typeof p.sound==='boolean'?p.sound:true,effects:typeof p.effects==='boolean'?p.effects:true,favorites:Array.isArray(p.favorites)?[...new Set(p.favorites.filter(canSendEmote))] as string[]:[]};
  }catch{return DEFAULT;}
 }
 function snapshot(id:string){if(!id)return DEFAULT;let raw:string|null=null;try{raw=localStorage.getItem(key(id));}catch{return cache.get(id)?.value??DEFAULT;}

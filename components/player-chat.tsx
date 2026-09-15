@@ -3,7 +3,7 @@ import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react';
 import {emptyBubbles,expireBubbles,receiveBubbles,type ChatSnapshot,type ChatBubble} from '@/lib/chat-bubbles';
 import {EmoteImage} from './emote';
 import {useEmotePreferences} from './emote-preferences';
-import {EMOTE_SOUND_EVENT,type EmoteSoundEvent} from '@/lib/emotes';
+import {EMOTE_SOUND_EVENT,EMOTE_MS,type EmoteSoundEvent} from '@/lib/emotes';
 
 export function useChatBubbles(code?:string,userId=''){
  const {prefs}=useEmotePreferences(userId),preferences=useRef(prefs);preferences.current=prefs;
@@ -31,5 +31,5 @@ export function useChatBubbles(code?:string,userId=''){
  return {bubbles:display.code===code?Object.fromEntries(Object.entries(display.bubbles).filter(([,b])=>b.message.kind!=='emote'||b.message.own||prefs.animateOthers)):{},onSnapshot};
 }
 export function PlayerChat({bubble,align='center',children}:{bubble?:ChatBubble;align?:'start'|'center'|'end';children:ReactNode}){
- return <div className={`chat-avatar chat-align-${align}`}>{children}{bubble&&<div key={bubble.message.id} className={`seat-chat-bubble${bubble.message.kind==='emote'?' seat-emote-bubble':''}`} role="note" aria-label={`${bubble.message.name}：${bubble.message.text}`} title={bubble.message.text}>{bubble.message.kind==='emote'?<EmoteImage id={bubble.message.emoteId??''} animate eager/>:<p>{bubble.message.text}</p>}</div>}</div>;
+ return <div className={`chat-avatar chat-align-${align}`}>{children}{bubble&&<div key={bubble.message.id} className={`seat-chat-bubble${bubble.message.kind==='emote'?' seat-emote-bubble':''}`} role="note" aria-label={`${bubble.message.name}：${bubble.message.text}`} title={bubble.message.text}>{bubble.message.kind==='emote'?<EmoteImage id={bubble.message.emoteId??''} animate eager startAt={bubble.expires-EMOTE_MS} expiresAt={bubble.expires}/>:<p>{bubble.message.text}</p>}</div>}</div>;
 }

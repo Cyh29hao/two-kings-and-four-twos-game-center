@@ -1,0 +1,21 @@
+/* Visual layers are cosmetic and never capture card or control interactions. */
+.frame-motion{display:inline-block;position:relative;aspect-ratio:1;width:100%;vertical-align:middle;isolation:isolate}
+.frame-motion>img,.frame-motion>canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;user-select:none;pointer-events:none}
+.frame-motion-fallback{position:absolute;inset:0;display:grid;place-items:center;color:#55745b;font-size:14px}
+.emote-frames{overflow:visible}.emote-frames>.frame-motion{width:100%;filter:drop-shadow(0 3px 2px #204c3510)}
+.seat-action{position:relative}.seat-action.has-effect{padding-top:42px}.has-effect .seat-action-caption{visibility:hidden;height:0;padding:0;margin:0;overflow:hidden}
+.table-effect{position:absolute;display:block;left:50%;top:-38px;width:108px;height:108px;transform:translateX(-50%);pointer-events:none;user-select:none;z-index:4;isolation:isolate}
+.table-effect>img{width:100%;height:100%;object-fit:contain}.table-effect>small{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;line-height:1.5;white-space:nowrap;color:#7f642e;background:#fff9e7ed;border:1px solid #ddc888;border-radius:8px;padding:1px 7px}
+.effect-text-fallback{display:block;text-align:center;font-size:23px;color:#a17a28;padding-top:30px;text-shadow:0 2px #fff9e3}
+.effect-enter:not(.effect-emphasis){animation:table-effect-enter 1.2s ease-out both}
+.effect-emphasis{width:156px;height:156px;top:-80px;z-index:5}
+.effect-at-result{position:relative;inset:auto;transform:none;width:110px;height:96px;margin:-10px auto 0}
+.mj-player-zone{position:relative}.mj-player-zone>.table-effect{width:88px;height:88px;top:8px}
+.zone-west>.table-effect{left:calc(100% - 4px)}.zone-east>.table-effect{left:4px}.zone-north>.table-effect{left:calc(100% - 8px);top:5px}.zone-south>.table-effect{left:calc(50% + 115px);top:-16px}
+.mj-player-zone>.effect-emphasis{width:122px;height:122px;top:-10px}.zone-south>.effect-emphasis{top:-35px}
+.mj-center,.mj-seat-clock,.mj-claim-indicator{position:relative;z-index:6}
+body:has(.mj-expanded-modal) .mj-board:not(.mj-expanded-board) .table-effect{visibility:hidden}
+.emote-name{overflow-wrap:anywhere;text-align:center;line-height:1.3;min-height:30px;padding:0 2px}
+@keyframes table-effect-enter{0%{opacity:0;scale:.72}18%{opacity:1;scale:1.12}35%,100%{opacity:1;scale:1}}
+@media(max-width:580px){.seat-action.has-effect{padding-top:42px}.table-effect{width:80px;height:80px;top:-20px}.effect-emphasis{width:80px;height:80px;top:-20px}.effect-at-result{top:auto;width:92px;height:80px}.mj-player-zone>.table-effect{width:60px;height:60px;top:10px}.mj-player-zone>.effect-emphasis{width:83px;height:83px;top:-4px}.zone-west>.table-effect{left:calc(100% - 8px)}.zone-east>.table-effect{left:8px}.zone-north>.table-effect{left:calc(100% - 12px)}.zone-south>.table-effect{left:calc(50% + 85px);top:-20px}.table-effect>small{font-size:9px;bottom:0;padding:0 4px}.effect-text-fallback{font-size:18px}.seat-chat-bubble.seat-emote-bubble{width:88px;height:88px}}
+@media(prefers-reduced-motion:reduce){.effect-enter{animation:none!important}}

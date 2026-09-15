@@ -4,6 +4,7 @@ import type {ReactNode} from 'react';
 import type {ChatBubble} from '@/lib/chat-bubbles';
 import {MahjongSeatHand} from './round-hands';
 import {PlayerChat} from './player-chat';
+import {MahjongSeatEffect} from './table-effects';
 import type {MahjongView} from '@/lib/mahjong/game';
 import {isHamRules} from '@/lib/mahjong/rules';
 import {chips} from '@/lib/mahjong/report';
@@ -17,6 +18,7 @@ function Clock({seconds,label}:{seconds:number;label:string}){return <span class
 function PlayerZone({g,index,position,seconds,own=false,botControls,bubbles}:{g:MahjongView;index:number;position:string;seconds:number;own?:boolean;botControls?:BotSeatControls;bubbles:Record<string,ChatBubble>}){
  const s=g.seats[index],active=g.phase==='playing'&&!g.pending&&g.turn===index,pending=g.phase==='playing'&&g.pending?.from===index;
  return <section className={`mj-player-zone zone-${position} ${active?'is-active':''}`} aria-label={`${s?.name||'空位'}面前的牌`}>
+ {s&&<MahjongSeatEffect seat={index}/>}
  {(!own||g.phase==='finished')&&<div className="mj-player-heading">{s?<><PlayerChat bubble={bubbles[s.id]} align={position==='west'?'start':position==='east'?'end':'center'}><span className={`avatar avatar-${index%3}`}>{s.name.slice(0,1)}</span></PlayerChat><div><b>{s.name}{s.bot&&<em className="bot-label">机器人</em>}{g.dealer===index&&g.roundNumber>0&&<em className="dealer-tag">庄</em>}</b><span>{s.balance!==null?chips(s.balance)+' 筹码':s.ready?'已准备':`${s.count} 张手牌`}</span>{g.phase==='finished'&&<span className={BigInt(g.deltas[index])>=0n?'positive':'negative'}>本局 {chips(g.deltas[index],true)}{own?' · 你':''}</span>}{g.phase==='waiting'&&<span>{s.ready?'已准备':'未准备'}</span>}{s.bot&&<RemoveBotSeat id={s.id} name={s.name} controls={botControls}/>}</div></>:<EmptyBotSeat controls={botControls}/>}</div>}
  {g.phase==='finished'&&s&&<MahjongSeatHand hand={s.hand} name={s.name} wildcard={g.wildcard}/>}
  {active&&<Clock seconds={seconds} label="出牌"/>}

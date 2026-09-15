@@ -1,12 +1,14 @@
 import test from 'node:test';import {readFileSync} from 'node:fs';import assert from 'node:assert/strict';
-import {EMOTES,EMOTE_MS,EMOTE_COOLDOWN_MS,getEmote,emoteText} from '../lib/emotes.ts';
+import {EMOTES,LEGACY_EMOTES,canSendEmote,EMOTE_MS,EMOTE_COOLDOWN_MS,getEmote,emoteText} from '../lib/emotes.ts';
 import {emptyBubbles,receiveBubbles,expireBubbles,type ChatMessage} from '../lib/chat-bubbles.ts';
+import {validMotion} from '../lib/motion/timeline.ts';
 import {mergeMessages,sameMessage} from '../lib/chat-messages.ts';
 const message=(id:number,kind:'text'|'emote'='emote',senderId='a',created=1000):ChatMessage=>({id,kind,senderId,name:'同名玩家',text:kind==='text'?'你好':emoteText('hello'),emoteId:kind==='emote'?'hello':null,created,own:0});
-test('12 stable local emotes have unique ids and safe fallbacks',()=>{
- assert.equal(EMOTES.length,12);assert.equal(new Set(EMOTES.map(e=>e.id)).size,12);assert.equal(EMOTE_MS,6000);assert.equal(EMOTE_COOLDOWN_MS,3000);
- for(const e of EMOTES){assert(e.enabled);assert.match(e.src,/^\/emotes\/royale-v1\/[a-z]+\.webp$/);assert.equal(getEmote(e.id),e);assert.equal(e.audio,undefined);}
- assert.equal(getEmote('https://evil/image'),undefined);assert.equal(emoteText('missing'),'[表情：暂不可用]');
+test('stable legacy ids remain renderable; only the versioned frame pack is sendable',()=>{
+ assert.equal(LEGACY_EMOTES.length,12);assert.equal(new Set(EMOTES.map(e=>e.id)).size,EMOTES.length);assert.equal(EMOTE_MS,6000);assert.equal(EMOTE_COOLDOWN_MS,3000);
+ for(const e of LEGACY_EMOTES){assert(e.enabled);assert.match(e.src,/^\/emotes\/royale-v1\/[a-z]+\.webp$/);assert(!canSendEmote(e.id));}
+ const next=EMOTES.filter(e=>canSendEmote(e.id));assert.equal(next.length,21);for(const e of next){assert.match(e.id,/^royale-v2-/);assert(e.frames&&validMotion(e.frames));assert.equal(e.frames.frames.length>=24,true);assert.equal(getEmote(e.id),e);assert.equal(e.audio,undefined);}
+ assert.equal(getEmote('https://evil/image'),undefined);assert.equal(emoteText('missing'),'[表情：暂不可用]');assert(!canSendEmote('missing'));
 });
 test('text and emotes replace only their sender; emotes expire after six seconds without refresh replay',()=>{
  const baseline=receiveBubbles(emptyBubbles(),{messages:[],serverNow:1000},5000);
@@ -35,5 +37,7 @@ test('incremental chat deduplicates, sorts, bounds history, and separates full r
 });
 
 test('every enabled emote ships as a small local WebP, including the lazy picker assets',()=>{
- let total=0;for(const e of EMOTES){const bytes=readFileSync(new URL('../public'+e.src,import.meta.url));assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP');assert(bytes.length<160000);total+=bytes.length;}assert(total<1000000);
+ let total=0;for(const e of EMOTES){const bytes=readFileSync(new URL('../public'+e.src,import.meta.url));assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP');assert(bytes.length<160000);total+=bytes.length;}assert(total<1500000);
 });
+
+test('all frame sheets are local, present and bounded for on-demand loading',()=>{for(const e of EMOTES){for(const sheet of e.frames?.sheets??[]){const bytes=readFileSync(new URL('../public'+sheet.src,import.meta.url));assert.equal(bytes.toString('ascii',8,12),'WEBP');assert(bytes.length<2200000);assert(sheet.cellWidth*sheet.columns<=2048);assert(sheet.cellHeight*sheet.rows<=2048);}}});

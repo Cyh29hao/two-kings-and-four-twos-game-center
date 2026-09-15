@@ -1,3 +1,4 @@
+import {emitVisual,publicVisuals,type VisualEvent} from '../motion/events.ts';
 import {newSeat, sortTiles, tileLabel, isWinning, type Seat, type Option, type Meld} from './engine.ts';
 import {HAM, type ModernRules} from './rules.ts';
 import {canWin, bestWinPlan, findWinPlan, effectiveType, isWild, type WinContext, type WinPlan} from './solver.ts';
@@ -10,6 +11,7 @@ export type RoundResult = {practice?:boolean;kind:'mahjong';schemaVersion:2;id:s
   seats:{id:string;name:string;bot?:boolean;delta:Money;balance:Money}[];entries:ChipEntry[];log:{text:string;at:number}[];started:number;ended:number;automatic:boolean};
 type Pending={kind:'discard'|'added';from:number;tile:number;meldIndex?:number;eligible:number[];responses:Record<string,Option|null>;earth:boolean};
 export type ModernGame = {
+  visualEvents?:VisualEvent[];
   practice?:Practice;
   kind:'mahjong';schemaVersion:2;rules:ModernRules;phase:'waiting'|'playing'|'choosing'|'revealing'|'finished'|'closed';host:string;
   seats:(Seat & {balance:Money})[];wall:number[];turn:number;dealer:number;round:string;roundNumber:number;seconds:number;deadline:number;
@@ -39,7 +41,7 @@ export function dealModern(g:ModernGame,now=Date.now()){
   if(g.roundNumber){const stays=g.rules.dealerPolicy==='dealer-stays'&&(g.winType==='draw'||g.winner===g.dealer);if(stays)g.streak++;else{g.dealer=(g.dealer+1)%4;g.streak=0;}}
   else {g.fixedIds=g.seats.map(s=>s.id);g.started=now;g.dealer=0;}
   const deck=Array.from({length:136},(_,i)=>i);for(let i=135;i>0;i--){const j=rand(i+1);[deck[i],deck[j]]=[deck[j],deck[i]];}
-  g.wildcard=g.rules.wildcards?rand(33):-1;g.round=crypto.randomUUID();g.roundNumber++;g.roundStarted=now;g.turn=g.dealer;g.phase='playing';
+  g.wildcard=g.rules.wildcards?rand(33):-1;g.round=crypto.randomUUID();g.visualEvents=[];g.roundNumber++;g.roundStarted=now;g.turn=g.dealer;g.phase='playing';
   for(const s of g.seats){s.hand=sortEffective(g,deck.splice(0,13));s.melds=[];s.river=[];s.ready=false;s.last='';}
   g.wall=deck;g.drawn=g.wall.shift()!;g.seats[g.dealer].hand=sortEffective(g,[...g.seats[g.dealer].hand,g.drawn]);
   g.pending=null;g.choice=null;g.reveal=null;g.lastDiscard=null;g.winner=-1;g.source=-1;g.winType=null;g.deltas=['0','0','0','0'];g.entries=[];g.result=null;g.log=[];
@@ -84,6 +86,7 @@ function entry(g:ModernGame,kind:ChipEntry['kind'],actor:number,deltas:Money[],d
   g.deltas=g.seats.map((s,i)=>(BigInt(s.balance)-BigInt(g.roundStart[i])).toString());note(g,description,now);
 }
 function chargeKong(g:ModernGame,seat:number,kind:'exposed'|'concealed'|'added',now:number){
+  emitVisual(g,seat,'kong',now,kind);
   if(!g.rules.kongPayments)return;const units=kind==='concealed'?2n:1n,amount=BigInt(g.baseChips)*units;
   entry(g,kind,seat,g.seats.map((_,i)=>(i===seat?amount*3n:-amount).toString()),`${g.seats[seat].name} ${kind==='concealed'?'暗杠':kind==='added'?'补杠':'明杠'}，三家各付 ${amount} 筹码`,now);
 }
@@ -104,6 +107,7 @@ function settle(g:ModernGame,now:number,plan:WinPlan|null,automatic=false,reveal
   finish(g,type,now,plan,awards,automatic);
 }
 function beginWin(g:ModernGame,winner:number,source:number,ctx:WinContext,now:number){
+  emitVisual(g,winner,'hu',now,ctx.winType);
   g.winner=winner;g.source=source;g.winType=ctx.winType;g.pending=null;g.lastDiscard=null;
   if(g.rules.wildcards){g.choice=structuredClone(ctx);g.phase='choosing';due(g,now);note(g,`${g.seats[winner].name} 胡牌，正在选择赖子方案`,now);}
   else settle(g,now,null);
@@ -148,6 +152,7 @@ function resolve(g:ModernGame,now:number){
   if(!chosen){draw(g,(p.from+1)%4,false,now);return;}
   const {seat,choice}=chosen;take(g,seat,choice.tiles);const river=g.seats[p.from].river;river.splice(river.lastIndexOf(p.tile),1);
   g.seats[seat].melds.push({kind:choice.kind as Meld['kind'],tiles:sortEffective(g,[...choice.tiles,p.tile]),from:p.from,concealed:false});
+  if(choice.kind!=='kong')emitVisual(g,seat,choice.kind as 'chi'|'pong',now);
   g.opening=false;g.seats[seat].last=choice.kind==='chi'?'吃':choice.kind==='pong'?'碰':'杠';note(g,`${g.seats[seat].name} ${g.seats[seat].last} ${countLabel(g,p.tile)}`,now);
   g.turn=seat;g.pending=null;g.drawn=null;g.lastDiscard=null;
   if(choice.kind==='kong'){chargeKong(g,seat,'exposed',now);draw(g,seat,true,now);}else due(g,now);
@@ -173,7 +178,7 @@ export function moveModern(g:ModernGame,seat:number,m:ModernMove,now=Date.now())
   }
   if(m.action!=='discard'||!Number.isInteger(m.tile)||!g.seats[seat].hand.includes(m.tile!))throw Error('请选择自己的一张手牌');
   if(!opts.discardable.includes(m.tile!))throw Error('本桌赖子不能打出，请选择其他手牌');
-  const tile=m.tile!;take(g,seat,[tile]);g.seats[seat].river.push(tile);g.seats[seat].last=`打 ${countLabel(g,tile)}`;g.lastDiscard={seat,tile};
+  const tile=m.tile!;take(g,seat,[tile]);emitVisual(g,seat,'discard',now);g.seats[seat].river.push(tile);g.seats[seat].last=`打 ${countLabel(g,tile)}`;g.lastDiscard={seat,tile};
   const earth=g.opening&&g.discardCount===0&&seat===g.dealer;g.discardCount++;g.opening=false;
   note(g,`${g.seats[seat].name} 打出 ${countLabel(g,tile)}`,now);startPending(g,{kind:'discard',from:seat,tile,eligible:[],responses:{},earth},now);
 }
@@ -198,7 +203,7 @@ export function closeModern(g:ModernGame,force=false,now=Date.now(),reason:'admi
 }
 export function modernView(g:ModernGame,id:string){
   const own=g.seats.findIndex(s=>s.id===id),reveal=g.phase==='finished';
-  return {practice:g.practice?{difficulty:g.practice.difficulty,roomType:g.practice.roomType}:null,kind:g.kind,schemaVersion:2 as const,rules:g.rules,phase:g.phase,host:g.host,turn:g.turn,dealer:g.dealer,round:g.round,roundNumber:g.roundNumber,seconds:g.seconds,deadline:g.deadline,
+  return {visualEvents:publicVisuals(g),practice:g.practice?{difficulty:g.practice.difficulty,roomType:g.practice.roomType}:null,kind:g.kind,schemaVersion:2 as const,rules:g.rules,phase:g.phase,host:g.host,turn:g.turn,dealer:g.dealer,round:g.round,roundNumber:g.roundNumber,seconds:g.seconds,deadline:g.deadline,
     remaining:g.wall.length,drawn:own===g.turn?g.drawn:null,lastDiscard:g.lastDiscard,pending:g.pending?{kind:g.pending.kind,from:g.pending.from,tile:g.pending.tile}:null,
     winner:g.winner,source:g.source,winType:g.winType,deltas:g.deltas,log:g.log,options:modernOptions(g,own),wildcard:g.wildcard,result:g.result,
     session:{initialChips:g.initialChips,baseChips:g.baseChips,started:g.started,ended:g.ended,stats:g.stats,streak:g.streak,fixed:g.fixedIds.length>0},

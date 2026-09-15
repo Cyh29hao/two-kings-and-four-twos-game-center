@@ -146,7 +146,7 @@ test('choose before awards, immutable selection, exact payment, redacted public 
 test('timeout selects highest without looking at awards; ledger survives draws and refunds aborted round only',()=>{
  const a=fixture([0,1,2,9,10,11,18,19,20,27,27,32,32,4]);moveModern(a,0,{action:'hu'});const b=structuredClone(a);b.wall.reverse();const best=winPlans(a.choice!)[0].id;
  timeoutModern(a,a.deadline);timeoutModern(b,b.deadline);assert.equal(a.result!.plan!.id,best);assert.equal(b.result!.plan!.id,best);assert(a.result!.automatic);
- const k=fixture([0,0,0,0,9,10,11,18,19,20,27,27,28,28]);const tail=k.wall.at(-1);const op=modernOptions(k,0).kongs.find(o=>o.kind==='concealed')!;moveModern(k,0,{action:'kong',key:op.key});assert.equal(k.drawn,tail);assert.deepEqual(k.deltas,['60','-20','-20','-20']);
+ const k=fixture([0,0,0,0,9,10,11,18,19,20,27,27,28,28]);const tail=k.wall.at(-1);const op=modernOptions(k,0).kongs.find(o=>o.kind==='concealed')!;moveModern(k,0,{action:'kong',key:op.key});assert.equal(k.drawn,tail);assert.deepEqual(k.deltas,['60','-20','-20','-20']);assert.equal(k.visualEvents?.at(-1)?.detail,'concealed');
  const aborted=structuredClone(k);closeModern(aborted,true);assert.deepEqual(aborted.seats.map(s=>s.balance),['1000','1000','1000','1000']);assert.equal(aborted.result!.winType,'aborted');assert.equal(aborted.entries.at(-1)!.kind,'refund');assert(!aborted.result!.awards.length);
  k.wall=k.wall.slice(0,12);assert(!modernOptions(k,0).kongs.length);moveModern(k,0,{action:'discard',tile:k.drawn!});if(k.pending)timeoutModern(k,k.deadline);while(k.phase==='playing')timeoutModern(k,k.deadline);assert.equal(k.winType,'draw');assert.deepEqual(k.deltas,['60','-20','-20','-20']);
  const balances=k.seats.map(s=>s.balance);dealModern(k);closeModern(k,true);assert.deepEqual(k.seats.map(s=>s.balance),balances);
@@ -183,7 +183,7 @@ function arranged(hands:number[][],meldTypes:{seat:number;type:number}[]=[]){
 test('exposed kong pays all three, takes wall tail and starts an 8-second response only when needed',()=>{
  const g=arranged([[0],[0,0,0,9,10,11,18,19,20,27,27,28,28]]),tile=g.seats[0].hand[0],now=1000;
  moveModern(g,0,{action:'discard',tile},now);assert(g.pending);assert.equal(g.deadline,9000);const o=modernOptions(g,1).claims.find(c=>c.kind==='kong')!;assert(o);const tail=g.wall.at(-1);
- moveModern(g,1,{action:'claim',key:o.key},2000);assert.equal(g.pending,null);assert.deepEqual(g.deltas,['-10','30','-10','-10']);assert.equal(g.drawn,tail);assert.equal(g.turn,1);
+ moveModern(g,1,{action:'claim',key:o.key},2000);assert.equal(g.pending,null);assert.deepEqual(g.deltas,['-10','30','-10','-10']);assert.equal(g.drawn,tail);assert.equal(g.turn,1);assert.equal(g.visualEvents?.at(-1)?.type,'kong');assert.equal(g.visualEvents?.at(-1)?.detail,'exposed');
  const no=arranged([[32],[0,0,1,1,2,2,9,9,10,10,18,18,19],[3,3,4,4,5,5,11,11,12,12,20,20,21],[6,6,7,7,8,8,13,13,14,14,22,22,23]]);
  // Each opponent is one off seven pairs: a 发 wildcard can hu, so use an ordinary unused honor instead.
  const honor=no.wall.find(t=>Math.floor(t/4)===31)!;const replaced=no.seats[0].hand[0];no.seats[0].hand[0]=honor;no.wall[no.wall.indexOf(honor)]=replaced;
@@ -191,16 +191,16 @@ test('exposed kong pays all three, takes wall tail and starts an 8-second respon
 });
 test('added kong can be robbed with no attempted-kong charge, or completes after pass',()=>{
  const setup=()=>arranged([[4],[0,1,2,9,10,11,18,19,20,27,27,3,5]],[{seat:0,type:4}]);
- const g=setup(),op=modernOptions(g,0).kongs.find(k=>k.kind==='added')!;assert(op);moveModern(g,0,{action:'kong',key:op.key});assert.equal(g.entries.length,0);assert(g.pending);const h=modernOptions(g,1).claims.find(c=>c.kind==='hu')!;assert(h);
- moveModern(g,1,{action:'claim',key:h.key});if(g.pending)timeoutModern(g,g.deadline);assert.equal(g.phase,'choosing');assert.equal(g.winType,'rob');assert.equal(g.entries.length,0);assert.equal(g.seats[0].melds[0].kind,'pong');
+ const g=setup(),op=modernOptions(g,0).kongs.find(k=>k.kind==='added')!;assert(op);moveModern(g,0,{action:'kong',key:op.key});assert.equal(g.entries.length,0);assert.equal(g.visualEvents?.length,0);assert(g.pending);const h=modernOptions(g,1).claims.find(c=>c.kind==='hu')!;assert(h);
+ moveModern(g,1,{action:'claim',key:h.key});if(g.pending)timeoutModern(g,g.deadline);assert.equal(g.phase,'choosing');assert.equal(g.winType,'rob');assert.equal(g.entries.length,0);assert.equal(g.seats[0].melds[0].kind,'pong');assert.deepEqual(g.visualEvents?.map(e=>[e.type,e.detail]),[['hu','rob']]);
  timeoutModern(g,g.deadline);assert.equal(g.entries.length,1);assert.equal(g.entries[0].kind,'win');assert.equal(g.deltas[2],'0');assert.equal(g.deltas[3],'0');assert.equal(BigInt(g.deltas[0]),-BigInt(g.deltas[1]));assert(ids(g.result!.plan!).includes('rob'));
- const complete=setup();moveModern(complete,0,{action:'kong',key:modernOptions(complete,0).kongs.find(k=>k.kind==='added')!.key});const tail=complete.wall.at(-1);timeoutModern(complete,complete.deadline);assert.equal(complete.seats[0].melds[0].kind,'kong');assert.deepEqual(complete.deltas,['30','-10','-10','-10']);assert.equal(complete.drawn,tail);assert(!complete.opening);assert(complete.flower);
+ const complete=setup();moveModern(complete,0,{action:'kong',key:modernOptions(complete,0).kongs.find(k=>k.kind==='added')!.key});const tail=complete.wall.at(-1);timeoutModern(complete,complete.deadline);assert.equal(complete.seats[0].melds[0].kind,'kong');assert.deepEqual(complete.deltas,['30','-10','-10','-10']);assert.equal(complete.drawn,tail);assert(!complete.opening);assert(complete.flower);assert.deepEqual(complete.visualEvents?.map(e=>[e.type,e.detail]),[['kong','added']]);
 });
 test('nearest hu wins regardless of reply order, and lower-priority responses do not delay it',()=>{
  const wait=[0,1,2,9,10,11,18,19,20,27,27,2,4],g=arranged([[3],wait,wait]);const incoming=g.seats[0].hand[0];moveModern(g,0,{action:'discard',tile:incoming});
  const second=modernOptions(g,2).claims.find(c=>c.kind==='hu')!,first=modernOptions(g,1).claims.find(c=>c.kind==='hu')!;assert(second&&first);
- moveModern(g,2,{action:'claim',key:second.key});assert.equal(g.phase,'playing');assert(g.pending);
- moveModern(g,1,{action:'claim',key:first.key});assert.equal(g.phase,'choosing');assert.equal(g.winner,1);
+ moveModern(g,2,{action:'claim',key:second.key});assert.equal(g.phase,'playing');assert(g.pending);assert(!g.visualEvents?.some(e=>e.type==='hu'));
+ moveModern(g,1,{action:'claim',key:first.key});assert.equal(g.phase,'choosing');assert.equal(g.winner,1);assert.equal(g.visualEvents?.filter(e=>e.type==='hu').length,1);
 });
 test('white conversion governs ordinary calls; physical wildcard is never a pong/kong substitute',()=>{
  const g=arranged([[33],[33,33,9,10,11,18,19,20,27,27,28,28]]);g.wildcard=4;moveModern(g,0,{action:'discard',tile:g.seats[0].hand[0]});assert(modernOptions(g,1).claims.some(o=>o.kind==='pong'));

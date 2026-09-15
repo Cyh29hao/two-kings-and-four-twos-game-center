@@ -36,7 +36,7 @@ test('only next seat can chi; response priority cannot be won by network speed',
  assert(p.claims.some(o=>o.kind==='chi'));assert(!mahjongOptions(g,3).claims.some(o=>o.kind==='chi'));
  assert(winner.claims.some(o=>o.kind==='hu'));moveMahjong(g,1,{action:'claim',key:p.claims.find(o=>o.kind==='pong')!.key},2);assert.equal(g.phase,'playing');
  assert.throws(()=>moveMahjong(g,1,{action:'pass'},2));moveMahjong(g,2,{action:'claim',key:'hu:'},3);passOthers(g);
- assert.equal(g.phase,'finished');assert.equal(g.winner,2);assert.deepEqual(g.deltas,[-1,0,1,0]);assert(!g.seats[0].river.includes(card));conserved(g);
+ assert.equal(g.phase,'finished');assert.equal(g.winner,2);assert.deepEqual(g.visualEvents!.map(e=>e.type),['discard','hu']);assert.deepEqual(g.deltas,[-1,0,1,0]);assert(!g.seats[0].river.includes(card));conserved(g);
 });
 test('honors cannot chi and invalid tile / out-of-turn moves are rejected',()=>{
  const g=fixture([[28],[27,29],[],[]]);const card=g.seats[0].hand.find(t=>tileType(t)===28)!;
@@ -46,15 +46,15 @@ test('honors cannot chi and invalid tile / out-of-turn moves are rejected',()=>{
 test('concealed kong hides face from other players and takes replacement from tail',()=>{
  const g=fixture([[4,4,4,4],[],[],[]]),tail=g.wall.at(-1)!;
  const k=mahjongOptions(g,0).kongs.find(o=>o.kind==='concealed'&&tileType(o.tiles[0])===4)!;assert(k);
- moveMahjong(g,0,{action:'kong',key:k.key},1);assert.equal(g.drawn,tail);assert.equal(g.seats[0].hand.length,11);
+ moveMahjong(g,0,{action:'kong',key:k.key},1);assert.equal(g.drawn,tail);assert.equal(g.seats[0].hand.length,11);assert.deepEqual(g.visualEvents!.map(e=>[e.type,e.detail]),[['kong','concealed']]);assert.deepEqual(Object.keys(mahjongView(g,'p1').visualEvents[0]).sort(),['at','detail','id','round','seat','type']);
  assert.equal(mahjongView(g,'p1').seats[0].melds[0].tiles.length,0);assert.equal(mahjongView(g,'p0').seats[0].melds[0].tiles.length,4);conserved(g);
 });
 test('added kong can be robbed; declined rob completes kong atomically',()=>{
  const make=()=>fixture([[4],[0,1,2,9,10,11,18,19,20,27,27,3,5],[],[]],[{seat:0,types:[4,4,4],kind:'pong'}]);
  const g=make(),key=mahjongOptions(g,0).kongs.find(o=>o.kind==='added')!.key;
- moveMahjong(g,0,{action:'kong',key},1);assert.equal(g.pending?.kind,'added');assert(mahjongOptions(g,1).claims.some(o=>o.kind==='hu'));
- moveMahjong(g,1,{action:'claim',key:'hu:'},2);passOthers(g);assert.equal(g.winType,'rob');assert.equal(g.seats[0].melds[0].kind,'pong');assert.deepEqual(g.deltas,[-1,1,0,0]);conserved(g);
- const h=make(),tail=h.wall.at(-1)!;moveMahjong(h,0,{action:'kong',key:mahjongOptions(h,0).kongs.find(o=>o.kind==='added')!.key},1);passOthers(h);assert.equal(h.seats[0].melds[0].kind,'kong');assert.equal(h.drawn,tail);conserved(h);
+ moveMahjong(g,0,{action:'kong',key},1);assert.equal(g.pending?.kind,'added');assert.equal((g.visualEvents??[]).length,0);assert(mahjongOptions(g,1).claims.some(o=>o.kind==='hu'));
+ moveMahjong(g,1,{action:'claim',key:'hu:'},2);passOthers(g);assert.equal(g.winType,'rob');assert.deepEqual(g.visualEvents!.map(e=>[e.type,e.detail]),[['hu','rob']]);assert.equal(g.seats[0].melds[0].kind,'pong');assert.deepEqual(g.deltas,[-1,1,0,0]);conserved(g);
+ const h=make(),tail=h.wall.at(-1)!;moveMahjong(h,0,{action:'kong',key:mahjongOptions(h,0).kongs.find(o=>o.kind==='added')!.key},1);passOthers(h);assert.equal(h.seats[0].melds[0].kind,'kong');assert.equal(h.drawn,tail);assert.deepEqual(h.visualEvents!.map(e=>[e.type,e.detail]),[['kong','added']]);conserved(h);
 });
 test('self draw is zero sum and all future actions stop after settlement',()=>{
  const g=fixture([[0,1,2,9,10,11,18,19,20,27,27,27,31,31],[],[],[]]);assert(mahjongOptions(g,0).canHu);
@@ -73,4 +73,8 @@ test('200 complete games conserve all tiles, hide hands, and always terminate',(
   conserved(g);assert.equal(g.phase,'finished');assert(['self','discard','rob','draw'].includes(g.winType!));
  }
  assert(claims>100);assert(kongs>0);console.log({randomGames:200,claims,kongs,selfDraws:wins});
+});
+
+test('successful chi, pong and exposed kong produce one public seat event after arbitration',()=>{
+ for(const kind of ['chi','pong','kong'] as const){const g=fixture([[4],kind==='chi'?[3,5]:kind==='pong'?[4,4]:[4,4,4],[],[]]),tile=g.seats[0].hand.find(t=>tileType(t)===4)!;moveMahjong(g,0,{action:'discard',tile},1);const choice=mahjongOptions(g,1).claims.find(o=>o.kind===kind)!;assert(choice);moveMahjong(g,1,{action:'claim',key:choice.key},2);passOthers(g);assert.deepEqual(g.visualEvents!.map(e=>e.type),['discard',kind]);assert.equal(g.visualEvents!.at(-1)!.seat,1);assert.equal(g.visualEvents!.at(-1)!.detail,kind==='kong'?'exposed':undefined);conserved(g);}
 });

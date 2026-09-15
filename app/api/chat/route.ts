@@ -1,6 +1,6 @@
 import {AppError,body,db,json,limit,requireUser,safe} from '@/lib/server';
 import {getRoom} from '@/lib/rooms';
-import {getEmote,emoteText,EMOTE_COOLDOWN_MS} from '@/lib/emotes';
+import {getEmote,canSendEmote,emoteText,EMOTE_COOLDOWN_MS} from '@/lib/emotes';
 import {sameMessage,CHAT_LIMIT} from '@/lib/chat-messages';
 export const dynamic='force-dynamic';
 async function member(code:unknown,id:string){
@@ -32,6 +32,7 @@ export async function POST(req:Request){return safe(async()=>{
  const find=()=>db().prepare('SELECT id,text,kind,emote_id AS emoteId,created FROM room_messages WHERE room_code=? AND author_id=? AND client_id=?').bind(room.code,user.id,b.clientId).first<{id:number;text:string;kind:string;emoteId:string|null;created:number}>();
  const existing=await find();
  if(existing){if(!sameMessage(existing,expected))throw new AppError('这条消息已发送，请勿重复修改',409);return json({sent:true,id:existing.id,created:existing.created});}
+ if(kind==='emote'&&!canSendEmote(b.emoteId))throw new AppError('这款表情已退出发送面板，历史消息仍可查看');
  if(room.phase==='closed')throw new AppError('牌桌已结束，聊天记录只读');
  const now=Date.now();
  if(kind==='emote'){
