@@ -16,6 +16,15 @@ test('v3 stores coins as decimal strings, shop limits ownership, sells correctly
  bidding(g);while(g.phase==='bidding')bidV3(g,g.turn,false,1300);assert.equal(g.phase,'playing');g.phase='finished';g.seats.forEach(player=>player.ready=false);for(let seat=0;seat<3;seat++)readyV3(g,seat,1400);assert.equal(g.phase,'shopping');assert(g.equipment[0].length>0);assert.notEqual(g.shops[0].offers[0].offerId,offers[0].offerId);
 });
 
+test('v3 rotates the dealer clockwise for every new round, including sudden death',()=>{
+ const g=game();g.phase='finished';g.roundNumber=1;g.dealer=0;
+ for(let seat=0;seat<3;seat++)readyV3(g,seat,1400+seat);assert.equal(g.phase,'shopping');assert.equal(g.dealer,1);assert.equal(g.turn,1);
+ g.phase='finished';g.seats.forEach(player=>player.ready=false);
+ for(let seat=0;seat<3;seat++)readyV3(g,seat,1500+seat);assert.equal(g.phase,'shopping');assert.equal(g.dealer,2);assert.equal(g.turn,2);
+ g.phase='finished';g.roundNumber=12;g.dealer=2;g.seats.forEach(player=>player.ready=false);
+ for(let seat=0;seat<3;seat++)readyV3(g,seat,1600+seat);assert.equal(g.phase,'playing');assert.equal(g.suddenDeath,true);assert.equal(g.dealer,0);assert.equal(g.turn,0);
+});
+
 test('v3 escrow refunds a replaced bidder and no-call handling selects the richest clockwise from dealer or the dealer at zero',()=>{
  const g=game();begin(g);bidding(g);g.dealer=0;g.turn=0;g.coins=['3','3','0'];bidV3(g,0,true,1200);assert.equal(g.coins[0],'2');bidV3(g,1,true,1201);assert.equal(g.coins[0],'3');assert.equal(g.coins[1],'1');bidV3(g,2,false,1202);bidV3(g,0,false,1203);assert.equal(g.phase,'playing');assert.equal(g.landlord,1);assert.equal(g.stake,'2');
  const allPass=game();begin(allPass);bidding(allPass);allPass.dealer=1;allPass.turn=1;allPass.coins=['5','5','1'];for(let n=0;n<3;n++)bidV3(allPass,allPass.turn,false,1300+n);assert.equal(allPass.landlord,1);assert.equal(allPass.stake,'1');assert.equal(allPass.coins[1],'4');

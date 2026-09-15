@@ -30,7 +30,7 @@ export function newLandlordV3(host:string,name:string,seconds=30):V3Game{return{
 function refreshShops(g:V3Game){g.shops=g.seats.map((_,seat)=>({offers:g.rules.equipmentCatalog.flatMap(item=>Array.from({length:3},(_,slot)=>({offerId:`${g.round}:${seat}:${item.level}:${slot}`,id:item.id,level:item.level,price:item.price,bought:false})))}));}
 function startRound(g:V3Game,now:number){
  if(g.seats.length!==3)throw Error('需要三人入座');
- g.roundNumber++;g.suddenDeath=g.roundNumber===13;g.dealer=g.dealer<0?random(3):next(g.dealer);g.round=crypto.randomUUID();g.winner=-1;g.landlord=-1;g.bid='0';g.stake='0';g.initialPasses=0;g.bidPasses=0;g.passes=0;g.last=null;g.firstFinisher=-1;g.tableActions=[null,null,null];g.deltas=[0,0,0];g.visualEvents=[];g.log=[];
+ const firstRound=g.roundNumber===0;g.roundNumber++;g.suddenDeath=g.roundNumber===13;g.dealer=firstRound?random(3):next(g.dealer);g.round=crypto.randomUUID();g.winner=-1;g.landlord=-1;g.bid='0';g.stake='0';g.initialPasses=0;g.bidPasses=0;g.passes=0;g.last=null;g.firstFinisher=-1;g.tableActions=[null,null,null];g.deltas=[0,0,0];g.visualEvents=[];g.log=[];
  const deck=shuffledDeck(),cardsEach=g.suddenDeath?18:17;
  g.seats.forEach((seat,index)=>{seat.hand=sorted(deck.slice(index*cardsEach,index*cardsEach+cardsEach));seat.plays=0;seat.last='';seat.ready=false;});
  g.bottom=g.suddenDeath?[]:deck.slice(51);g.turn=g.dealer;g.deadline=now+g.seconds*1000;
