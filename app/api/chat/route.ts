@@ -1,5 +1,7 @@
 import {AppError,body,db,json,limit,requireUser,safe} from '@/lib/server';
 import {getRoom} from '@/lib/rooms';
+import {getEmote,emoteText,EMOTE_COOLDOWN_MS} from '@/lib/emotes';
+import {sameMessage,CHAT_LIMIT} from '@/lib/chat-messages';
 export const dynamic='force-dynamic';
 async function member(code:unknown,id:string){
  if(typeof code!=='string'||!/^\d{6}$/.test(code))throw new AppError('房间号无效');
@@ -7,26 +9,43 @@ async function member(code:unknown,id:string){
  if(!game.seats.some((s:{id:string;bot?:boolean})=>s.id===id&&!s.bot))throw new AppError('只有同桌玩家可以查看聊天',403);
  return room;
 }
+const columns='id,author_id AS senderId,display AS name,text,kind,emote_id AS emoteId,created,author_id=? AS own';
 export async function GET(req:Request){return safe(async()=>{
- const user=await requireUser(req),room=await member(new URL(req.url).searchParams.get('room'),user.id);
- const rows=await db().prepare('SELECT id,author_id AS senderId,display AS name,text,created,author_id=? AS own FROM room_messages WHERE room_code=? ORDER BY id DESC LIMIT 80').bind(user.id,room.code).all();
- return json({messages:rows.results.reverse(),serverNow:Date.now(),closed:room.phase==='closed'});
+ const user=await requireUser(req),params=new URL(req.url).searchParams,room=await member(params.get('room'),user.id),after=params.get('after');
+ if(after!==null&&(!/^\d+$/.test(after)||!Number.isSafeInteger(Number(after))))throw new AppError('消息游标无效');
+ const rows=after===null
+  ?await db().prepare(`SELECT ${columns} FROM room_messages WHERE room_code=? ORDER BY id DESC LIMIT ?`).bind(user.id,room.code,CHAT_LIMIT).all<{id:number}>()
+  :await db().prepare(`SELECT ${columns} FROM room_messages WHERE room_code=? AND id>? ORDER BY id LIMIT ?`).bind(user.id,room.code,Number(after),CHAT_LIMIT+1).all<{id:number}>();
+ const messages=after===null?rows.results.reverse():rows.results.slice(0,CHAT_LIMIT),hasMore=after!==null&&rows.results.length>CHAT_LIMIT;
+ const latest=await db().prepare("SELECT created FROM room_messages WHERE author_id=? AND kind='emote' ORDER BY created DESC LIMIT 1").bind(user.id).first<{created:number}>();
+ return json({messages,cursor:messages.at(-1)?.id??Number(after??0),hasMore,serverNow:Date.now(),emoteReadyAt:(latest?.created??0)+EMOTE_COOLDOWN_MS,closed:room.phase==='closed'});
 });}
 export async function POST(req:Request){return safe(async()=>{
  const user=await requireUser(req),b=await body(req),room=await member(b.code,user.id);
- if(room.phase==='closed')throw new AppError('牌桌已结束，聊天记录只读');
- const text=typeof b.text==='string'?b.text.trim():'';
+ const kind=b.kind??'text';if(kind!=='text'&&kind!=='emote')throw new AppError('消息类型无效');
+ if(kind==='emote'&&(!getEmote(b.emoteId)?.enabled||b.text!==undefined))throw new AppError('这个表情暂不可用');
+ if(kind==='text'&&b.emoteId!==undefined)throw new AppError('消息格式无效');
+ const text=kind==='emote'?emoteText(b.emoteId):typeof b.text==='string'?b.text.trim():'';
  if(!text||text.length>500||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text))throw new AppError('请输入 1–500 个字的聊天内容');
  if(typeof b.clientId!=='string'||!/^[-a-f0-9]{36}$/.test(b.clientId))throw new AppError('消息标识无效');
- const existing=await db().prepare('SELECT id,text FROM room_messages WHERE room_code=? AND author_id=? AND client_id=?').bind(room.code,user.id,b.clientId).first<{id:number;text:string}>();
- if(existing){if(existing.text!==text)throw new AppError('这条消息已发送，请勿重复修改',409);return json({sent:true,id:existing.id});}
+ const expected={kind,emoteId:kind==='emote'?b.emoteId:null,text};
+ const find=()=>db().prepare('SELECT id,text,kind,emote_id AS emoteId,created FROM room_messages WHERE room_code=? AND author_id=? AND client_id=?').bind(room.code,user.id,b.clientId).first<{id:number;text:string;kind:string;emoteId:string|null;created:number}>();
+ const existing=await find();
+ if(existing){if(!sameMessage(existing,expected))throw new AppError('这条消息已发送，请勿重复修改',409);return json({sent:true,id:existing.id,created:existing.created});}
+ if(room.phase==='closed')throw new AppError('牌桌已结束，聊天记录只读');
+ const now=Date.now();
+ if(kind==='emote'){
+  const recent=await db().prepare("SELECT created FROM room_messages WHERE author_id=? AND kind='emote' AND created>? ORDER BY created DESC LIMIT 1").bind(user.id,now-EMOTE_COOLDOWN_MS).first<{created:number}>();
+  if(recent){const retried=await find();if(retried){if(!sameMessage(retried,expected))throw new AppError('这条消息已发送，请勿重复修改',409);return json({sent:true,id:retried.id,created:retried.created});}return json({error:'慢一点，3 秒可以发一次表情',retryAfterMs:recent.created+EMOTE_COOLDOWN_MS-now},429);}
+ }
  await limit('chat:'+user.id,20,1);
- // This write has its own idempotency key; it never changes the game revision or robot deadline.
- await db().prepare(`INSERT INTO room_messages (room_code,author_id,client_id,display,text,created)
- SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM rooms r,json_each(r.state,'$.seats') s WHERE r.code=? AND r.phase!='closed' AND json_extract(s.value,'$.id')=?)
- ON CONFLICT(room_code,author_id,client_id) DO NOTHING`).bind(room.code,user.id,b.clientId,user.display,text,Date.now(),room.code,user.id).run();
- const sent=await db().prepare('SELECT id,text FROM room_messages WHERE room_code=? AND author_id=? AND client_id=?').bind(room.code,user.id,b.clientId).first<{id:number;text:string}>();
- if(!sent)throw new AppError('你已离开房间，或牌桌已结束',409);
- if(sent.text!==text)throw new AppError('这条消息已发送，请勿重复修改',409);
- return json({sent:true,id:sent.id});
+ // Cooldown and insertion are one SQLite write. Chat never changes game state or timers.
+ await db().prepare(`INSERT INTO room_messages (room_code,author_id,client_id,display,text,kind,emote_id,created)
+ SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM rooms r,json_each(r.state,'$.seats') s WHERE r.code=? AND r.phase!='closed' AND json_extract(s.value,'$.id')=? AND COALESCE(json_extract(s.value,'$.bot'),0)=0)
+ AND (?!='emote' OR NOT EXISTS(SELECT 1 FROM room_messages WHERE author_id=? AND kind='emote' AND created>?))
+ ON CONFLICT(room_code,author_id,client_id) DO NOTHING`).bind(room.code,user.id,b.clientId,user.display,text,kind,expected.emoteId,now,room.code,user.id,kind,user.id,now-EMOTE_COOLDOWN_MS).run();
+ const sent=await find();
+ if(!sent){await member(room.code,user.id);const current=await getRoom(room.code);if(current.phase==='closed')throw new AppError('牌桌已结束，聊天记录只读',409);if(kind==='emote')return json({error:'慢一点，3 秒可以发一次表情',retryAfterMs:EMOTE_COOLDOWN_MS},429);throw new AppError('你已离开房间，或牌桌已结束',409);}
+ if(!sameMessage(sent,expected))throw new AppError('这条消息已发送，请勿重复修改',409);
+ return json({sent:true,id:sent.id,created:sent.created});
 });}

@@ -1,0 +1,330 @@
+{
+  "generator": "built-in image_gen / GPT Image 2",
+  "reference_page": "https://supercell.com/en/games/clashroyale/blog/news/season-7-global-tournament-2/",
+  "reference_image": "https://clashroyale.inbox.supercell.com/9jtsgmsiuthj/Ood8UqG8F7x_-6a4fgeQcB6_LW_XvW0T2TLhqRm2LD4/9f6baa916763849d7149cb8b43500c48/Capture-2.PNG",
+  "reference_local_path": "/tmp/yule-emote-royale-v1/official-emote-picker.png",
+  "reference_usage": "Official screenshot inspected, used for generated reference-faithful artwork; screenshot is for reference only, not a site-serving asset.",
+  "generated_assets_are": "New AI-generated reinterpretations of recognizable Clash Royale characters, not the official downloadable assets.",
+  "failures": [],
+  "assets": [
+    {
+      "emotion_id": "hello",
+      "id": "cr-king-hello",
+      "path": "/tmp/yule-emote-royale-v1/cr-king-hello.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 676177,
+      "fully_transparent_fraction": 0.43,
+      "alpha_at_least_240_pixels": 873672,
+      "alpha_bbox": [
+        0,
+        19,
+        1230,
+        1179
+      ],
+      "file_bytes": 1009421,
+      "sha256": "35a40927235d586b5c478f49caf29bb38c0f0c4854ff47f93e2d1c500b03044f",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "laugh",
+      "id": "cr-king-laugh",
+      "path": "/tmp/yule-emote-royale-v1/cr-king-laugh.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 871143,
+      "fully_transparent_fraction": 0.554,
+      "alpha_at_least_240_pixels": 685836,
+      "alpha_bbox": [
+        57,
+        50,
+        1064,
+        1182
+      ],
+      "file_bytes": 755162,
+      "sha256": "31ff66ed7ff5671fe7f757eba26c546f898da1f322e7b91242516821f1cd1c89",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "smug",
+      "id": "cr-goblin-smug",
+      "path": "/tmp/yule-emote-royale-v1/cr-goblin-smug.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 812615,
+      "fully_transparent_fraction": 0.5168,
+      "alpha_at_least_240_pixels": 745732,
+      "alpha_bbox": [
+        0,
+        0,
+        1228,
+        1232
+      ],
+      "file_bytes": 915590,
+      "sha256": "20e7578588326f7ba06af87f882193780e727b494ee7387902fdf02dbe3361bf",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "cry",
+      "id": "cr-king-cry",
+      "path": "/tmp/yule-emote-royale-v1/cr-king-cry.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 873096,
+      "fully_transparent_fraction": 0.5552,
+      "alpha_at_least_240_pixels": 684651,
+      "alpha_bbox": [
+        61,
+        39,
+        1184,
+        1184
+      ],
+      "file_bytes": 790110,
+      "sha256": "023f40d28dedb4152e50c2a11fcd5a22572fa50d9362fa405e53217bacb1c5ad",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "angry",
+      "id": "cr-king-angry",
+      "path": "/tmp/yule-emote-royale-v1/cr-king-angry.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 753157,
+      "fully_transparent_fraction": 0.479,
+      "alpha_at_least_240_pixels": 801573,
+      "alpha_bbox": [
+        114,
+        33,
+        1192,
+        1254
+      ],
+      "file_bytes": 883157,
+      "sha256": "f5f0797d8dea64a62f37c47c2db585d240fc252e60e9b00b39026124fdc0d7e8",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "shocked",
+      "id": "cr-goblin-shocked",
+      "path": "/tmp/yule-emote-royale-v1/cr-goblin-shocked.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 777981,
+      "fully_transparent_fraction": 0.4947,
+      "alpha_at_least_240_pixels": 779393,
+      "alpha_bbox": [
+        0,
+        21,
+        1240,
+        1190
+      ],
+      "file_bytes": 989343,
+      "sha256": "0e4f581ca1a222550aa1d82de7764e4fb5c06df700ff2641443129fcf69559fc",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "think",
+      "id": "cr-goblin-think",
+      "path": "/tmp/yule-emote-royale-v1/cr-goblin-think.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 787749,
+      "fully_transparent_fraction": 0.5009,
+      "alpha_at_least_240_pixels": 769670,
+      "alpha_bbox": [
+        0,
+        0,
+        1230,
+        1222
+      ],
+      "file_bytes": 960224,
+      "sha256": "4c9a8bf46d79f233c5c018e2cea389e019849595ec7960482f85723916052ed3",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "like",
+      "id": "cr-king-like",
+      "path": "/tmp/yule-emote-royale-v1/cr-king-like.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 627286,
+      "fully_transparent_fraction": 0.3989,
+      "alpha_at_least_240_pixels": 927651,
+      "alpha_bbox": [
+        48,
+        34,
+        1242,
+        1194
+      ],
+      "file_bytes": 1011156,
+      "sha256": "f734ba5fc0cbed9f649e1f6863f4a9743493e291e8f3b671d90bbc7582c8269e",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "clap",
+      "id": "cr-goblin-clap",
+      "path": "/tmp/yule-emote-royale-v1/cr-goblin-clap.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 705811,
+      "fully_transparent_fraction": 0.4488,
+      "alpha_at_least_240_pixels": 850230,
+      "alpha_bbox": [
+        0,
+        46,
+        1222,
+        1228
+      ],
+      "file_bytes": 1121278,
+      "sha256": "b28c6de9d1a4ce23527f4380dfdda1ac223c42a076ad5e05ba76e5a85227d319",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "salute",
+      "id": "cr-king-salute",
+      "path": "/tmp/yule-emote-royale-v1/cr-king-salute.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 783370,
+      "fully_transparent_fraction": 0.4982,
+      "alpha_at_least_240_pixels": 773586,
+      "alpha_bbox": [
+        97,
+        23,
+        1198,
+        1230
+      ],
+      "file_bytes": 902730,
+      "sha256": "84858e6042e8adacb6c4075d1e9d0b65d77f3de80b567fc197a7c0a35dea19f1",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "celebrate",
+      "id": "cr-king-celebrate",
+      "path": "/tmp/yule-emote-royale-v1/cr-king-celebrate.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 720296,
+      "fully_transparent_fraction": 0.4581,
+      "alpha_at_least_240_pixels": 832868,
+      "alpha_bbox": [
+        15,
+        14,
+        1212,
+        1214
+      ],
+      "file_bytes": 1027288,
+      "sha256": "8affe0a9d0f6a95794ab1a80f3db06a7fb2d3672119aa4d48421b787b7ed78e5",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    },
+    {
+      "emotion_id": "sigh",
+      "id": "cr-goblin-sigh",
+      "path": "/tmp/yule-emote-royale-v1/cr-goblin-sigh.png",
+      "dimensions": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "alpha_extrema": [
+        0,
+        255
+      ],
+      "fully_transparent_pixels": 721003,
+      "fully_transparent_fraction": 0.4585,
+      "alpha_at_least_240_pixels": 829015,
+      "alpha_bbox": [
+        0,
+        7,
+        1244,
+        1223
+      ],
+      "file_bytes": 1069418,
+      "sha256": "98bf3ad3c74507b251248ecfff02b694b8e89d87414eb68272f787df62d48df6",
+      "visual_inspection": "Passed; requested expression readable, recognizable classic CR King or Goblin, no UI/text/tile."
+    }
+  ],
+  "notes": [
+    "All raw generated outputs copied without alteration.",
+    "All 12 outputs visually inspected individually. Same King and Goblin identity preserved across expressions.",
+    "Generator does not strictly honor 10 percent transparent margin; use contain with a padded artwork wrapper. Low-alpha fringe pixels exist around some edges.",
+    "Official screenshot is reference-only and should not be served as an original created asset."
+  ],
+  "generated_asset_count": 12
+}

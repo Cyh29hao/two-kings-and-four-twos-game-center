@@ -3,6 +3,7 @@
 @import "./tables.css";
 @import "./sound.css";
 @import "./chat.css";
+@import "./emotes.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";

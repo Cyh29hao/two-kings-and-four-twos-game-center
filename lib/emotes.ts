@@ -1,0 +1,14 @@
+/** Stable ids are persisted in chat; never reuse an id for a different expression. */
+export type Emote = {id:string;name:string;src:string;motion:string;enabled:boolean;audio?:string};
+export const EMOTE_MS = 6000;
+export const EMOTE_COOLDOWN_MS = 3000;
+export const EMOTES:readonly Emote[] = [
+ ['hello','打招呼','wave'],['laugh','大笑','laugh'],['smug','得意','smug'],
+ ['cry','大哭','cry'],['angry','生气','shake'],['shocked','震惊','pop'],
+ ['think','思考','tilt'],['like','点赞','bounce'],['clap','鼓掌','clap'],
+ ['salute','抱拳','bow'],['celebrate','庆祝','celebrate'],['sigh','无奈','sigh'],
+].map(([id,name,motion])=>({id,name,motion,src:`/emotes/royale-v1/${id}.webp`,enabled:true}));
+export function getEmote(id:unknown):Emote|undefined{return typeof id==='string'?EMOTES.find(e=>e.id===id):undefined;}
+export function emoteText(id:unknown){return `[表情：${getEmote(id)?.name??'暂不可用'}]`;}
+export const EMOTE_SOUND_EVENT='yule:emote-sound';
+export type EmoteSoundEvent={code:string;emoteId:string;expires:number};

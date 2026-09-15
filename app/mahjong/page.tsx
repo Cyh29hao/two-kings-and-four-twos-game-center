@@ -44,7 +44,7 @@ export default function MahjongPage(){
  const [mode,setMode]=useClubState('mahjong:mode','friends');
  const [rulesId,setRulesId]=useClubState('mahjong:rulesId',HAM.id),[initial,setInitial]=useClubState('mahjong:initial','1000'),[base,setBase]=useClubState('mahjong:base','10');
  const [customRules,setCustomRules]=useClubState('mahjong:customRules',{allowChi:true,allowRobAddedKong:true,disabledWins:[] as string[]});
- const {bubbles,onSnapshot}=useChatBubbles(room?.code);
+ const {bubbles,onSnapshot}=useChatBubbles(room?.code,user?.id);
  const roomRef=useRef<Room|null>(null);roomRef.current=room;
  const accept=useCallback((next:Room)=>setRoom(prev=>!prev||prev.code!==next.code||next.revision>=prev.revision?{...next,receivedAt:Date.now()}:prev),[setRoom]);
  const fail=useCallback((e:Error&{status?:number})=>{setError(e.message);if(e.status===401){setUser(null);setRoom(null)}else if(e.status===403){setRoom(null);void loadLobby(true).catch(()=>{})}},[setUser,setRoom,loadLobby]);
@@ -91,7 +91,7 @@ export default function MahjongPage(){
  <section className="mj-side-card mj-log"><h3><History size={16}/>牌桌动态</h3>{g.log.length?<div>{g.log.slice(-15).reverse().map((l,i)=><p key={i}>{l.text}</p>)}</div>:<p>牌局开始后，公开动作会记录在这里。</p>}</section>
 
  </div></DialogContent></Dialog></div><div className="ham-room-footer"><span>{solo?'人机测试可随时结束，已完成的战报会保留。':g.session?.fixed?'本桌已固定四位牌友，掉线可重连。':'首局开始前可以自由入座、离座。'}</span>{solo&&g.phase!=='closed'?<Button variant="ghost" onClick={()=>setEndAction('end_practice')}><DoorOpen size={16}/>结束测试</Button>:g.session&&g.host===user.id&&['waiting','finished'].includes(g.phase)?<Button variant="ghost" onClick={()=>setEndAction('end_table')}><DoorOpen size={16}/>结束整桌</Button>:(!g.session||!g.session.fixed)&&g.phase!=='closed'?<Button variant="ghost" onClick={()=>setEndAction('leave')}><DoorOpen size={16}/>离开房间</Button>:null}</div></main>}
- {room&&<RoomChat key={room.code} code={room.code} onSnapshot={onSnapshot} closed={g?.phase==='closed'}/>}
+ {room&&<RoomChat key={room.code} userId={user.id} code={room.code} onSnapshot={onSnapshot} closed={g?.phase==='closed'}/>}
  <AlertDialog open={!!endAction} onOpenChange={v=>!v&&setEndAction(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{endAction==='end_practice'?'结束人机测试？':endAction==='end_table'?'结束这一桌？':'离开房间？'}</AlertDialogTitle><AlertDialogDescription>{endAction==='end_practice'?'未完成的本局记为中止，并撤销本局杠分。已完成的筹码收支和战报保留。':endAction==='end_table'?'结余筹码与每局收支将保存为整桌战报。结束后，四位玩家可以各自开新桌。':'离座后需要重新加入房间。对局进行中只能暂时返回大厅，座位会保留。'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={()=>endAction&&act(endAction)}>{endAction==='end_practice'?'结束测试':endAction==='end_table'?'结束并生成战报':'确认离开'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
  </div>;
 }

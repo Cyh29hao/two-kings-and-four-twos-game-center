@@ -16,6 +16,10 @@ export class TableAudio{
  private queue:{text:string;at:number}[]=[];
  private speechTimer:ReturnType<typeof setTimeout>|null=null;
  private selectAt=0;
+ private emote:HTMLAudioElement|null=null;
+ private emoteTimer:ReturnType<typeof setTimeout>|null=null;
+ private emotesEnabled=true;
+ private priorityUntil=0;
  private status:AudioStatus={unlocked:false,music:'未开启',voice:'设备普通话',lastSpeech:''};
  private notify:(status:AudioStatus)=>void;
  constructor(notify:(status:AudioStatus)=>void){
@@ -30,6 +34,14 @@ export class TableAudio{
  };
  private visibility=()=>{if(document.hidden)this.silence();else this.syncMusic();};
  configure(prefs:SoundPreferences,inRoom:boolean){const voiceWasOn=this.prefs.enabled&&this.prefs.voice;this.prefs=prefs;this.inRoom=inRoom;if(!prefs.enabled||!inRoom)this.silence();else if(voiceWasOn&&!prefs.voice)this.stopSpeech();this.syncMusic();}
+ configureEmotes(enabled:boolean){this.emotesEnabled=enabled;if(!enabled)this.stopEmote();}
+ playEmote(src:string|undefined,expires:number){
+  if(!src||!/^\/emotes\/[a-zA-Z0-9_./-]+\.(mp3|ogg|wav)$/.test(src)||src.includes('..')||!this.unlocked||!this.inRoom||!this.prefs.enabled||!this.emotesEnabled||document.hidden||this.disposed||expires<=Date.now()||this.speaking||this.queue.length||Date.now()<this.priorityUntil)return;
+  this.stopEmote();const audio=new Audio();this.emote=audio;audio.preload='none';audio.src=src;audio.volume=.55;
+  const done=()=>{if(this.emote===audio)this.stopEmote()};audio.onended=done;audio.onerror=done;
+  this.emoteTimer=setTimeout(done,Math.min(6000,expires-Date.now()));void audio.play().catch(done);
+ }
+ private stopEmote(){if(this.emoteTimer)clearTimeout(this.emoteTimer);this.emoteTimer=null;if(this.emote){const audio=this.emote;this.emote=null;audio.onended=null;audio.onerror=null;audio.pause();audio.removeAttribute('src');audio.load();}}
  async unlock(){if(this.disposed)return;this.unlocked=true;this.update({unlocked:true});this.findVoice();this.syncMusic();try{const Context=window.AudioContext||(window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext;if(Context&&!this.context)this.context=new Context();if(this.context?.state==='suspended')await this.context.resume();}catch{/* Speech and music remain usable without Web Audio. */}
  }
  private syncMusic(){
@@ -42,20 +54,21 @@ export class TableAudio{
   if(this.music.paused){this.update({music:'正在载入'});void this.music.play().catch(()=>this.update({music:'点击开启或重试音乐'}));}
  }
  play(cues:Cue[]){if(!this.unlocked||!this.inRoom||!this.prefs.enabled||document.hidden)return;
+  if(cues.length){this.stopEmote();this.priorityUntil=Date.now()+1000;}
   cues.forEach(c=>{this.effect(c.effect);if(c.speech&&this.prefs.voice)this.queue.push({text:c.speech,at:Date.now()});});this.queue=this.queue.slice(-4);this.speakNext();
  }
  preview(){if(!this.unlocked||!this.prefs.enabled)return;this.effect('card');if(this.prefs.voice){this.queue=[{text:'对三。顺子。四万。碰。',at:Date.now()}];this.speakNext();}}
  private speakNext(){if(this.speaking||!this.prefs.enabled||!this.prefs.voice||document.hidden||!('speechSynthesis' in window))return;this.queue=this.queue.filter(v=>Date.now()-v.at<6000);const next=this.queue.shift();if(!next)return;
-  this.speaking=true;this.findVoice();const u=new SpeechSynthesisUtterance(next.text);this.utterance=u;u.lang='zh-CN';if(this.voice)u.voice=this.voice;u.rate=1.14;u.pitch=1;u.volume=this.prefs.voiceVolume/100;this.update({lastSpeech:next.text});this.syncMusic();
+  this.stopEmote();this.speaking=true;this.findVoice();const u=new SpeechSynthesisUtterance(next.text);this.utterance=u;u.lang='zh-CN';if(this.voice)u.voice=this.voice;u.rate=1.14;u.pitch=1;u.volume=this.prefs.voiceVolume/100;this.update({lastSpeech:next.text});this.syncMusic();
   const done=()=>{if(this.utterance!==u)return;if(this.speechTimer)clearTimeout(this.speechTimer);this.speechTimer=null;this.utterance=null;this.speaking=false;this.syncMusic();this.speakNext();};
   u.onend=done;u.onerror=e=>{if(!['interrupted','canceled'].includes(e.error))this.update({voice:'设备语音暂不可用，可点击试播重试'});done();};
   this.speechTimer=setTimeout(()=>{if(this.utterance===u){this.utterance=null;this.speaking=false;window.speechSynthesis.cancel();this.syncMusic();this.speakNext();}},7000);
   window.speechSynthesis.speak(u);
  }
  private stopSpeech(){this.queue=[];this.utterance=null;this.speaking=false;if(this.speechTimer)clearTimeout(this.speechTimer);this.speechTimer=null;window.speechSynthesis?.cancel();}
- resetQueue(){this.stopSpeech();this.syncMusic();}
- private silence(){this.music?.pause();this.stopSpeech();}
- effect(effect:Effect){if(!this.unlocked||!this.prefs.enabled||!this.prefs.effects||document.hidden||!this.context||this.context.state!=='running')return;if(effect==='select'){if(Date.now()-this.selectAt<90)return;this.selectAt=Date.now();}
+ resetQueue(){this.stopEmote();this.stopSpeech();this.syncMusic();}
+ private silence(){this.stopEmote();this.music?.pause();this.stopSpeech();}
+ effect(effect:Effect){if(effect==='tick'||effect==='turn'){this.stopEmote();this.priorityUntil=Date.now()+1000;}if(!this.unlocked||!this.prefs.enabled||!this.prefs.effects||document.hidden||!this.context||this.context.state!=='running')return;if(effect==='select'){if(Date.now()-this.selectAt<90)return;this.selectAt=Date.now();}
   const ctx=this.context,volume=this.prefs.effectsVolume/100,now=ctx.currentTime;
   const tone=(freq:number,delay:number,duration:number,gain=.12,shape:OscillatorType='sine')=>{const oscillator=ctx.createOscillator(),envelope=ctx.createGain();oscillator.type=shape;oscillator.frequency.setValueAtTime(freq,now+delay);envelope.gain.setValueAtTime(0,now+delay);envelope.gain.linearRampToValueAtTime(gain*volume,now+delay+.008);envelope.gain.exponentialRampToValueAtTime(.0001,now+delay+duration);oscillator.connect(envelope);envelope.connect(ctx.destination);oscillator.start(now+delay);oscillator.stop(now+delay+duration+.02);oscillator.onended=()=>{oscillator.disconnect();envelope.disconnect();};};
   const tap=(duration:number,cutoff:number,gain:number,delay=0)=>{const buffer=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*duration),ctx.sampleRate),data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/data.length*6);const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),level=ctx.createGain();source.buffer=buffer;filter.type='lowpass';filter.frequency.value=cutoff;level.gain.value=gain*volume;source.connect(filter);filter.connect(level);level.connect(ctx.destination);source.start(now+delay);source.onended=()=>{source.disconnect();filter.disconnect();level.disconnect();};};

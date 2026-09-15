@@ -1,0 +1,45 @@
+/* Character emote redraws. Motion is finite and never changes table geometry. */
+.emote-art{display:inline-block;position:relative;width:100%;aspect-ratio:1;vertical-align:middle;isolation:isolate}
+.emote-art>img{width:100%;height:100%;object-fit:contain;user-select:none;pointer-events:none;transform-origin:50% 82%;filter:drop-shadow(0 4px 3px #234c3d15)}
+.emote-fallback{display:inline-flex;align-items:center;justify-content:center;min-height:40px;font-size:14px;line-height:1.4;color:#49675b}
+.emote-art.is-animated>img{animation:emote-bounce 2.8s ease-in-out both}
+.motion-wave.is-animated>img{animation-name:emote-wave}.motion-laugh.is-animated>img,.motion-clap.is-animated>img{animation-name:emote-laugh}
+.motion-shake.is-animated>img{animation-name:emote-shake}.motion-tilt.is-animated>img,.motion-smug.is-animated>img{animation-name:emote-tilt}
+.motion-pop.is-animated>img,.motion-celebrate.is-animated>img{animation-name:emote-pop}.motion-bow.is-animated>img,.motion-sigh.is-animated>img{animation-name:emote-bow}
+.motion-cry.is-animated>img{animation-name:emote-laugh}
+.emote-sparks{position:absolute;inset:0;pointer-events:none}.emote-sparks i{position:absolute;left:15%;top:20%;width:7px;height:7px;border-radius:2px;background:#d6ad54;opacity:0;animation:emote-spark 2.8s ease-out both;transform:rotate(45deg)}
+.emote-sparks i:nth-child(2){left:80%;top:32%;animation-delay:.15s}.emote-sparks i:nth-child(3){left:72%;top:8%;animation-delay:.3s}
+.motion-cry .emote-sparks i{background:#78c7e4;border-radius:60% 0 60% 60%;left:30%;top:45%;animation-name:emote-tear}.motion-cry .emote-sparks i:nth-child(2){left:67%;top:48%}.motion-cry .emote-sparks i:nth-child(3){left:33%;top:53%}
+.motion-tilt .emote-sparks,.motion-bow .emote-sparks,.motion-sigh .emote-sparks{display:none}
+@keyframes emote-bounce{0%{transform:scale(.8);opacity:.5}12%,40%,68%{transform:translateY(-6%) scale(1.03)}26%,54%,82%,100%{transform:none;opacity:1}}
+@keyframes emote-wave{0%,100%{transform:none}12%,38%,64%{transform:rotate(-9deg)}25%,51%,77%{transform:rotate(8deg)}}
+@keyframes emote-laugh{0%,100%{transform:none}12%,32%,52%,72%{transform:translateY(-4%) scale(1.03,.96)}22%,42%,62%,82%{transform:translateY(2%) scale(.99,1.03)}}
+@keyframes emote-shake{0%,100%{transform:none}10%,26%,42%,58%{transform:translateX(-4%) rotate(-4deg)}18%,34%,50%,66%{transform:translateX(4%) rotate(4deg)}}
+@keyframes emote-tilt{0%,100%{transform:none}20%,45%{transform:rotate(-9deg) translateY(-2%)}70%{transform:rotate(5deg)}}
+@keyframes emote-pop{0%{transform:scale(.7)}12%{transform:scale(1.08) translateY(-5%)}23%{transform:scale(.98)}38%,65%{transform:translateY(-7%) rotate(3deg)}50%,82%,100%{transform:none}}
+@keyframes emote-bow{0%,100%{transform:none}25%,50%{transform:translateY(7%) rotate(5deg) scale(.97)}75%{transform:translateY(-2%)}}
+@keyframes emote-spark{0%,100%{opacity:0;scale:.3}20%,55%{opacity:1;scale:1}75%{opacity:0;translate:0 -12px}}
+@keyframes emote-tear{0%,80%,100%{opacity:0;translate:0 -5px}15%,45%{opacity:1}65%{opacity:0;translate:0 35px}}
+.seat-chat-bubble.seat-emote-bubble{width:108px;height:108px;min-width:0;max-width:none;padding:0;border:0;background:none;box-shadow:none;bottom:calc(100% + 2px)}
+.seat-emote-bubble:after{display:none}.seat-emote-bubble .emote-fallback{padding:10px;background:#fffdf5;border:1px solid #cbded2;border-radius:12px}
+.room-social-launches{display:flex;align-items:center;gap:8px}.emote-launch{width:44px;height:44px!important;padding:0!important;background:#fffcf3!important;border:1px solid #d6c49a!important;border-radius:50%!important;color:#9b772e!important;box-shadow:0 5px 18px #395e4520}
+.emote-picker{width:min(370px,calc(100vw - 24px))!important;max-height:min(600px,calc(100dvh - 110px));padding:0!important;border-radius:20px!important;border:1px solid #d3dfd5!important;background:#fffdf7!important;color:#355c4c!important;overflow:auto;box-shadow:0 15px 55px #183c3426!important;z-index:70!important}
+.emote-picker header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px}.emote-picker header b{font-size:17px}.emote-picker header small{display:block;margin-top:3px;font-size:12px;color:#79917e}
+.emote-tabs{display:flex;gap:5px;padding:0 16px 10px}.emote-tabs button{padding:6px 16px;border-radius:18px;font-size:14px;color:#789081}.emote-tabs button[aria-selected=true]{background:#e5f1e8;color:#276c50;font-weight:600}
+.emote-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:6px 14px 14px}.emote-cell{position:relative;border-radius:14px;background:#f5f7ee;border:1px solid transparent;min-width:0}.emote-cell:hover{border-color:#c8d8b9;background:#edf4e7}.emote-cell>button:first-child{width:100%;display:flex;flex-direction:column;align-items:center;padding:5px 2px 8px;cursor:pointer}.emote-cell .emote-art{width:100%;max-width:76px}.emote-cell span.emote-name{font-size:12px;color:#4c6d54;margin-top:1px}.emote-cell>button:disabled{opacity:.55;cursor:wait}.emote-favorite{position:absolute;right:0;top:0;width:27px;height:27px;display:grid;place-items:center;color:#81927b;border-radius:50%;background:#fffdf7d9}.emote-favorite[aria-pressed=true]{color:#b18528}.emote-favorite[aria-pressed=true] svg{fill:#edca68}
+.emote-settings{padding:12px 18px 16px;border-top:1px solid #e4eadf;display:grid;gap:12px}.emote-settings label{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px}.emote-status{padding:0 16px 10px;min-height:28px;font-size:12px;color:#758770}.emote-status[role=alert]{color:#a14f3a}.emote-empty{grid-column:1/-1;text-align:center;padding:30px 12px;font-size:14px;color:#758770}
+.chat-emote{position:relative;width:100px;height:100px;background:#eef4e9;border-radius:15px;cursor:pointer;border:1px solid #e1e9da}.chat-emote:focus-visible{outline:2px solid #549174}.chat-emote .emote-art{width:94px;height:94px}.chat-emote .emote-replay{position:absolute;bottom:3px;right:4px;color:#638567;background:#fffdf6e6;border-radius:50%;padding:3px}.chat-emote.is-replaying{background:#e5f0df}
+.emote-preview{max-width:1050px;margin:auto;padding:32px 24px 100px;color:#315844}.emote-preview h1{font-size:30px;margin:12px 0}.emote-preview>p{line-height:1.7;color:#688270;margin-bottom:24px}.emote-preview-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}.emote-preview-grid button{padding:12px;background:#fffdf5;border:1px solid #dce6d5;border-radius:18px}.emote-preview-grid .emote-art{max-width:140px}.emote-preview-grid b{display:block;font-size:14px;margin:6px 0}.emote-preview-table{background:#dcefe5;border:1px solid #bad5c3;border-radius:34px;margin-top:28px;padding:145px 24px 35px;display:flex;justify-content:space-around;box-shadow:inset 0 0 0 8px #ffffff50}.emote-preview-seat{text-align:center}.emote-preview-seat>b{display:block;margin-top:10px;font-size:14px}
+@media(max-width:580px){.emote-launch{height:38px!important;width:38px}.seat-chat-bubble.seat-emote-bubble{width:76px;height:76px}.emote-preview-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.emote-preview{padding:20px 16px 90px}.th-room{padding-bottom:72px}}
+@media(prefers-reduced-motion:reduce){.emote-art.is-animated>img,.emote-sparks i{animation:none!important}.emote-sparks{display:none}}
+/* Radix positions its wrapper with a transform. Anchor the wrapper, not its fixed child. */
+@media(max-width:580px){
+ [data-radix-popper-content-wrapper]:has(>.emote-picker){position:fixed!important;inset:auto 8px calc(8px + env(safe-area-inset-bottom))!important;transform:none!important;width:calc(100vw - 16px)!important;min-width:0!important;z-index:70!important}
+ .emote-picker{position:relative!important;inset:auto!important;width:100%!important;max-height:75dvh!important;transform:none!important}
+}
+/* Keep the north seat's entire bubble inside the horizontal scrolling viewport. */
+.th-table-scroll{padding-top:120px}
+@media(max-width:580px){.th-table-scroll{padding-top:100px}}
+.emote-tabs[data-slot=tabs-list]{height:auto;background:transparent;padding:0;margin:0 16px;width:max-content}
+.emote-tabs [data-slot=tabs-trigger]{height:32px;padding:5px 16px;border-radius:18px;box-shadow:none}
+.emote-tabs [data-slot=tabs-trigger][data-state=active]{background:#e5f1e8;color:#276c50}
