@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newHoldem,holdemRules,holdemSeat,startHoldem,holdemActionPreview,holdemOptions,holdemView,moveHoldem} from '../../lib/holdem/engine.ts';
 import {newDraft,reconcileDraft,selectAction,raiseDetails,paymentDetails,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
-function game(){const g=newHoldem('p0','甲',holdemRules({capacity:4}));g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
+function game(){const g=newHoldem('p0','甲',{...holdemRules({capacity:4}),id:'holdem-v3'});g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
 function context():PreselectionContext{return {scope:'room:account:hand:preflop:connection',ownAction:'10:990:',eligible:true,acting:false,preview:holdemActionPreview(game(),'p0')};}
 test('waiting preview and acting options share exact wager calculation without granting a turn or exposing cards',()=>{
  const g=game(),before=structuredClone(g),v=holdemView(g,'p0'),p=v.actionPreview!;
@@ -23,7 +23,7 @@ test('preview caps a short call and preserves all-in and raise-right restriction
 });
 test('every waiting action is local, toggles off, and becomes submittable only after a deliberate turn-time click',()=>{
  const c=context();for(const action of ['fold','call','allin','raise'] as BettingAction[]){
-  const d=selectAction(newDraft(c),action,c.preview!);assert.equal(d.selected?.action,action);
+  const d=selectAction({...newDraft(c),raise:'60'},action,c.preview!);assert.equal(d.selected?.action,action);
   assert.equal(canSubmitAction(action,c,d.raise,'0'),false);
   assert.equal(reconcileDraft(d,{...c,acting:true}),d,'turn changing alone must not reset or consume selection');
   assert.equal(canSubmitAction(action,{...c,acting:true},d.raise,'0'),true);
@@ -51,7 +51,7 @@ test('account, room, hand, street, reconnect, action and eligibility boundaries 
  assert.equal(reconcileDraft(d,{...c,ownAction:'30:960:跟注'}).selected,null);
  const inactive={...c,eligible:false},empty=reconcileDraft(d,inactive);assert.equal(empty.raise,'');assert.equal(empty.selected,null);
  assert.equal(reconcileDraft(empty,inactive),empty,'inactive rerenders must stabilize');
- assert.equal(reconcileDraft(empty,c).raise,'60');assert.equal(newDraft(c).selected,null,'page reload starts with no selection');
+ assert.equal(reconcileDraft(empty,c).raise,'20');assert.equal(newDraft(c).selected,null,'page reload starts with no selection');
  assert.equal(reconcileDraft(d,{...c,preview:{...c.preview!,canAllIn:false,allInReason:'加注权未开放'}}).selected,null);
 });
 test('raise total, extra payment and validation stay exact above Number precision',()=>{
@@ -72,7 +72,7 @@ test('waiting preview does not change either real actions or bot decisions throu
 test('payment editor shows and submits exactly the additional chips, including prior ante',()=>{
  const g=game(),p=holdemActionPreview(g,'p0')!;
  const c={...context(),alreadyBet:'10'};
- assert.equal(newDraft(c).raise,'50');
+ assert.equal(newDraft(c).raise,'20');
  const details=paymentDetails('80',p,'10','990');
  assert.deepEqual(details,{valid:true,extra:'80',target:'90',remaining:'910',error:''});
  g.turn=0;moveHoldem(g,'p0',{action:'raise',amount:details.target});

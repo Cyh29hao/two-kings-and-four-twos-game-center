@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newHoldem,holdemRules,holdemSeat,startHoldem,holdemActionPreview,moveHoldem,holdemBetStep} from '../../lib/holdem/engine.ts';
 import {raiseDetails} from '../../lib/holdem/preselection.ts';
-function game(){const g=newHoldem('p0','甲',holdemRules({capacity:4}));g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
+function game(){const g=newHoldem('p0','甲',{...holdemRules({capacity:4}),id:'holdem-v3'});g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
 test('new tables require ante multiples; rejected wagers leave the game untouched',()=>{
  const g=game(),id=g.seats[g.turn].id,before=structuredClone(g),p=holdemActionPreview(g,id)!;
  assert.equal(g.rules.id,'holdem-v3');assert.equal(p.betStep,'10');assert.equal(raiseDetails('81',p,'0').valid,false);

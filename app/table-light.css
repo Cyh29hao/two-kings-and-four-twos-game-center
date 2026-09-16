@@ -77,3 +77,5 @@
 .th-action-badge{font-size:12px;line-height:18px;padding:2px 8px;border-radius:7px;font-weight:650;white-space:nowrap;background:#e9eee6;color:#526850}
 .th-action-badge.is-raise{background:#f5dec3;color:#835219}.th-action-badge.is-call{background:#d9ecdf;color:#316348}.th-action-badge.is-check{background:#e3edf4;color:#416783}.th-action-badge.is-allin{background:#f1d8ce;color:#923f2e}.th-action-badge.is-fold{background:#e6e8e6;color:#747b75}
 .table-light .th-seat .th-stack{font-size:14px;line-height:16px}.table-light .th-seat{gap:2px}
+
+.th-quick-payments{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
