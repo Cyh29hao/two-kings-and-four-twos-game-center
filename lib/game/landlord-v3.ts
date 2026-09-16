@@ -5,8 +5,8 @@ import {DDZ_EFFECTS,emitVisual,publicVisuals,type VisualEvent} from '../motion/e
 export type V3Equipment={instanceId:string;id:string;level:1|2|3|4;price:string};
 export type V3Offer={offerId:string;id:string;level:1|2|3|4;price:string;bought:boolean};
 export type V3Shop={offers:V3Offer[]};
-export type LandlordV3Rules={id:'landlord-v3';equipmentCatalog:{id:string;level:1|2|3|4;price:string;name:string}[]};
-export const V3_EQUIPMENT_CATALOG=([1,2,3,4] as const).map(level=>({id:`test-equipment-${level}`,level,price:String(2**(level-1)),name:`${level} 级测试装备`}));
+export type LandlordV3Rules={id:'landlord-v3';equipmentCatalog:{id:string;level:1|2|3|4;price:string;name:string;effect?:string}[]};
+export const V3_EQUIPMENT_CATALOG=([1,2,3,4] as const).map(level=>({id:`test-equipment-${level}`,level,price:String(2**(level-1)),name:`${level} 级测试装备`,effect:'当前测试装备不会改变对局规则。'}));
 export const DEFAULT_LANDLORD_V3_RULES:LandlordV3Rules={id:'landlord-v3',equipmentCatalog:V3_EQUIPMENT_CATALOG.map(x=>({...x}))};
 export type V3Game={
  kind:'landlord-v3';rules:LandlordV3Rules;visualEvents?:VisualEvent[];practice?:Practice;

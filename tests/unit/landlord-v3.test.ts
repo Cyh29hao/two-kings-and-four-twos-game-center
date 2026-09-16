@@ -10,6 +10,7 @@ function playing(g:V3Game,{landlord=0,stake='2',coins=['0','5','5'],dealer=0}:{l
 
 test('v3 stores coins as decimal strings, shop limits ownership, sells correctly, and carries equipment to the next hand',()=>{
  const g=game();begin(g);const offers=g.shops[0].offers;
+ assert(g.rules.equipmentCatalog.every(item=>item.name&&item.effect));
  for(let n=0;n<8;n++){g.coins[0]='99';buyV3Equipment(g,0,offers[n].offerId,1200+n);}assert.equal(g.equipment[0].length,8);assert.throws(()=>buyV3Equipment(g,0,offers[8].offerId),/最多持有/);
  const levelOne=g.equipment[0].find(item=>item.level===1)!;const before=g.coins[0];sellV3Equipment(g,0,levelOne.instanceId);assert.equal(g.coins[0],before);
  const levelTwo=g.equipment[0].find(item=>item.level===2)!;const beforeTwo=BigInt(g.coins[0]);sellV3Equipment(g,0,levelTwo.instanceId);assert.equal(BigInt(g.coins[0]),beforeTwo+1n);
