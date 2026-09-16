@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { validateReleaseSource } from './guards.mjs';
+import { findSitesPackager } from './sites-helper.mjs';
 
 const settings = JSON.parse(readFileSync('config/release.json', 'utf8'));
 const hosting = JSON.parse(readFileSync('.openai/hosting.json', 'utf8'));
@@ -20,9 +21,7 @@ const remote = git('remote', 'get-url', settings.remote);
 if (![ `git@github.com:${settings.repository}.git`, `https://github.com/${settings.repository}.git`, `https://github.com/${settings.repository}` ].includes(remote)) throw Error('发布仓库不匹配。');
 execFileSync('git', ['fetch', settings.remote, settings.branch], { stdio: 'inherit' });
 const commit = validate();
-const pluginRoot = path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'plugins/cache/openai-bundled/sites');
-const helper = existsSync(pluginRoot) && readdirSync(pluginRoot).sort((a, b) => b.localeCompare(a, 'en', { numeric: true })).map(version => path.join(pluginRoot, version, 'scripts/package-site.sh')).find(existsSync);
-if (!helper) throw Error('本机未找到 Sites 打包工具。请在已安装 Sites 的 Codex 中运行发布；GitHub 验收不需要此工具。');
+const helper = findSitesPackager(path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'plugins/cache'));
 for (const script of ['check', 'build', 'test:smoke']) {
   const result = spawnSync(process.execPath, [process.env.npm_execpath, 'run', script], { stdio: 'inherit' });
   if (result.error) throw result.error;
@@ -35,7 +34,7 @@ const info = JSON.parse(readFileSync('dist/client/build-info.json', 'utf8'));
 if (info.commit !== commit || info.dirty) throw Error('构建与待发布源码不一致。');
 mkdirSync('release', { recursive: true });
 const archive = path.resolve(`release/site-${commit}.tar.gz`);
-execFileSync('bash', [helper, process.cwd(), archive], { stdio: 'inherit' });
+execFileSync(helper.command, [helper.script, process.cwd(), archive], { stdio: 'inherit' });
 const receipt = { status: 'prepared', commit, projectId: hosting.project_id, siteUrl: settings.siteUrl, archive,
   archiveSha256: createHash('sha256').update(readFileSync(archive)).digest('hex'), preparedAt: new Date().toISOString() };
 writeFileSync('release/candidate.json', JSON.stringify(receipt, null, 2) + '\n');

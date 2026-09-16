@@ -37,9 +37,10 @@
  [data-radix-popper-content-wrapper]:has(>.emote-picker){position:fixed!important;inset:auto 8px calc(8px + env(safe-area-inset-bottom))!important;transform:none!important;width:calc(100vw - 16px)!important;min-width:0!important;z-index:70!important}
  .emote-picker{position:relative!important;inset:auto!important;width:100%!important;max-height:75dvh!important;transform:none!important}
 }
-/* Keep the north seat's entire bubble inside the horizontal scrolling viewport. */
-.th-table-scroll{padding-top:120px}
-@media(max-width:580px){.th-table-scroll{padding-top:100px}}
+/* Compact Holdem north seats show bubbles inward, without an empty strip above the table. */
+.th-seat.is-upper .seat-chat-bubble{bottom:auto;top:0;left:calc(100% + 8px);right:auto;transform:none;max-width:180px}
+.th-seat.is-upper.is-right .seat-chat-bubble{left:auto;right:calc(100% + 8px)}
+.th-seat.is-upper .seat-chat-bubble:after{display:none}
 .emote-tabs[data-slot=tabs-list]{height:auto;background:transparent;padding:0;margin:0 16px;width:max-content}
 .animation-cache{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;padding:12px 16px;background:#edf4e9;border:1px solid #d6e2d0;border-radius:14px;margin:0 0 18px}
 .animation-cache button{display:flex;align-items:center;gap:7px;padding:6px 0;color:#356b53;font-size:14px;font-weight:600;cursor:pointer}.animation-cache button:disabled{cursor:default}.animation-cache small{font-size:12px;line-height:1.5;color:#6f8269}.animation-cache button:focus-visible{outline:2px solid #a78839;outline-offset:3px;border-radius:4px}

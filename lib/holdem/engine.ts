@@ -35,11 +35,25 @@ export function startHoldem(g:HoldemGame,now=Date.now()){
  g.seats[g.smallSeat].last='小盲 '+g.seats[g.smallSeat].bet;g.seats[g.bigSeat].last='大盲 '+g.seats[g.bigSeat].bet;
  note(g,`第 ${g.roundNumber} 局开始，前注 ${g.rules.ante}，小盲 ${g.rules.small}，大盲 ${g.rules.big}`,now);progress(g,g.bigSeat,now);
 }
-export function holdemOptions(g:HoldemGame,id:string){const seat=g.seats.findIndex(s=>s.id===id),s=g.seats[seat];const off={acting:false,check:false,call:'0',minRaise:'0',maxRaise:'0',canRaise:false,canAllIn:false};if(g.phase!=='playing'||seat!==g.turn||!s||!active(s))return off;
+export type HoldemActionPreview={check:boolean;call:Money;minRaise:Money;maxRaise:Money;canRaise:boolean;canAllIn:boolean;raiseReason:string;allInReason:string};
+/** Evaluate only this player's rights at the current public wager, without granting a turn. */
+export function holdemActionPreview(g:HoldemGame,id:string):HoldemActionPreview|null{
+ const seat=g.seats.findIndex(s=>s.id===id),s=g.seats[seat];
+ if(g.phase!=='playing'||!s||!active(s))return null;
  const owed=n(g.currentBet)-n(s.bet),maximum=n(s.bet)+n(s.stack),right=s.actedAt===null||n(g.currentBet)-n(s.actedAt)>=n(g.lastRaise),minimum=n(g.currentBet)+n(g.lastRaise);
  const opponentCanBet=g.seats.some((o,i)=>i!==seat&&active(o));
- return {acting:true,check:owed===0n,call:min(owed,n(s.stack)).toString(),minRaise:minimum.toString(),maxRaise:maximum.toString(),canRaise:right&&opponentCanBet&&maximum>=minimum,canAllIn:maximum<=n(g.currentBet)||right&&opponentCanBet};
+ const canRaise=right&&opponentCanBet&&maximum>=minimum,canAllIn=maximum<=n(g.currentBet)||right&&opponentCanBet;
+ return {check:owed===0n,call:min(owed,n(s.stack)).toString(),minRaise:minimum.toString(),maxRaise:maximum.toString(),canRaise,canAllIn,
+  raiseReason:canRaise?'':!opponentCanBet?'没有仍可下注的对手':!right?'本轮加注权尚未重新开放':'筹码不足最低加注额，可选择合法的全下',
+  allInReason:canAllIn?'':!opponentCanBet?'没有仍可下注的对手':'本轮加注权尚未重新开放'};
 }
+export function holdemOptions(g:HoldemGame,id:string){
+ const preview=holdemActionPreview(g,id);
+ if(!preview||g.seats[g.turn]?.id!==id)return {acting:false,check:false,call:'0',minRaise:'0',maxRaise:'0',canRaise:false,canAllIn:false};
+ const {check,call,minRaise,maxRaise,canRaise,canAllIn}=preview;
+ return {acting:true,check,call,minRaise,maxRaise,canRaise,canAllIn};
+}
+
 function revealStreet(g:HoldemGame,now:number){g.burns.push(g.deck.pop()!);const count=g.street==='preflop'?3:1;for(let i=0;i<count;i++)g.board.push(g.deck.pop()!);g.street=g.street==='preflop'?'flop':g.street==='flop'?'turn':'river';g.currentBet='0';g.lastRaise=g.rules.big;for(const s of g.seats){s.bet='0';s.actedAt=null;s.last=s.folded?'弃牌':s.allIn?'全下':'';}note(g,`发出${{flop:'翻牌',turn:'转牌',river:'河牌'}[g.street]}`,now);}
 /** Layer contributions. Folded chips still fund pots; uncalled excess is refunded. */
 export function settlePots(seats:Pick<HoldemSeat,'total'|'folded'>[],values:(number|null)[],button:number):{pots:Pot[];awards:Money[]}{
@@ -91,5 +105,5 @@ export function closeHoldem(g:HoldemGame,force=false,now=Date.now()){
  if(g.phase==='closed')return;if(['playing','runout'].includes(g.phase)){if(!force)throw Error('请在本局结束后结束整桌');g.seats.forEach((s,i)=>s.stack=g.roundStart[i]);g.result={kind:'holdem',id:g.round,roundNumber:g.roundNumber,rules:{...g.rules},type:'aborted',board:[...g.board],button:g.button,pots:[],seats:g.seats.map(s=>({id:s.id,name:s.name,bot:s.bot,delta:'0',stack:s.stack,brought:s.brought,hand:[],value:null})),ended:now};note(g,'本局中止，已退回本局全部下注',now);}
  g.phase='closed';g.turn=-1;g.deadline=0;g.ended=now;
 }
-export function holdemView(g:HoldemGame,id:string){return{kind:g.kind,rules:g.rules,host:g.host,phase:g.phase,street:g.street,round:g.round,roundNumber:g.roundNumber,button:g.button,smallSeat:g.smallSeat,bigSeat:g.bigSeat,turn:g.turn,deadline:g.deadline,board:g.board,currentBet:g.currentBet,pot:g.seats.reduce((a,s)=>a+n(s.total),0n).toString(),log:g.log,result:g.result,fixed:g.fixed,options:holdemOptions(g,id),seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:s.bot,ready:s.ready,stack:s.stack,brought:s.brought,bet:s.bet,folded:s.folded,allIn:s.allIn,last:s.last,hand:s.id===id?s.hand:g.result?.type==='showdown'?g.result.seats[i].hand:[],net:(n(s.stack)-n(s.brought)).toString()}))};}
-export type HoldemView=ReturnType<typeof holdemView>;
+export function holdemView(g:HoldemGame,id:string){return{kind:g.kind,rules:g.rules,host:g.host,phase:g.phase,street:g.street,round:g.round,roundNumber:g.roundNumber,button:g.button,smallSeat:g.smallSeat,bigSeat:g.bigSeat,turn:g.turn,deadline:g.deadline,board:g.board,currentBet:g.currentBet,pot:g.seats.reduce((a,s)=>a+n(s.total),0n).toString(),log:g.log,result:g.result,fixed:g.fixed,options:holdemOptions(g,id),actionPreview:holdemActionPreview(g,id),seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:s.bot,ready:s.ready,stack:s.stack,brought:s.brought,bet:s.bet,folded:s.folded,allIn:s.allIn,last:s.last,hand:s.id===id?s.hand:g.result?.type==='showdown'?g.result.seats[i].hand:[],net:(n(s.stack)-n(s.brought)).toString()}))};}
+export type HoldemView=Omit<ReturnType<typeof holdemView>,'actionPreview'>&{actionPreview?:HoldemActionPreview|null};

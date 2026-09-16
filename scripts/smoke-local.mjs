@@ -72,6 +72,27 @@ try {
     await request('/api/history', undefined, player.cookie);
     await request('/api/admin', undefined, player.cookie, 403);
   }
+  // Four humans keep bot timers out of the preview/turn and stale-version assertions.
+  const humans = [];
+  for (let i=0;i<4;i++) humans.push(await signup('preselect'+i+Date.now().toString(36)));
+  let table=(await request('/api/holdem',{action:'create',capacity:4,seconds:60},humans[0].cookie)).data;
+  for(let i=1;i<4;i++) table=(await request('/api/holdem',{action:'join',code:table.code},humans[i].cookie)).data;
+  for(const player of humans) table=(await request('/api/holdem',{action:'ready',code:table.code,revision:table.revision},player.cookie)).data;
+  const preview=(await request('/api/holdem?room='+table.code,undefined,humans[0].cookie)).data;
+  assert.equal(preview.game.options.acting,false);
+  assert.equal(preview.game.actionPreview.call,'30');
+  assert.equal(preview.game.actionPreview.minRaise,'60');
+  assert(preview.game.seats.slice(1).every(s=>s.hand.length===0));
+  await request('/api/holdem',{action:'call',code:table.code,revision:table.revision},humans[0].cookie,400);
+  table=(await request('/api/holdem',{action:'raise',amount:'100',code:table.code,revision:table.revision},humans[3].cookie)).data;
+  const updated=(await request('/api/holdem?room='+table.code,undefined,humans[0].cookie)).data;
+  assert.equal(updated.game.options.acting,true);
+  assert.equal(updated.game.actionPreview.call,'100');
+  assert.equal(updated.game.actionPreview.minRaise,'170');
+  await request('/api/holdem',{action:'call',code:table.code,revision:preview.revision},humans[0].cookie,409);
+  const confirmed=(await request('/api/holdem',{action:'call',code:table.code,revision:updated.revision},humans[0].cookie)).data;
+  assert.equal(confirmed.game.seats[0].bet,'100');
+  await request('/api/holdem',{action:'call',code:table.code,revision:updated.revision},humans[0].cookie,409);
   const info = (await request('/build-info.json')).data;
   assert.match(info.commit, /^[a-f0-9]{40}$/);
   writeFileSync('work/smoke-local.json', JSON.stringify({ status: 'passed', checks, commit: info.commit, state }, null, 2) + '\n');
