@@ -1,0 +1,95 @@
+/* Table-only presentation; card artwork and lobby styling stay independent. */
+.table-light{--table-muted:#718278}
+.table-light button{min-height:44px}
+.table-light .table-tool,.table-light .chat-launch,.table-light .emote-picker-trigger{width:44px;min-width:44px;height:44px;padding:0;box-shadow:none}
+.table-clock{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:20px;background:#e6eee7;color:#315c44;font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.table-clock.is-urgent{background:#fbe8df;color:#9c4227}
+.table-muted{color:var(--table-muted);font-size:13px}
+.table-action-area{min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:8px}
+.table-action-row,.th-selection{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;min-height:44px}
+.table-notice{margin:0;color:#986230;font-size:13px;line-height:1.5;text-align:center}
+.table-choice-panel{display:flex;align-items:end;justify-content:center;gap:12px;flex-wrap:wrap;padding:14px 0 4px;border-top:1px solid #dfe6dd}
+.table-choice-panel input{min-height:44px}
+.table-round-summary{text-align:center;padding:16px 12px}
+.table-round-summary h2{font-size:20px;line-height:1.4;margin:0 0 6px;font-weight:600}
+.table-round-summary p{margin:0;font-size:13px;color:#718278}
+.table-round-summary strong{font-size:26px;margin-left:8px;font-variant-numeric:tabular-nums}
+.table-round-summary .positive{color:#237256}.table-round-summary .negative{color:#b05d43}
+.table-ledger{display:grid;gap:8px;margin:16px 0;font-size:14px}
+.table-ledger p{margin:0;padding-bottom:8px;border-bottom:1px solid #e4e9e1}
+.table-self-tools{display:flex;align-items:center;gap:12px}
+.table-light .room-chat--compact{position:relative;right:auto;bottom:auto;z-index:30;display:flex;align-items:center;gap:6px}
+.table-light .room-chat--compact .chat-panel{position:fixed;top:76px;bottom:auto;right:16px;max-height:calc(100dvh - 92px);width:min(360px,calc(100vw - 32px))}
+.table-light .room-chat--compact .chat-launch{border:1px solid #dce5da;background:transparent}
+.table-light .th-controls.table-dock{padding:12px 18px;border:1px solid #e0e6dc;border-radius:18px;background:#fffef8;box-shadow:none;margin-top:12px}
+.table-light .th-controls-header{margin:0 0 6px;gap:12px}
+.table-light .th-own{gap:10px}.table-light .th-own strong{font-size:16px}
+.table-light .th-own small{font-size:12px;font-weight:400;color:var(--table-muted)}
+.table-light .th-social{display:flex;align-items:center;gap:6px}
+.table-light .th-preselected{font-size:14px;color:#315c44}
+.th-wager-panel label{display:grid;gap:5px;font-size:13px;width:160px}
+.th-wager-summary{display:grid;gap:6px;font-size:14px;align-self:center}
+.th-wager-summary strong{font-size:22px;color:#315c44;font-variant-numeric:tabular-nums}
+.th-wager-summary small{font-size:12px;color:#718278}
+.table-light .th-seat-action:empty{display:none}
+.table-light .th-player-name{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.table-light .th-stack{font-size:16px}
+.table-light .th-table{box-shadow:none}
+.table-light .self-area{box-shadow:none;border-color:#e1e7dd;padding-top:12px;padding-bottom:12px}
+.table-light .self-label{margin-bottom:8px}
+.table-light .action-bar{gap:8px;min-height:52px}
+.table-light .mj-self{padding:12px 16px;box-shadow:none;border:1px solid #e0e6dc;background:#fffef8}
+.table-light .mj-self-top{margin-bottom:6px}
+.table-light .mj-self-top strong{font-size:14px}
+.table-light .mj-actions{min-height:56px;margin:4px 0;gap:8px}
+.table-light .mj-light-actions{width:100%}
+.mj-response-tile{display:inline-flex;align-items:center;margin-right:6px}
+.mj-choice-options{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.mj-choice-option{display:flex;gap:2px;padding:7px;border:2px solid transparent;background:#f0f3ed;border-radius:10px}
+.mj-choice-option[aria-pressed=true]{border-color:#197c72;background:#e3f1e9;outline:2px solid #fff;outline-offset:-4px}
+.table-light .mj-self.is-my-turn{box-shadow:none;border-color:#7fa692}
+.table-light .ham-room-footer{margin-top:8px}
+@media(max-width:640px){
+ .table-light .th-controls.table-dock{padding:10px;border-radius:14px}
+ .table-light .th-controls-header{flex-wrap:nowrap;align-items:center}
+ .table-light .th-own{gap:6px;flex-wrap:wrap}
+ .table-light .th-own strong{font-size:14px}
+ .table-light .th-own small{display:none}
+ .table-light .th-social{margin-left:auto}
+ .table-action-row{gap:6px}
+ .table-action-row>button{padding-left:14px;padding-right:14px}
+ .table-light .mj-self{padding:10px 8px}
+ .table-light .mj-self-top{gap:4px;flex-wrap:wrap}
+ .table-choice-panel{gap:8px}
+ .th-wager-panel label{width:140px}
+ .table-light .room-chat--compact .chat-panel{right:8px;top:64px;width:calc(100vw - 16px);max-height:calc(100dvh - 80px)}
+}
+.table-light .room-chat--compact .chat-launch{height:44px!important;min-height:44px!important;padding:0!important;width:44px!important}
+.table-action-area>button{align-self:center;min-width:140px}
+.table-light .mj-player-zone.is-active .avatar,.table-light .mj-self.is-my-turn .avatar{outline:2px solid #c9a546;outline-offset:3px}
+/* Picking an action never submits it; only the enabled confirmation does. */
+.th-action-choices button[aria-pressed=true],.th-wager-panel button[aria-pressed=true]{border-color:#197c72;background:#e3f1e9;color:#245b4b;box-shadow:inset 0 0 0 1px #197c72}
+.table-light .th-confirm:disabled{background:#e7ebe7;color:#8b958e;border-color:#d9dfd9;opacity:1;box-shadow:none}
+.th-seat-wager{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%}
+.th-invested{display:flex;align-items:center;justify-content:center;gap:5px;min-width:108px;min-height:32px;padding:4px 9px;border:1px solid #b99845;border-radius:18px;background:#fff3c8;color:#614719;box-shadow:0 2px 5px #71572015;font-variant-numeric:tabular-nums}
+.th-invested>span{font-size:11px}.th-invested>strong{font-size:19px;line-height:22px;font-weight:750}
+.th-seat-feedback{display:flex;justify-content:center;align-items:center;gap:4px;min-height:24px}
+.th-action-badge{font-size:12px;line-height:18px;padding:2px 8px;border-radius:7px;font-weight:650;white-space:nowrap;background:#e9eee6;color:#526850}
+.th-action-badge.is-raise{background:#f5dec3;color:#835219}.th-action-badge.is-call{background:#d9ecdf;color:#316348}.th-action-badge.is-check{background:#e3edf4;color:#416783}.th-action-badge.is-allin{background:#f1d8ce;color:#923f2e}.th-action-badge.is-fold{background:#e6e8e6;color:#747b75}
+.table-light .th-seat .th-stack{font-size:14px;line-height:16px}.table-light .th-seat{gap:2px}
+
+.th-quick-payments{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* One compact amount editor, a quiet payment preview and secondary all-in. */
+.th-wager-panel{align-items:center;gap:18px;padding:14px 0 2px}
+.th-wager-editor{display:grid;gap:8px;min-width:260px;flex:1;max-width:360px}
+.th-wager-panel .th-wager-editor label{width:100%;color:#63796c;font-size:12px;gap:6px}
+.th-wager-editor input{font-size:25px;font-weight:600;font-variant-numeric:tabular-nums;border-radius:12px;background:#fffef8;height:50px;border-color:#cedbcf;box-shadow:none}
+.th-quick-payments{display:grid;grid-template-columns:1.35fr repeat(3,1fr);gap:6px}
+.th-quick-payments button{padding:0 10px;border-radius:10px;border-color:transparent;background:#edf2ec;color:#41634e;font-size:13px;box-shadow:none}
+.th-quick-payments button:hover{background:#dce9de;border-color:#aec8b3}
+.th-wager-basis{font-size:11px;color:#7c8c7c}
+.th-wager-summary{min-width:200px;padding:10px 0;gap:8px;font-variant-numeric:tabular-nums}
+.th-wager-summary strong{font-size:28px;font-weight:650}
+.th-allin-choice{border-radius:12px;align-self:center;box-shadow:none}
+@media(max-width:600px){.th-wager-panel{gap:8px 12px}.th-wager-editor{flex-basis:100%;max-width:none;min-width:0}.th-wager-summary{flex:1;min-width:0}.th-wager-summary strong{font-size:24px}.th-quick-payments button{padding:0 6px}.th-wager-summary small{font-size:11px}}

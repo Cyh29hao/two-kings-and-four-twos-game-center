@@ -1,6 +1,6 @@
 import {AppError,body,config,db,json,limit,publicUser,requireUser,safe} from '@/lib/server';
 import {advance,commit,getRoom,type Room} from '@/lib/rooms';
-import {isHoldem,holdemRules,newHoldem,holdemSeat,holdemView,startHoldem,moveHoldem,rebuyHoldem,closeHoldem,type HoldemGame} from '@/lib/holdem/engine';
+import {isHoldem,holdemRules,newHoldem,holdemSeat,holdemView,startHoldem,moveHoldem,setHoldemTimeoutChoice,rebuyHoldem,closeHoldem,type HoldemGame} from '@/lib/holdem/engine';
 export const dynamic='force-dynamic';
 const visible=(r:Room,g:HoldemGame,id:string)=>({code:r.code,title:r.title,revision:r.revision,serverNow:Date.now(),game:holdemView(g,id)});
 export async function GET(req:Request){return safe(async()=>{
@@ -26,7 +26,10 @@ export async function POST(req:Request){return safe(async()=>{
  }
  const s=g.seats.find(s=>s.id===u.id);if(!s)throw new AppError('你不在这个房间',403);if(b.revision!==r.revision)throw new AppError('牌桌已更新，请重试',409);
  try{
-  if(b.action==='ready'){
+  if(b.action==='timeout_choice'){
+   if(g.deadline<=Date.now()){await advance(r);throw new AppError('操作已超时，请刷新牌桌',409);}
+   setHoldemTimeoutChoice(g,u.id,b.choice,{round:b.round,street:b.street,bet:b.bet,stack:b.stack});
+  }else if(b.action==='ready'){
    if(!['waiting','finished'].includes(g.phase))throw Error('对局中不能准备');if(s.stack==='0')throw Error('请先补入筹码');s.ready=!s.ready;
    for(const bot of g.seats.filter(x=>x.bot)){if(bot.stack==='0')rebuyHoldem(g,bot.id);bot.ready=true;}
    if(g.seats.length===g.rules.capacity&&g.seats.every(x=>x.ready&&x.stack!=='0'))startHoldem(g);

@@ -39,9 +39,20 @@ export function createMotionAssetStore(manifest: Manifest, env: Environment) {
   }
 
   async function imageBlob(response: Response, src: string) {
-    if (response.status !== 200 || !/^image\/webp(?:;|$)/i.test(response.headers.get('content-type') ?? '')) throw Error('动画素材暂不可用');
+    const mime = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    if (response.status !== 200 || !['image/webp', 'application/octet-stream'].includes(mime)) throw Error('动画素材暂不可用');
     const blob = await response.blob();
     if (blob.size !== manifest[src].bytes) throw Error('动画素材尚未更新完成');
+    // Sites can label WebP as generic binary. Accept only the exact shipped image,
+    // then normalize its type for both playback and persistent Cache Storage.
+    if (mime === 'application/octet-stream') {
+      const bytes = await blob.arrayBuffer(), header = new Uint8Array(bytes, 0, Math.min(12, bytes.byteLength));
+      if (header.length < 12 || String.fromCharCode(...header.slice(0, 4)) !== 'RIFF' || String.fromCharCode(...header.slice(8, 12)) !== 'WEBP') throw Error('动画素材不是有效的 WebP');
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      const revision = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('').slice(0, 20);
+      if (revision !== manifest[src].revision) throw Error('动画素材内容与版本不一致');
+      return new Blob([bytes], { type: 'image/webp' });
+    }
     return blob;
   }
 

@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useRef,type CSSProperties,type PointerEvent as ReactPointerEvent} from 'react';
+import {TurnClock} from './table-ui';
 import {Timer} from 'lucide-react';
 import {face,suit,type TableAction} from '@/lib/game/engine';
 import {crossedCards,brushSelection,type HitRegion} from '@/lib/game/selection';
@@ -17,7 +18,7 @@ export function SeatAction({action,active,seconds,bidding,doubling=false,name}:{
  const effect=!active&&action?.kind==='play'?DDZ_EFFECTS[action.label]:undefined;
  return <div className={`seat-action ${active?'is-turn':''}${effect?' has-effect':''}`} aria-label={`${name}面前的出牌区`}>
   {effect&&action?.kind==='play'&&<EffectBadge key={action.eventId??effect} id={effect} eventId={action.eventId}/>}
-  {active?<div className={`seat-timer ${seconds<=5?'is-urgent':''}`}><Timer size={18}/><strong>{seconds}</strong><small>秒</small><span>{bidding?'叫分':doubling?'加倍':'出牌'}</span></div>:action?.kind==='play'?<><div className="seat-played-cards" style={{'--cards':action.cards.length} as CSSProperties}>{action.cards.map(c=><Card card={c} key={c} small/>)}</div><span className="seat-action-caption">{action.label}</span></>:action?.kind==='pass'?<span className="seat-pass">不出</span>:action?.kind==='double'?<span className="seat-pass">{action.value?'加倍 ×2':'不加倍'}</span>:action?.kind==='bid'?<span className="seat-pass">{action.value?`${action.value} 分`:'不叫'}</span>:null}
+  {active?<TurnClock seconds={seconds} label={name+(bidding?'叫分':doubling?'加倍':'出牌')}/>:action?.kind==='play'?<><div className="seat-played-cards" style={{'--cards':action.cards.length} as CSSProperties}>{action.cards.map(c=><Card card={c} key={c} small/>)}</div></>:action?.kind==='pass'?<span className="seat-pass">不出</span>:action?.kind==='double'?<span className="seat-pass">{action.value?'加倍 ×2':'不加倍'}</span>:action?.kind==='bid'?<span className="seat-pass">{action.value?`${action.value} 分`:'不叫'}</span>:null}
  </div>;
 }
 
