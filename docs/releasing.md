@@ -43,6 +43,8 @@ npm run release:prepare
 
 `release:verify` 检查线上构建提交、五个入口和全部动画素材的内容指纹，生成 `release/online-verification.json`。它只读取公开页面和素材，不读取玩家资料或操纵真实房间。
 
+Sites 可能把 WebP 返回为 `application/octet-stream`；核验同时检查 WebP 文件头、文件大小和精确内容指纹，不把通用二进制类型误报为图片丢失。本机需通过已配置的代理访问时，可用 `NODE_USE_ENV_PROXY=1 npm run release:verify`（支持该环境变量的 Node 版本）；不得忽略 HTTP 错误或素材不匹配。
+
 最后在原站点页面检查入口，涉及交互的改动按本次范围核验。Cloudflare 拦截、网络超时或浏览器打不开都要分别记录；部署成功不代表所有浏览器检查通过。交付时区分“已部署”“自动检查通过”“实际页面已检查”。
 
 ## 发布失败或需要回退
