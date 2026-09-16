@@ -65,10 +65,17 @@ try {
     const after = (await request(endpoint + '?room=' + room.code, undefined, player.cookie)).data;
     assert.equal(after.revision, room.revision, '聊天不能修改牌局版本');
     const emote = { code: room.code, clientId: crypto.randomUUID(), kind: 'emote', emoteId: 'royale-v2-king-laugh' };
-    await request('/api/chat', emote, player.cookie);
+    const acknowledged = (await request('/api/chat', emote, player.cookie)).data;
+    assert.equal(acknowledged.message.clientId, emote.clientId);
+    assert.equal(acknowledged.message.emoteId, emote.emoteId);
+    assert.equal(acknowledged.message.own, 1);
+    assert.equal(acknowledged.emoteReadyAt, acknowledged.created + 3000);
+    assert.equal((await request('/api/chat', emote, player.cookie)).data.message.id, acknowledged.message.id);
     await request('/api/chat', { ...emote, clientId: crypto.randomUUID() }, player.cookie, 429);
     const chat = (await request('/api/chat?room=' + room.code, undefined, player.cookie)).data;
     assert.equal(chat.messages.length, 2);
+    assert.equal(chat.messages[1].clientId, emote.clientId);
+    assert.equal(chat.messages[1].id, acknowledged.message.id);
     await request('/api/history', undefined, player.cookie);
     await request('/api/admin', undefined, player.cookie, 403);
   }
