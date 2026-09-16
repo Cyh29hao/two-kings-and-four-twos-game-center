@@ -3,6 +3,7 @@ import {useState,type ReactNode} from 'react';
 import {Button} from './ui/button';
 import {Input} from './ui/input';
 import {HoldemCard} from './holdem-card';
+import {TableNotice,TurnClock,RoundSummary} from './table-ui';
 import {chips} from '@/lib/mahjong/report';
 import type {HoldemView} from '@/lib/holdem/engine';
 import {newDraft,reconcileDraft,selectAction,raiseDetails,canSubmitAction,type BettingAction,type PreselectionContext} from '@/lib/holdem/preselection';
@@ -13,31 +14,54 @@ export function HoldemControls({game:g,userId,roomCode,connected,reset,seconds,b
  const eligible=!!me&&g.phase==='playing'&&!me.folded&&!me.allIn&&connected&&!!preview&&(!g.options.acting||seconds>0);
  const context:PreselectionContext={scope:[roomCode,userId,g.round,g.street,reset].join(':'),ownAction:me?[me.bet,me.stack,me.last].join(':'):'',eligible,acting:g.options.acting&&seconds>0,preview};
  const [saved,setDraft]=useState(()=>newDraft(context)),draft=reconcileDraft(saved,context);
- // Derive before rendering as well as saving: stale selections can never be clicked for one frame.
  if(draft!==saved)setDraft(draft);
+ const scope=[context.scope,context.ownAction,eligible].join('|');
+ const [editor,setEditor]=useState({scope,mode:'idle' as 'idle'|'select'|'raise'});
+ const mode=editor.scope===scope?editor.mode:'idle';
+ const open=(next:'idle'|'select'|'raise')=>setEditor({scope,mode:next});
  const details=preview&&me?raiseDetails(draft.raise,preview,me.bet):null;
- const verb=g.currentBet==='0'?'下注至':'加注至',callAction=preview?.check?'check':'call';
+ const verb=g.currentBet==='0'?'下注':'加注',callAction=preview?.check?'check':'call';
+ const label=(action:BettingAction)=>action==='fold'?'弃牌':action==='check'?'过牌':action==='call'?`跟注 ${chips(preview?.call??'0')}`:action==='allin'?`全下 ${chips(me?.stack??'0')}`:`${verb}至 ${/^\d+$/.test(draft.raise)?chips(draft.raise):'—'}`;
  function choose(action:BettingAction){
   if(!eligible||!preview||busy)return;
-  if(!g.options.acting){setDraft(selectAction(draft,action,preview));return;}
+  if(!context.acting){setDraft(selectAction(draft,action,preview));open('idle');return;}
   if(!canSubmitAction(action,context,draft.raise,me?.bet??'0'))return;
-  void onAction(action,action==='raise'?{amount:draft.raise}:{}).then(ok=>{if(ok)setDraft(newDraft(context))});
+  void onAction(action,action==='raise'?{amount:draft.raise}:{}).then(ok=>{if(ok){setDraft(newDraft(context));open('idle');}});
  }
- const label=(action:BettingAction,text:string)=>`${draft.selected?.action===action?(g.options.acting?'确认':'已预选 · '):''}${text}`;
+ function edit(){const raised=draft.selected?.action==='raise';setDraft({...draft,selected:null,notice:''});open(raised?'raise':'select');}
  const changedCall=draft.selected?.action==='call'&&preview&&draft.selected.callAtSelection!==preview.call;
  const betting=g.phase==='playing'&&!!me&&!me.folded&&!me.allIn;
- return <section className="th-controls" aria-label="我的德州操作">
-  <div className="th-controls-header"><div className="th-own"><div className="th-own-cards">{me?.hand.map(c=><HoldemCard card={c} key={c} size="own"/>)}</div><div><b>{me?.name}</b><span>筹码 {chips(me?.stack??'0')} · 累计带入 {chips(me?.brought??'0')}</span></div></div><div className="th-social">{children}</div></div>
-  {betting?<div className="th-betting">
-   <div className="th-action-status" role="status"><span>{!connected?'连接恢复后可操作':g.options.acting?seconds>0?`轮到你 · ${seconds} 秒，请确认本次操作`:'本次操作时间已到，等待牌桌更新':'可提前选择，轮到你后确认'}</span><button type="button" disabled={!draft.selected||busy} style={{visibility:draft.selected?'visible':'hidden'}} onClick={()=>setDraft({...draft,selected:null,notice:''})}>取消预选</button></div>
-   <div className="th-actions">
-    <Button variant="outline" disabled={busy||!eligible||g.options.acting&&seconds<=0} aria-pressed={draft.selected?.action==='fold'} onClick={()=>choose('fold')}>{label('fold','弃牌')}</Button>
-    <Button disabled={busy||!eligible||g.options.acting&&seconds<=0} aria-pressed={draft.selected?.action===callAction} onClick={()=>choose(callAction)}>{label(callAction,preview?.check?'过牌':`跟注 ${chips(preview?.call??'0')}`)}</Button>
-    <Button variant="outline" disabled={busy||!eligible||!preview?.canAllIn||g.options.acting&&seconds<=0} title={preview?.allInReason} aria-pressed={draft.selected?.action==='allin'} onClick={()=>choose('allin')}>{label('allin',`全下 ${chips(me.stack)}`)}</Button>
-    <div className="th-raise"><label htmlFor="holdem-raise-amount">{verb}本轮总额</label><div><Input id="holdem-raise-amount" aria-label="加注至本轮总额" inputMode="numeric" maxLength={100} value={draft.raise} aria-invalid={!!details?.error} onChange={e=>setDraft({...draft,raise:e.target.value,notice:''})} disabled={!eligible||busy}/><Button disabled={!eligible||busy||!details?.valid||g.options.acting&&seconds<=0} aria-pressed={draft.selected?.action==='raise'} onClick={()=>choose('raise')}>{label('raise',verb)}</Button></div></div>
-   </div>
-   <div className="th-wager-details"><span>至少 {chips(preview?.minRaise??'0')} · 最多 {chips(preview?.maxRaise??'0')}</span><span>本次再投入 {details?.extra!==null&&details?.extra!==undefined?chips(details.extra):'—'}</span></div>
-   <p className="th-draft-feedback" role="status">{[draft.notice,changedCall?`跟注已由 ${chips(draft.selected!.callAtSelection)} 变为 ${chips(preview!.call)}，确认前请核对。`:'',details?.error||preview?.allInReason].filter(Boolean).join('；')||'预选只保存在本机，不会自动下注。'}</p>
-  </div>:['waiting','finished'].includes(g.phase)?<div className="th-actions th-between-hands">{me?.stack==='0'?<Button disabled={busy} onClick={()=>void onAction('rebuy')}>补入 {chips(g.rules.initial)} 筹码</Button>:<Button disabled={busy} onClick={()=>void onAction('ready')}>{me?.ready?'取消准备':'准备好了'}</Button>}<span>{g.seats.filter(s=>s.ready).length}/{g.rules.capacity} 人准备</span></div>:<p className="th-controls-status">{g.phase==='closed'?'整桌已结束':me?.folded?'本手已弃牌，等待下一手':me?.allIn?'本手已全下，等待结果':g.phase==='runout'?'正在翻公共牌':'等待其他牌友行动'}</p>}
+ const notice=!connected?'连接恢复后可操作':busy?'正在提交…':g.options.acting&&seconds<=0?'操作时间已到':[
+  draft.notice,changedCall?`跟注由 ${chips(draft.selected!.callAtSelection)} 变为 ${chips(preview!.call)}`:'',
+  mode==='raise'||draft.selected?.action==='raise'?details?.error:'',
+ ].filter(Boolean).join('；');
+ const result=g.result?.seats.find(s=>s.id===userId);
+ return <section className="th-controls table-dock" aria-label="我的德州操作">
+  <div className="th-controls-header"><div className="th-own"><div className="th-own-cards" aria-label="我的底牌">{me?.hand.map(c=><HoldemCard card={c} key={c} size="own"/>)}</div><strong aria-label={`剩余筹码 ${chips(me?.stack??'0')}`}>{chips(me?.stack??'0')}<small> 筹码</small></strong>{context.acting&&<TurnClock seconds={seconds}/>}</div><div className="th-social">{children}</div></div>
+  {betting?<div className="table-action-area" aria-label={context.acting?'当前行动':'提前准备'}>
+   {draft.selected?<div className="th-selection">
+    {context.acting?<Button disabled={busy||!canSubmitAction(draft.selected.action,context,draft.raise,me?.bet??'0')} onClick={()=>choose(draft.selected!.action)}>确认{label(draft.selected.action)}</Button>:<span className="th-preselected">已预选：{label(draft.selected.action)}</span>}
+    <Button variant="ghost" disabled={busy} onClick={edit}>更改</Button>
+    {!context.acting&&<Button variant="ghost" disabled={busy} onClick={()=>{setDraft({...draft,selected:null,notice:''});open('idle');}}>取消</Button>}
+   </div>:!context.acting&&mode==='idle'?<Button variant="outline" disabled={!eligible||busy} aria-expanded={false} onClick={()=>open('select')}>提前选择</Button>:<>
+    <div className="table-action-row">
+     <Button variant="ghost" disabled={!eligible||busy} onClick={()=>choose('fold')}>{context.acting?'':'预选'}弃牌</Button>
+     <Button variant={context.acting?'default':'outline'} disabled={!eligible||busy} onClick={()=>choose(callAction)}>{context.acting?'':'预选'}{label(callAction)}</Button>
+     <Button variant="outline" disabled={!eligible||busy} aria-expanded={mode==='raise'} aria-controls="holdem-wager-panel" onClick={()=>open(mode==='raise'?'select':'raise')}>{verb}</Button>
+     {!context.acting&&<Button variant="ghost" onClick={()=>open('idle')}>收起</Button>}
+    </div>
+    {mode==='raise'&&<div className="table-choice-panel th-wager-panel" id="holdem-wager-panel" aria-label="下注金额">
+     <label htmlFor="holdem-raise-amount">{verb}至<Input id="holdem-raise-amount" inputMode="numeric" maxLength={100} value={draft.raise} aria-invalid={!!details?.error} onChange={e=>setDraft({...draft,raise:e.target.value,notice:''})} disabled={!eligible||busy}/></label>
+     <div className="th-wager-summary"><span>本次投入 {details?.extra??'—'}</span><small>范围 {chips(preview?.minRaise??'0')}–{chips(preview?.maxRaise??'0')}</small></div>
+     <Button disabled={!eligible||busy||!details?.valid} onClick={()=>choose('raise')}>{context.acting?'确认':'预选'}{verb}</Button>
+     <Button variant="outline" disabled={!eligible||busy||!preview?.canAllIn} onClick={()=>choose('allin')}>{context.acting?'':'预选'}全下 {chips(me.stack)}</Button>
+     {!preview?.canAllIn&&<TableNotice>{preview?.allInReason}</TableNotice>}
+    </div>}
+   </>}
+   <TableNotice>{notice}</TableNotice>
+  </div>:<div className="table-action-area">
+   {g.phase==='finished'&&result&&<RoundSummary title={g.result?.type==='aborted'?'本局中止':BigInt(result.delta)>0n?'本局获胜':BigInt(result.delta)<0n?'本局结束':'本局持平'} delta={chips(result.delta,true)}/>}
+   {['waiting','finished'].includes(g.phase)?<div className="table-action-row">{me?.stack==='0'?<Button disabled={busy} onClick={()=>void onAction('rebuy')}>补入 {chips(g.rules.initial)}</Button>:<Button disabled={busy} onClick={()=>void onAction('ready')}>{me?.ready?'取消准备':g.phase==='finished'?'准备下一局':'准备好了'}</Button>}<span className="table-muted">{g.seats.filter(s=>s.ready).length}/{g.rules.capacity} 已准备</span></div>:<span className="table-muted">{g.phase==='closed'?'整桌已结束':me?.folded?'已弃牌':me?.allIn?'已全下':g.phase==='runout'?'正在摊牌':''}</span>}
+  </div>}
  </section>;
 }
