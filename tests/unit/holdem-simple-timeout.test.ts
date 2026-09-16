@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newHoldem,holdemRules,holdemSeat,startHoldem,moveHoldem,holdemActionPreview,holdemOptions,holdemView,setHoldemTimeoutChoice,timeoutHoldem,type HoldemGame} from '../../lib/holdem/engine.ts';
-function game(){const g=newHoldem('p0','甲',holdemRules({capacity:4}));g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
+function game(){const g=newHoldem('p0','甲',{...holdemRules({capacity:4}),id:'holdem-v4'});g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
 function choose(g:HoldemGame,i:number,choice:unknown){const s=g.seats[i];setHoldemTimeoutChoice(g,s.id,choice,{round:g.round,street:g.street,bet:s.bet,stack:s.stack});}
 function flop(){const g=game();while(g.street==='preflop'){const s=g.seats[g.turn],p=holdemOptions(g,s.id);moveHoldem(g,s.id,{action:p.check?'check':'call'});}return g;}
 test('v4 accepts any integer above current call: 60 followed by 70 or 61, no multiples',()=>{
@@ -29,4 +29,11 @@ test('cancel and lifecycle changes cannot reuse a previous choice; no selection 
  const f=flop();timeoutHoldem(f,f.deadline);assert.equal(f.seats[1].action?.kind,'check');
  const h=game();choose(h,3,{action:'call',maxCall:'20'});h.seats[3].timeoutChoice!.round='old';timeoutHoldem(h,h.deadline);assert.equal(h.seats[3].folded,true);
  const k=game();assert.throws(()=>setHoldemTimeoutChoice(k,'p3',{action:'call',maxCall:'20'},{round:'old',street:k.street,bet:'10',stack:'990'}));
+});
+
+test('default rooms restore full raises and ante units while preserving saved v4 snapshots',()=>{
+ const g=newHoldem('p0','甲',holdemRules({capacity:4}));g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);
+ assert.equal(g.rules.id,'holdem-v3');assert.equal(holdemActionPreview(g,'p3')!.minRaise,'60');assert.equal(holdemActionPreview(g,'p3')!.betStep,'10');
+ assert.throws(()=>moveHoldem(g,'p3',{action:'raise',amount:'40'}));assert.throws(()=>moveHoldem(g,'p3',{action:'raise',amount:'61'}));
+ choose(g,3,{action:'raise',amount:'60'});timeoutHoldem(g,g.deadline);assert.equal(g.seats[3].bet,'60');
 });

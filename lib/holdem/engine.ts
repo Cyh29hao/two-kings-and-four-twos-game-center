@@ -13,7 +13,7 @@ export function holdemRules(b:{capacity?:unknown;initial?:unknown;ante?:unknown;
  const capacity=b.capacity===undefined?6:b.capacity;if(!Number.isInteger(capacity)||Number(capacity)<4||Number(capacity)>10)throw Error('房间人数须为 4–10 人');
  const initial=money(b.initial,'1000'),ante=money(b.ante,'10',true),small=money(b.small,'20'),big=money(b.big,'30'),seconds=b.seconds===undefined?30:Number(b.seconds);
  if(n(small)>=n(big)||n(initial)<n(big)||n(ante)>n(small))throw Error('大盲须大于小盲，前注不得高于小盲，初始筹码须至少足够支付大盲');if(![15,30,45,60].includes(seconds))throw Error('请选择有效的操作时限');
- return {id:'holdem-v4',name:'好友德州 · 简化加注',capacity:Number(capacity),initial,ante,small,big,seconds};
+ return {id:'holdem-v3',name:'无限注德州扑克',capacity:Number(capacity),initial,ante,small,big,seconds};
 }
 export const holdemSeat=(id:string,name:string,initial:Money,bot=false):HoldemSeat=>({id,name,bot,ready:bot,hand:[],stack:initial,brought:initial,bet:'0',total:'0',folded:false,allIn:false,actedAt:null,last:''});
 export function newHoldem(id:string,name:string,rules=holdemRules()):HoldemGame{return{kind:'holdem',schemaVersion:1,rules,host:id,seats:[holdemSeat(id,name,rules.initial)],phase:'waiting',street:'preflop',round:'',roundNumber:0,button:-1,smallSeat:-1,bigSeat:-1,turn:-1,deadline:0,deck:[],burns:[],board:[],currentBet:'0',lastRaise:rules.big,roundStart:[],log:[],result:null,fixed:false,ended:0};}

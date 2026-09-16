@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newHoldem,holdemRules,holdemSeat,startHoldem,holdemActionPreview,holdemOptions,holdemView,moveHoldem} from '../../lib/holdem/engine.ts';
-import {newDraft,reconcileDraft,selectAction,raiseDetails,paymentDetails,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
+import {newDraft,reconcileDraft,selectAction,raiseDetails,paymentDetails,quickPayment,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
 function game(){const g=newHoldem('p0','甲',{...holdemRules({capacity:4}),id:'holdem-v3'});g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
 function context():PreselectionContext{return {scope:'room:account:hand:preflop:connection',ownAction:'10:990:',eligible:true,acting:false,preview:holdemActionPreview(game(),'p0')};}
 test('waiting preview and acting options share exact wager calculation without granting a turn or exposing cards',()=>{
@@ -83,4 +83,13 @@ test('payment editor shows and submits exactly the additional chips, including p
  assert.equal(paymentDetails('1000',p,'10','990').remaining,null);
  const large={...p,betStep:'1',minRaise:'9007199254740995',maxRaise:'9999999999999999'};
  assert.equal(paymentDetails('7',large,'9007199254740990','100').target,'9007199254740997');
+});
+
+test('quick wager buttons add fixed call multiples cumulatively without lifting invalid inputs',()=>{
+ assert.equal(quickPayment('60','60','30','1'),'120');
+ assert.equal(quickPayment('120','60','30','2'),'240');
+ assert.equal(quickPayment('240','60','30','5'),'540');
+ assert.equal(quickPayment('0','0','30','2'),'60');
+ assert.equal(quickPayment('','60','30','1'),'120');
+ assert.equal(quickPayment('9007199254740993','60','30','5'),'9007199254741293');
 });

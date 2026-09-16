@@ -37,3 +37,9 @@ export function paymentDetails(value:string,p:HoldemActionPreview,alreadyBet:str
  const details=raiseDetails(target,p,alreadyBet);
  return {...details,target,remaining:details.extra!==null&&BigInt(details.extra)<=BigInt(stack)?(BigInt(stack)-BigInt(details.extra)).toString():null};
 }
+
+export function quickPayment(value:string,call:string,big:string,multiple:string){
+ const unit=BigInt(call)>0n?BigInt(call):BigInt(big);
+ const current=/^(0|[1-9]\d{0,99})$/.test(value)?BigInt(value):BigInt(call);
+ return (current+unit*BigInt(multiple)).toString();
+}

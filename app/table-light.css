@@ -79,3 +79,17 @@
 .table-light .th-seat .th-stack{font-size:14px;line-height:16px}.table-light .th-seat{gap:2px}
 
 .th-quick-payments{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* One compact amount editor, a quiet payment preview and secondary all-in. */
+.th-wager-panel{align-items:center;gap:18px;padding:14px 0 2px}
+.th-wager-editor{display:grid;gap:8px;min-width:260px;flex:1;max-width:360px}
+.th-wager-panel .th-wager-editor label{width:100%;color:#63796c;font-size:12px;gap:6px}
+.th-wager-editor input{font-size:25px;font-weight:600;font-variant-numeric:tabular-nums;border-radius:12px;background:#fffef8;height:50px;border-color:#cedbcf;box-shadow:none}
+.th-quick-payments{display:grid;grid-template-columns:1.35fr repeat(3,1fr);gap:6px}
+.th-quick-payments button{padding:0 10px;border-radius:10px;border-color:transparent;background:#edf2ec;color:#41634e;font-size:13px;box-shadow:none}
+.th-quick-payments button:hover{background:#dce9de;border-color:#aec8b3}
+.th-wager-basis{font-size:11px;color:#7c8c7c}
+.th-wager-summary{min-width:200px;padding:10px 0;gap:8px;font-variant-numeric:tabular-nums}
+.th-wager-summary strong{font-size:28px;font-weight:650}
+.th-allin-choice{border-radius:12px;align-self:center;box-shadow:none}
+@media(max-width:600px){.th-wager-panel{gap:8px 12px}.th-wager-editor{flex-basis:100%;max-width:none;min-width:0}.th-wager-summary{flex:1;min-width:0}.th-wager-summary strong{font-size:24px}.th-quick-payments button{padding:0 6px}.th-wager-summary small{font-size:11px}}
