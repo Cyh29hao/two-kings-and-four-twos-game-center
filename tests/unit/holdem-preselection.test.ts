@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {newHoldem,holdemRules,holdemSeat,startHoldem,holdemActionPreview,holdemOptions,holdemView,moveHoldem} from '../../lib/holdem/engine.ts';
 import {newDraft,reconcileDraft,selectAction,raiseDetails,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
 function game(){const g=newHoldem('p0','甲',holdemRules({capacity:4}));g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
-function context():PreselectionContext{return {scope:'room:account:hand:preflop:connection',ownAction:'0:990:',eligible:true,acting:false,preview:holdemActionPreview(game(),'p0')};}
+function context():PreselectionContext{return {scope:'room:account:hand:preflop:connection',ownAction:'10:990:',eligible:true,acting:false,preview:holdemActionPreview(game(),'p0')};}
 test('waiting preview and acting options share exact wager calculation without granting a turn or exposing cards',()=>{
  const g=game(),before=structuredClone(g),v=holdemView(g,'p0'),p=v.actionPreview!;
- assert.equal(p.call,'30');assert.equal(p.minRaise,'60');assert.equal(v.options.acting,false);
+ assert.equal(p.call,'20');assert.equal(p.minRaise,'60');assert.equal(v.options.acting,false);
  assert.throws(()=>moveHoldem(g,'p0',{action:'call'}));assert.deepEqual(g,before);
  assert(v.seats.slice(1).every(s=>s.hand.length===0));assert(!('deck'in v));assert(!('burns'in v));
  g.turn=0;const {raiseReason,allInReason,betStep,...preview}=p;assert.deepEqual(holdemOptions(g,'p0'),{acting:true,...preview});
@@ -33,7 +33,7 @@ test('every waiting action is local, toggles off, and becomes submittable only a
 test('opponent raises preserve explicit input and follow-call intent; never raise the draft automatically',()=>{
  const c=context();let d=selectAction({...newDraft(c),raise:'75'},'call',c.preview!);
  const updated={...c,preview:{...c.preview!,call:'100',minRaise:'170'}};
- assert.equal(reconcileDraft(d,updated),d);assert.equal(d.selected!.callAtSelection,'30');assert.equal(d.raise,'75');
+ assert.equal(reconcileDraft(d,updated),d);assert.equal(d.selected!.callAtSelection,'20');assert.equal(d.raise,'75');
  assert.equal(raiseDetails(d.raise,updated.preview!,'0').valid,false);assert.match(raiseDetails(d.raise,updated.preview!,'0').error,/170/);
  assert.equal(canSubmitAction('raise',{...updated,acting:true},d.raise,'0'),false);
  d=selectAction(d,'raise',updated.preview!);assert.equal(reconcileDraft(d,updated).raise,'75');
