@@ -6,29 +6,29 @@ import {HoldemCard} from './holdem-card';
 import {TableNotice,TurnClock,RoundSummary} from './table-ui';
 import {chips} from '@/lib/mahjong/report';
 import type {HoldemView} from '@/lib/holdem/engine';
-import {newDraft,reconcileDraft,selectAction,raiseDetails,canSubmitAction,type BettingAction,type PreselectionContext} from '@/lib/holdem/preselection';
+import {newDraft,reconcileDraft,selectAction,paymentDetails,canSubmitAction,type BettingAction,type PreselectionContext} from '@/lib/holdem/preselection';
 
 type Props={game:HoldemView;userId:string;roomCode:string;connected:boolean;reset:number;seconds:number;busy:boolean;onAction:(action:string,extra?:Record<string,unknown>)=>Promise<boolean>;children:ReactNode};
 export function HoldemControls({game:g,userId,roomCode,connected,reset,seconds,busy,onAction,children}:Props){
  const me=g.seats.find(s=>s.id===userId),preview=g.actionPreview??null;
  const eligible=!!me&&g.phase==='playing'&&!me.folded&&!me.allIn&&connected&&!!preview&&(!g.options.acting||seconds>0);
- const context:PreselectionContext={scope:[roomCode,userId,g.round,g.street,reset].join(':'),ownAction:me?[me.bet,me.stack,me.last].join(':'):'',eligible,acting:g.options.acting&&seconds>0,preview};
+ const context:PreselectionContext={scope:[roomCode,userId,g.round,g.street,reset].join(':'),ownAction:me?[me.bet,me.stack,me.last].join(':'):'',alreadyBet:me?.bet,eligible,acting:g.options.acting&&seconds>0,preview};
  const [saved,setDraft]=useState(()=>newDraft(context)),draft=reconcileDraft(saved,context);
  if(draft!==saved)setDraft(draft);
  const submitting=useRef(false);
  const wagerOpen=draft.selected?.action==='raise'||draft.selected?.action==='allin';
- const details=preview&&me?raiseDetails(draft.raise,preview,me.bet):null;
+ const details=preview&&me?paymentDetails(draft.raise,preview,me.bet,me.stack):null;
  const verb=g.currentBet==='0'?'下注':'加注',callAction=preview?.check?'check':'call';
- const label=(action:BettingAction)=>action==='fold'?'弃牌':action==='check'?'过牌':action==='call'?`跟注 ${chips(preview?.call??'0')}`:action==='allin'?`全下 ${chips(me?.stack??'0')}`:`${verb}至 ${/^\d+$/.test(draft.raise)?chips(draft.raise):'—'}`;
+ const label=(action:BettingAction)=>action==='fold'?'弃牌':action==='check'?'过牌':action==='call'?`跟注 ${chips(preview?.call??'0')}`:action==='allin'?`全下 ${chips(me?.stack??'0')}`:`${verb}，本次投入 ${/^\d+$/.test(draft.raise)?chips(draft.raise):'—'}`;
  function choose(action:BettingAction){
   if(!eligible||!preview||busy||submitting.current)return;
   setDraft(selectAction(draft,action,preview));
  }
  async function confirm(){
   const action=draft.selected?.action;
-  if(!action||busy||submitting.current||!canSubmitAction(action,context,draft.raise,me?.bet??'0'))return;
+  if(!action||busy||submitting.current||!canSubmitAction(action,context,details?.target??'',me?.bet??'0'))return;
   submitting.current=true;
-  try{if(await onAction(action,action==='raise'?{amount:draft.raise}:{}))setDraft(newDraft(context));}
+  try{if(await onAction(action,action==='raise'?{amount:details!.target}:{}))setDraft(newDraft(context));}
   finally{submitting.current=false;}
  }
  const changedCall=draft.selected?.action==='call'&&preview&&draft.selected.callAtSelection!==preview.call;
@@ -45,11 +45,11 @@ export function HoldemControls({game:g,userId,roomCode,connected,reset,seconds,b
     <Button variant="outline" aria-pressed={draft.selected?.action==='fold'} disabled={!eligible||busy} onClick={()=>choose('fold')}>{draft.selected?.action==='fold'?'✓ ':''}弃牌</Button>
     <Button variant="outline" aria-pressed={draft.selected?.action===callAction} disabled={!eligible||busy} onClick={()=>choose(callAction)}>{draft.selected?.action===callAction?'✓ ':''}{label(callAction)}</Button>
     <Button variant="outline" aria-pressed={draft.selected?.action==='raise'} disabled={!eligible||busy} aria-expanded={wagerOpen} aria-controls="holdem-wager-panel" onClick={()=>choose('raise')}>{draft.selected?.action==='raise'?'✓ ':''}{verb}</Button>
-    <Button className="th-confirm" disabled={busy||!draft.selected||!canSubmitAction(draft.selected.action,context,draft.raise,me?.bet??'0')} title={draft.selected?label(draft.selected.action):'请先选择动作'} onClick={()=>void confirm()}>{busy?'提交中…':'确认'}</Button>
+    <Button className="th-confirm" disabled={busy||!draft.selected||!canSubmitAction(draft.selected.action,context,details?.target??'',me?.bet??'0')} title={draft.selected?label(draft.selected.action):'请先选择动作'} onClick={()=>void confirm()}>{busy?'提交中…':'确认'}</Button>
    </div>
    {wagerOpen&&<div className="table-choice-panel th-wager-panel" id="holdem-wager-panel" aria-label="下注金额">
-    <label htmlFor="holdem-raise-amount">{verb}至<Input id="holdem-raise-amount" inputMode="numeric" maxLength={100} value={draft.raise} aria-invalid={!!details?.error} onChange={e=>setDraft({...draft,raise:e.target.value,selected:preview?{action:'raise',callAtSelection:preview.call}:null,notice:''})} disabled={!eligible||busy}/></label>
-    <div className="th-wager-summary"><span>本次投入 {details?.extra??'—'}</span><small>范围 {chips(preview?.minRaise??'0')}–{chips(preview?.maxRaise??'0')} · {chips(preview?.betStep??'1')} 的倍数</small></div>
+    <label htmlFor="holdem-raise-amount">本次投入<Input id="holdem-raise-amount" inputMode="numeric" maxLength={100} value={draft.raise} aria-invalid={!!details?.error} onChange={e=>setDraft({...draft,raise:e.target.value,selected:preview?{action:'raise',callAtSelection:preview.call}:null,notice:''})} disabled={!eligible||busy}/></label>
+    <div className="th-wager-summary"><span role="status" aria-live="polite">将付出 <strong>{draft.selected?.action==='allin'?chips(me.stack):details?.extra==null?'—':chips(details.extra)}</strong> · 剩余 {draft.selected?.action==='allin'?'0':details?.remaining===null?'—':chips(details?.remaining??me.stack)}</span><small>本次范围 {chips((BigInt(preview?.minRaise??'0')-BigInt(me.bet)).toString())}–{chips(me.stack)} · {chips(preview?.betStep??'1')} 的倍数</small></div>
     <Button variant="outline" aria-pressed={draft.selected?.action==='allin'} disabled={!eligible||busy||!preview?.canAllIn} onClick={()=>choose('allin')}>{draft.selected?.action==='allin'?'✓ ':''}全下 {chips(me.stack)}</Button>
     {!preview?.canAllIn&&<TableNotice>{preview?.allInReason}</TableNotice>}
    </div>}

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newHoldem,holdemRules,holdemSeat,startHoldem,holdemActionPreview,holdemOptions,holdemView,moveHoldem} from '../../lib/holdem/engine.ts';
-import {newDraft,reconcileDraft,selectAction,raiseDetails,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
+import {newDraft,reconcileDraft,selectAction,raiseDetails,paymentDetails,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
 function game(){const g=newHoldem('p0','甲',holdemRules({capacity:4}));g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
 function context():PreselectionContext{return {scope:'room:account:hand:preflop:connection',ownAction:'10:990:',eligible:true,acting:false,preview:holdemActionPreview(game(),'p0')};}
 test('waiting preview and acting options share exact wager calculation without granting a turn or exposing cards',()=>{
@@ -67,4 +67,20 @@ test('waiting preview does not change either real actions or bot decisions throu
  const snapshot=JSON.stringify(g);
  for(let i=0;i<4;i++)holdemActionPreview(g,'p'+i);
  assert.equal(JSON.stringify(g),snapshot);
+});
+
+test('payment editor shows and submits exactly the additional chips, including prior ante',()=>{
+ const g=game(),p=holdemActionPreview(g,'p0')!;
+ const c={...context(),alreadyBet:'10'};
+ assert.equal(newDraft(c).raise,'50');
+ const details=paymentDetails('80',p,'10','990');
+ assert.deepEqual(details,{valid:true,extra:'80',target:'90',remaining:'910',error:''});
+ g.turn=0;moveHoldem(g,'p0',{action:'raise',amount:details.target});
+ assert.equal(g.seats[0].stack,'910');assert.equal(g.seats[0].total,'90');
+ const changed={...p,minRaise:'120'};
+ assert.match(paymentDetails('80',changed,'10','990').error,/110/);
+ assert.equal(paymentDetails('',p,'10','990').valid,false);
+ assert.equal(paymentDetails('1000',p,'10','990').remaining,null);
+ const large={...p,betStep:'1',minRaise:'9007199254740995',maxRaise:'9999999999999999'};
+ assert.equal(paymentDetails('7',large,'9007199254740990','100').target,'9007199254740997');
 });

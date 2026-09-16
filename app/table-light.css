@@ -29,6 +29,7 @@
 .table-light .th-preselected{font-size:14px;color:#315c44}
 .th-wager-panel label{display:grid;gap:5px;font-size:13px;width:160px}
 .th-wager-summary{display:grid;gap:6px;font-size:14px;align-self:center}
+.th-wager-summary strong{font-size:22px;color:#315c44;font-variant-numeric:tabular-nums}
 .th-wager-summary small{font-size:12px;color:#718278}
 .table-light .th-seat-action:empty{display:none}
 .table-light .th-player-name{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

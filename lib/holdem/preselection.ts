@@ -1,10 +1,10 @@
 import type {HoldemActionPreview} from './engine.ts';
 export type BettingAction='fold'|'check'|'call'|'allin'|'raise';
 export type Selection={action:BettingAction;callAtSelection:string};
-export type PreselectionContext={scope:string;ownAction:string;eligible:boolean;acting:boolean;preview:HoldemActionPreview|null};
+export type PreselectionContext={scope:string;ownAction:string;alreadyBet?:string;eligible:boolean;acting:boolean;preview:HoldemActionPreview|null};
 export type PreselectionDraft={eligible:boolean;scope:string;ownAction:string;raise:string;selected:Selection|null;notice:string};
 export function newDraft(context:PreselectionContext):PreselectionDraft{
- return {eligible:context.eligible,scope:context.scope,ownAction:context.ownAction,raise:context.eligible?context.preview?.minRaise??'':'',selected:null,notice:''};
+ return {eligible:context.eligible,scope:context.scope,ownAction:context.ownAction,raise:context.eligible?context.preview?(BigInt(context.preview.minRaise)-BigInt(context.alreadyBet??'0')).toString():'':'',selected:null,notice:''};
 }
 /** Ordinary opponent turns and polls retain the draft; local lifecycle boundaries do not. */
 export function reconcileDraft(draft:PreselectionDraft,context:PreselectionContext):PreselectionDraft{
@@ -21,7 +21,7 @@ export function selectAction(draft:PreselectionDraft,action:BettingAction,p:Hold
 export function raiseDetails(value:string,p:HoldemActionPreview,alreadyBet:string){
  if(!/^(0|[1-9]\d{0,99})$/.test(value))return {valid:false,extra:null,error:'请输入整数筹码'};
  const amount=BigInt(value),extra=amount-BigInt(alreadyBet);
- const error=!p.canRaise?p.raiseReason:amount<BigInt(p.minRaise)?`最低加注至 ${p.minRaise}，请修改金额`:amount>BigInt(p.maxRaise)?`最多加注至 ${p.maxRaise}`:amount%BigInt(p.betStep??'1')!==0n?`下注须为 ${p.betStep} 的整数倍`:'';
+ const error=!p.canRaise?p.raiseReason:amount<BigInt(p.minRaise)?`本次至少投入 ${BigInt(p.minRaise)-BigInt(alreadyBet)}，请修改金额`:amount>BigInt(p.maxRaise)?`本次最多投入 ${BigInt(p.maxRaise)-BigInt(alreadyBet)}`:amount%BigInt(p.betStep??'1')!==0n?`下注须为 ${p.betStep} 的整数倍`:'';
  return {valid:!error,extra:extra>=0n?extra.toString():null,error};
 }
 /** No effect or timer dispatches actions. A fresh deliberate click is always required. */
@@ -29,4 +29,11 @@ export function canSubmitAction(action:BettingAction,context:PreselectionContext
  const p=context.preview;
  if(!context.eligible||!context.acting||!p)return false;
  return action==='fold'||action==='check'&&p.check||action==='call'&&!p.check||action==='allin'&&p.canAllIn||action==='raise'&&raiseDetails(raise,p,alreadyBet).valid;
+}
+
+/** The editor is a payment; only the request boundary uses a street total. */
+export function paymentDetails(value:string,p:HoldemActionPreview,alreadyBet:string,stack:string){
+ const target=/^(0|[1-9]\d{0,99})$/.test(value)?(BigInt(value)+BigInt(alreadyBet)).toString():'';
+ const details=raiseDetails(target,p,alreadyBet);
+ return {...details,target,remaining:details.extra!==null&&BigInt(details.extra)<=BigInt(stack)?(BigInt(stack)-BigInt(details.extra)).toString():null};
 }
