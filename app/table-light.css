@@ -66,3 +66,6 @@
 .table-light .room-chat--compact .chat-launch{height:44px!important;min-height:44px!important;padding:0!important;width:44px!important}
 .table-action-area>button{align-self:center;min-width:140px}
 .table-light .mj-player-zone.is-active .avatar,.table-light .mj-self.is-my-turn .avatar{outline:2px solid #c9a546;outline-offset:3px}
+/* Picking an action never submits it; only the enabled confirmation does. */
+.th-action-choices button[aria-pressed=true],.th-wager-panel button[aria-pressed=true]{border-color:#197c72;background:#e3f1e9;color:#245b4b;box-shadow:inset 0 0 0 1px #197c72}
+.table-light .th-confirm:disabled{background:#e7ebe7;color:#8b958e;border-color:#d9dfd9;opacity:1;box-shadow:none}

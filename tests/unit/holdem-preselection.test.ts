@@ -9,7 +9,7 @@ test('waiting preview and acting options share exact wager calculation without g
  assert.equal(p.call,'30');assert.equal(p.minRaise,'60');assert.equal(v.options.acting,false);
  assert.throws(()=>moveHoldem(g,'p0',{action:'call'}));assert.deepEqual(g,before);
  assert(v.seats.slice(1).every(s=>s.hand.length===0));assert(!('deck'in v));assert(!('burns'in v));
- g.turn=0;const {raiseReason,allInReason,...preview}=p;assert.deepEqual(holdemOptions(g,'p0'),{acting:true,...preview});
+ g.turn=0;const {raiseReason,allInReason,betStep,...preview}=p;assert.deepEqual(holdemOptions(g,'p0'),{acting:true,...preview});
  assert.equal(holdemActionPreview(g,'outsider'),null);
  g.seats[0].folded=true;assert.equal(holdemActionPreview(g,'p0'),null);g.seats[0].folded=false;g.seats[0].allIn=true;assert.equal(holdemActionPreview(g,'p0'),null);
  g.seats[0].allIn=false;g.phase='finished';assert.equal(holdemActionPreview(g,'p0'),null);
@@ -55,7 +55,7 @@ test('account, room, hand, street, reconnect, action and eligibility boundaries 
  assert.equal(reconcileDraft(d,{...c,preview:{...c.preview!,canAllIn:false,allInReason:'加注权未开放'}}).selected,null);
 });
 test('raise total, extra payment and validation stay exact above Number precision',()=>{
- const p={...context().preview!,minRaise:'9007199254740995',maxRaise:'9999999999999999'};
+ const p={...context().preview!,betStep:'1',minRaise:'9007199254740995',maxRaise:'9999999999999999'};
  assert.deepEqual(raiseDetails('9007199254740997',p,'9007199254740990'),{valid:true,extra:'7',error:''});
  for(const value of ['','-1','1.2','1e4','Infinity','01','9'.repeat(101)])assert.equal(raiseDetails(value,p,'0').valid,false);
  assert.equal(raiseDetails('10000000000000000',p,'0').valid,false);

@@ -21,7 +21,7 @@ export function selectAction(draft:PreselectionDraft,action:BettingAction,p:Hold
 export function raiseDetails(value:string,p:HoldemActionPreview,alreadyBet:string){
  if(!/^(0|[1-9]\d{0,99})$/.test(value))return {valid:false,extra:null,error:'请输入整数筹码'};
  const amount=BigInt(value),extra=amount-BigInt(alreadyBet);
- const error=!p.canRaise?p.raiseReason:amount<BigInt(p.minRaise)?`最低加注至 ${p.minRaise}，请修改金额`:amount>BigInt(p.maxRaise)?`最多加注至 ${p.maxRaise}`:'';
+ const error=!p.canRaise?p.raiseReason:amount<BigInt(p.minRaise)?`最低加注至 ${p.minRaise}，请修改金额`:amount>BigInt(p.maxRaise)?`最多加注至 ${p.maxRaise}`:amount%BigInt(p.betStep??'1')!==0n?`下注须为 ${p.betStep} 的整数倍`:'';
  return {valid:!error,extra:extra>=0n?extra.toString():null,error};
 }
 /** No effect or timer dispatches actions. A fresh deliberate click is always required. */

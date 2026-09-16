@@ -91,6 +91,8 @@ try {
   assert.equal(preview.game.actionPreview.minRaise,'60');
   assert(preview.game.seats.slice(1).every(s=>s.hand.length===0));
   await request('/api/holdem',{action:'call',code:table.code,revision:table.revision},humans[0].cookie,400);
+  assert.equal(preview.game.actionPreview.betStep,'10');
+  await request('/api/holdem',{action:'raise',amount:'81',code:table.code,revision:table.revision},humans[3].cookie,400);
   table=(await request('/api/holdem',{action:'raise',amount:'100',code:table.code,revision:table.revision},humans[3].cookie)).data;
   const updated=(await request('/api/holdem?room='+table.code,undefined,humans[0].cookie)).data;
   assert.equal(updated.game.options.acting,true);

@@ -1,6 +1,6 @@
 import {evaluate,type HandValue} from './evaluate.ts';
 export type Money=string;
-export type HoldemRules={id:'holdem-v1';name:string;capacity:number;initial:Money;ante:Money;small:Money;big:Money;seconds:number};
+export type HoldemRules={id:'holdem-v1'|'holdem-v2';name:string;capacity:number;initial:Money;ante:Money;small:Money;big:Money;seconds:number};
 export type HoldemSeat={id:string;name:string;bot:boolean;ready:boolean;hand:number[];stack:Money;brought:Money;bet:Money;total:Money;folded:boolean;allIn:boolean;actedAt:Money|null;last:string};
 export type Pot={amount:Money;eligible:number[];winners:number[];refund?:boolean};
 export type HoldemResult={kind:'holdem';id:string;roundNumber:number;rules:HoldemRules;type:'showdown'|'fold'|'aborted';board:number[];button:number;pots:Pot[];seats:{id:string;name:string;bot:boolean;delta:Money;stack:Money;brought:Money;hand:number[];value:HandValue|null}[];ended:number};
@@ -12,7 +12,7 @@ export function holdemRules(b:{capacity?:unknown;initial?:unknown;ante?:unknown;
  const capacity=b.capacity===undefined?6:b.capacity;if(!Number.isInteger(capacity)||Number(capacity)<4||Number(capacity)>10)throw Error('房间人数须为 4–10 人');
  const initial=money(b.initial,'1000'),ante=money(b.ante,'10',true),small=money(b.small,'20'),big=money(b.big,'30'),seconds=b.seconds===undefined?30:Number(b.seconds);
  if(n(small)>=n(big)||n(initial)<n(big)+n(ante))throw Error('大盲须大于小盲，初始筹码须至少足够支付前注和大盲');if(![15,30,45,60].includes(seconds))throw Error('请选择有效的操作时限');
- return {id:'holdem-v1',name:'无限注德州扑克',capacity:Number(capacity),initial,ante,small,big,seconds};
+ return {id:'holdem-v2',name:'无限注德州扑克',capacity:Number(capacity),initial,ante,small,big,seconds};
 }
 export const holdemSeat=(id:string,name:string,initial:Money,bot=false):HoldemSeat=>({id,name,bot,ready:bot,hand:[],stack:initial,brought:initial,bet:'0',total:'0',folded:false,allIn:false,actedAt:null,last:''});
 export function newHoldem(id:string,name:string,rules=holdemRules()):HoldemGame{return{kind:'holdem',schemaVersion:1,rules,host:id,seats:[holdemSeat(id,name,rules.initial)],phase:'waiting',street:'preflop',round:'',roundNumber:0,button:-1,smallSeat:-1,bigSeat:-1,turn:-1,deadline:0,deck:[],burns:[],board:[],currentBet:'0',lastRaise:rules.big,roundStart:[],log:[],result:null,fixed:false,ended:0};}
@@ -35,15 +35,16 @@ export function startHoldem(g:HoldemGame,now=Date.now()){
  g.seats[g.smallSeat].last='小盲 '+g.seats[g.smallSeat].bet;g.seats[g.bigSeat].last='大盲 '+g.seats[g.bigSeat].bet;
  note(g,`第 ${g.roundNumber} 局开始，前注 ${g.rules.ante}，小盲 ${g.rules.small}，大盲 ${g.rules.big}`,now);progress(g,g.bigSeat,now);
 }
-export type HoldemActionPreview={check:boolean;call:Money;minRaise:Money;maxRaise:Money;canRaise:boolean;canAllIn:boolean;raiseReason:string;allInReason:string};
+export function holdemBetStep(r:HoldemRules):Money{return r.id==='holdem-v2'&&n(r.ante)>0n?r.ante:'1';}
+export type HoldemActionPreview={check:boolean;call:Money;minRaise:Money;maxRaise:Money;betStep?:Money;canRaise:boolean;canAllIn:boolean;raiseReason:string;allInReason:string};
 /** Evaluate only this player's rights at the current public wager, without granting a turn. */
 export function holdemActionPreview(g:HoldemGame,id:string):HoldemActionPreview|null{
  const seat=g.seats.findIndex(s=>s.id===id),s=g.seats[seat];
  if(g.phase!=='playing'||!s||!active(s))return null;
- const owed=n(g.currentBet)-n(s.bet),maximum=n(s.bet)+n(s.stack),right=s.actedAt===null||n(g.currentBet)-n(s.actedAt)>=n(g.lastRaise),minimum=n(g.currentBet)+n(g.lastRaise);
+ const owed=n(g.currentBet)-n(s.bet),maximum=n(s.bet)+n(s.stack),right=s.actedAt===null||n(g.currentBet)-n(s.actedAt)>=n(g.lastRaise),step=n(holdemBetStep(g.rules)),minimum=((n(g.currentBet)+n(g.lastRaise)+step-1n)/step)*step;
  const opponentCanBet=g.seats.some((o,i)=>i!==seat&&active(o));
- const canRaise=right&&opponentCanBet&&maximum>=minimum,canAllIn=maximum<=n(g.currentBet)||right&&opponentCanBet;
- return {check:owed===0n,call:min(owed,n(s.stack)).toString(),minRaise:minimum.toString(),maxRaise:maximum.toString(),canRaise,canAllIn,
+ const canRaise=right&&opponentCanBet&&maximum/step*step>=minimum,canAllIn=maximum<=n(g.currentBet)||right&&opponentCanBet;
+ return {betStep:step.toString(),check:owed===0n,call:min(owed,n(s.stack)).toString(),minRaise:minimum.toString(),maxRaise:maximum.toString(),canRaise,canAllIn,
   raiseReason:canRaise?'':!opponentCanBet?'没有仍可下注的对手':!right?'本轮加注权尚未重新开放':'筹码不足最低加注额，可选择合法的全下',
   allInReason:canAllIn?'':!opponentCanBet?'没有仍可下注的对手':'本轮加注权尚未重新开放'};
 }
@@ -86,6 +87,7 @@ export function moveHoldem(g:HoldemGame,id:string,m:HoldemMove,now=Date.now()){
  else if(m.action==='call'){if(o.check)throw Error('当前无需跟注，请过牌');const amount=pay(s,n(o.call));s.last=(s.allIn?'全下跟注 ':'跟注 ')+amount;}
  else if(m.action==='raise'||m.action==='allin'){
   const target=m.action==='allin'?n(o.maxRaise):wager(m.amount);
+  if(m.action==='raise'&&target%n(holdemBetStep(g.rules))!==0n)throw Error(`下注须为 ${holdemBetStep(g.rules)} 的整数倍`);
   if(m.action==='allin'&&!o.canAllIn)throw Error('不足额全下没有重新开放你的加注权');
   if(target<=n(g.currentBet)){if(m.action!=='allin')throw Error('加注额须高于当前下注');pay(s,n(s.stack));s.last='全下跟注 '+s.bet;}
   else {const increase=target-n(g.currentBet);if(target>n(o.maxRaise)||(!o.canRaise&&!(o.canAllIn&&target===n(o.maxRaise)))||increase<n(g.lastRaise)&&target!==n(o.maxRaise))throw Error('加注金额不符合本轮最小加注要求');
