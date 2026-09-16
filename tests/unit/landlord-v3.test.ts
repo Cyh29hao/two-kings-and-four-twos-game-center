@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {bidV3,buyV3Equipment,finishShopping,newLandlordV3,playV3,readyV3,sellV3Equipment,type V3Game} from '../../lib/game/landlord-v3.ts';
+import {bidV3,buyV3Equipment,finishShopping,newLandlordV3,playV3,readyV3,sellV3Equipment,viewV3,type V3Game} from '../../lib/game/landlord-v3.ts';
 
 function game(){const g=newLandlordV3('a','甲',30);g.seats.push({id:'b',name:'乙',hand:[],ready:false,plays:0,last:''},{id:'c',name:'丙',hand:[],ready:false,plays:0,last:''});return g;}
 function begin(g:V3Game){for(let seat=0;seat<3;seat++)readyV3(g,seat,1000);assert.equal(g.phase,'shopping');}
@@ -15,6 +15,12 @@ test('v3 stores coins as decimal strings, shop limits ownership, sells correctly
  const levelOne=g.equipment[0].find(item=>item.level===1)!;const before=g.coins[0];sellV3Equipment(g,0,levelOne.instanceId);assert.equal(g.coins[0],before);
  const levelTwo=g.equipment[0].find(item=>item.level===2)!;const beforeTwo=BigInt(g.coins[0]);sellV3Equipment(g,0,levelTwo.instanceId);assert.equal(BigInt(g.coins[0]),beforeTwo+1n);
  bidding(g);while(g.phase==='bidding')bidV3(g,g.turn,false,1300);assert.equal(g.phase,'playing');g.phase='finished';g.seats.forEach(player=>player.ready=false);for(let seat=0;seat<3;seat++)readyV3(g,seat,1400);assert.equal(g.phase,'shopping');assert(g.equipment[0].length>0);assert.notEqual(g.shops[0].offers[0].offerId,offers[0].offerId);
+});
+
+test('v3 exposes opponents only the type and level of held equipment',()=>{
+ const g=game();g.equipment[0].push({instanceId:'private-item',id:'test-equipment-1',level:1,price:'1'});
+ const other=viewV3(g,'b') as any;assert.deepEqual(other.equipment[0],[{id:'test-equipment-1',level:1}]);assert.deepEqual(other.equipment[1],[]);
+ const owner=viewV3(g,'a') as any;assert.deepEqual(owner.equipment[0],[{instanceId:'private-item',id:'test-equipment-1',level:1,price:'1'}]);
 });
 
 test('v3 rotates the dealer clockwise for every new round, including sudden death',()=>{
