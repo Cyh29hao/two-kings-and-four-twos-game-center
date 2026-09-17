@@ -1,3 +1,4 @@
 import {notFound} from 'next/navigation';
 import {EmotePreview} from '@/components/emote-preview';
-export default function Page(){if(process.env.NODE_ENV!=='development')notFound();return <EmotePreview/>;}
+import {localDevTools} from '@/lib/dev-tools';
+export default function Page(){if(!localDevTools())notFound();return <EmotePreview/>;}

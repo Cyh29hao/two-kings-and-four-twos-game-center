@@ -13,6 +13,7 @@
 | 检查改动是否能正常使用 | [验收](testing.md) |
 | 提 PR、合并、发布和回退 | [发布](releasing.md) |
 | 管理员、环境变量、数据库 | [运维](operations.md) |
+| Landlord V3 装备约束与候选 | [装备要求](landlord-v3-equipment-requirements.md)、[待定装备](landlord-v3-equipment-pending.md)、[选定装备](landlord-v3-equipment-selected.md) |
 
 下面是较早形成的专题记录，保留作实现背景；当前代码和规则版本优先：
 

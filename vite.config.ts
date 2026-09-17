@@ -55,8 +55,14 @@ export default defineConfig(async () => {
     server: {
       port: 5173,
       strictPort: true,
+      // Editors that write atomically leave `<name>.<pid>.<uuid>.tmpdir` folders next to
+      // the target file. Watching those locked temp files crashes the dev server on
+      // Windows with EBUSY, so keep them out of the watcher.
+      watch: {
+        ignored: ["**/.*.tmpdir/**", "**/*.tmpdir/**"],
+        ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
+      },
       ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
-      ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
     },
     plugins: [
       motionPreview(),

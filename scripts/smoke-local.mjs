@@ -1,12 +1,16 @@
 import './sites-env.mjs';
 import assert from 'node:assert/strict';
+import {hints} from '../lib/game/engine.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdirSync, openSync, closeSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, openSync, closeSync, writeFileSync } from 'node:fs';
 import { once } from 'node:events';
 
 // A fresh local database for every run. There is deliberately no remote URL option.
-const state = `.wrangler/smoke-${crypto.randomUUID()}`;
+// D1 adds a long content-addressed filename beneath this directory; keep the
+// unique segment short enough for Windows workspaces nested under Codex paths.
+mkdirSync('.wrangler', { recursive: true });
+const state = mkdtempSync('.wrangler/s');
 mkdirSync('work', { recursive: true });
 const logPath = 'work/smoke-local.log', log = openSync(logPath, 'w');
 const migrate = spawnSync(process.execPath, ['scripts/setup-local.mjs', '--state', state], { stdio: ['ignore', log, log] });
@@ -17,7 +21,7 @@ await once(probe, 'listening');
 const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const origin = `http://127.0.0.1:${port}`;
-const child = spawn(process.execPath, ['scripts/preview.mjs', '--port', String(port), '--state', state], { stdio: ['ignore', log, log] });
+const child = spawn(process.execPath, ['scripts/preview.mjs', '--port', String(port), '--state', state], { stdio: ['ignore', log, log], env: {...process.env,LOCAL_DEV_TOOLS:'0'} });
 const exited = once(child, 'exit');
 let startupError;
 child.on('error', error => { startupError = error; });
@@ -79,6 +83,29 @@ try {
     await request('/api/history', undefined, player.cookie);
     await request('/api/admin', undefined, player.cookie, 403);
   }
+  const v3Player = await signup('landlordv3' + Date.now().toString(36));
+  let v3 = (await request('/api/game', { action: 'create', mode: 'practice', title: 'v3 本机验收', rules: { id: 'landlord-v3' } }, v3Player.cookie)).data;
+  assert.equal(v3.game.kind, 'landlord-v3');
+  assert.equal(v3.game.developerMode, undefined);
+  await request('/api/game', {action:'dev_equipment',code:v3.code,revision:v3.revision,equipmentId:'rocket-win'},v3Player.cookie,400);
+  assert.deepEqual(v3.game.coins, ['2', '2', '2']);
+  v3 = (await request('/api/game', { action: 'ready', code: v3.code, revision: v3.revision }, v3Player.cookie)).data;
+  assert.equal(v3.game.phase, 'shopping');
+  assert.equal(v3.game.shops[0].offers.length, 12);
+  const offer = v3.game.shops[0].offers[0];
+  v3 = (await request('/api/game', { action: 'shop_buy', code: v3.code, revision: v3.revision, offerId: offer.offerId }, v3Player.cookie)).data;
+  assert.equal(v3.game.equipment[0].length, 1);
+  const afterPurchaseCoins = v3.game.coins[0];
+  v3 = (await request('/api/game', { action: 'shop_sell', code: v3.code, revision: v3.revision, instanceId: v3.game.equipment[0][0].instanceId }, v3Player.cookie)).data;
+  assert.equal(v3.game.coins[0], afterPurchaseCoins, '一级装备出售不退款；购买找零时可能已经返还金币');
+  v3 = (await request('/api/game', { action: 'shop_done', code: v3.code, revision: v3.revision }, v3Player.cookie)).data;
+  for (let attempt = 0; attempt < 8 && v3.game.phase !== 'bidding'; attempt++) {
+    await pause(1000);
+    v3 = (await request('/api/game?room=' + v3.code, undefined, v3Player.cookie)).data;
+    assert(['shopping', 'equipment', 'bidding'].includes(v3.game.phase), `V3 开局阶段异常：${v3.game.phase}`);
+  }
+  assert.equal(v3.game.phase, 'bidding');
+  assert.equal(v3.game.seats.filter(seat => seat.bot).length, 2);
   // Four humans keep bot timers out of the preview/turn and stale-version assertions.
   const humans = [];
   for (let i=0;i<4;i++) humans.push(await signup('preselect'+i+Date.now().toString(36)));
@@ -113,6 +140,34 @@ try {
   assert(!JSON.stringify(planned.game).includes('timeoutChoice'));
   await request('/api/holdem',{...timeoutRequest,revision:planned.revision,round:'wrong'},humans[1].cookie,400);
   await request('/api/holdem',{...timeoutRequest,revision:planned.revision,choice:null},humans[1].cookie);
+  // Exercise one real v3 round with fixed humans, production permissions, and a stale write.
+  const v3Humans=[];
+  for(let i=0;i<3;i++)v3Humans.push(await signup('v3human'+i+Date.now().toString(36)));
+  let extended=(await request('/api/game',{action:'create',rules:{id:'landlord-v3'}},v3Humans[0].cookie)).data;
+  for(let i=1;i<3;i++)extended=(await request('/api/game',{action:'join',code:extended.code},v3Humans[i].cookie)).data;
+  for(let i=0;i<3;i++)extended=(await request('/api/game',{action:'ready',code:extended.code,revision:extended.revision},v3Humans[i].cookie)).data;
+  assert.equal(extended.game.phase,'shopping');assert.deepEqual(extended.game.bottom,[-1,-1,-1]);
+  const stale=extended.revision;
+  extended=(await request('/api/game',{action:'shop_done',code:extended.code,revision:extended.revision},v3Humans[0].cookie)).data;
+  await request('/api/game',{action:'shop_done',code:extended.code,revision:stale},v3Humans[1].cookie,409);
+  for(let i=1;i<3;i++)extended=(await request('/api/game',{action:'shop_done',code:extended.code,revision:extended.revision},v3Humans[i].cookie)).data;
+  for(let turn=0;extended.game.phase==='bidding';turn++){
+    assert(turn<4);
+    const seat=extended.game.turn;
+    extended=(await request('/api/game',{action:'v3_bid',call:false,code:extended.code,revision:extended.revision},v3Humans[seat].cookie)).data;
+  }
+  for(let turn=0;extended.game.phase!=='finished';turn++){
+    assert(turn<200,'V3 should finish a complete hand');
+    const seat=extended.game.turn;
+    extended=(await request('/api/game?room='+extended.code,undefined,v3Humans[seat].cookie)).data;
+    const options=hints(extended.game.seats[seat].hand,extended.game.last?.combo??null);
+    extended=(await request('/api/game',{action:options.length?'play':'pass',cards:options[0]??[],code:extended.code,revision:extended.revision},v3Humans[seat].cookie)).data;
+  }
+  assert(extended.game.coins.every(value=>BigInt(value)>=0n));
+  assert.equal(extended.game.roundHistory.length,1);
+  await request('/api/game',{action:'leave',code:extended.code,revision:extended.revision},v3Humans[1].cookie);
+  for(const player of v3Humans)assert.equal((await request('/api/game',undefined,player.cookie)).data.activeRoom,null);
+  await request('/api/game',{action:'join',code:extended.code},outsider.cookie,400);
   const info = (await request('/build-info.json')).data;
   assert.match(info.commit, /^[a-f0-9]{40}$/);
   writeFileSync('work/smoke-local.json', JSON.stringify({ status: 'passed', checks, commit: info.commit, state }, null, 2) + '\n');

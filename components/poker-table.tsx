@@ -2,23 +2,23 @@
 import {useEffect,useRef,type CSSProperties,type PointerEvent as ReactPointerEvent} from 'react';
 import {TurnClock} from './table-ui';
 import {Timer} from 'lucide-react';
-import {face,suit,type TableAction} from '@/lib/game/engine';
+import {face,isVirtualCard,suit,type TableAction} from '@/lib/game/engine';
 import {crossedCards,brushSelection,type HitRegion} from '@/lib/game/selection';
 import {DDZ_EFFECTS} from '@/lib/motion/events';
 import {EffectBadge} from './table-effects';
 
 export function Card({card,selected=false,onClick,small=false}:{card:number;selected?:boolean;onClick?:()=>void;small?:boolean}){
- const red=card===53||(card<52&&[1,3].includes(card%4));
+ const red=!isVirtualCard(card)&&(card===53||(card<52&&[1,3].includes(card%4)));
  const content=<><b>{face(card)}</b><span>{suit(card)}</span><i>{suit(card)}</i></>;
- const style=`playing-card ${red?'red':''} ${card>=52?'joker':''}`;
+ const style=`playing-card ${red?'red':''} ${!isVirtualCard(card)&&card>=52?'joker':''}`;
  return onClick?<button type="button" data-card={card} onClick={onClick} aria-pressed={selected} aria-label={`${suit(card)}${face(card)}`} className={`${style} hand-card ${selected?'selected':''}`}>{content}</button>:<div aria-label={`${suit(card)}${face(card)}`} className={`${style} ${small?'mini-card':''}`}>{content}</div>;
 }
 
-export function SeatAction({action,active,seconds,bidding,doubling=false,name}:{action?:TableAction|null;active:boolean;seconds:number;bidding:boolean;doubling?:boolean;name:string}){
+export function SeatAction({action,active,seconds,bidding,doubling=false,equipment=false,name}:{action?:TableAction|null;active:boolean;seconds:number;bidding:boolean;doubling?:boolean;equipment?:boolean;name:string}){
  const effect=!active&&action?.kind==='play'?DDZ_EFFECTS[action.label]:undefined;
  return <div className={`seat-action ${active?'is-turn':''}${effect?' has-effect':''}`} aria-label={`${name}面前的出牌区`}>
   {effect&&action?.kind==='play'&&<EffectBadge key={action.eventId??effect} id={effect} eventId={action.eventId}/>}
-  {active?<TurnClock seconds={seconds} label={name+(bidding?'叫分':doubling?'加倍':'出牌')}/>:action?.kind==='play'?<><div className="seat-played-cards" style={{'--cards':action.cards.length} as CSSProperties}>{action.cards.map(c=><Card card={c} key={c} small/>)}</div></>:action?.kind==='pass'?<span className="seat-pass">不出</span>:action?.kind==='double'?<span className="seat-pass">{action.value?'加倍 ×2':'不加倍'}</span>:action?.kind==='bid'?<span className="seat-pass">{action.value?`${action.value} 分`:'不叫'}</span>:null}
+  {active?<TurnClock seconds={seconds} label={name+(bidding?'叫分':doubling?'加倍':equipment?'装备':'出牌')}/>:action?.kind==='play'?<><div className="seat-played-cards" style={{'--cards':action.cards.length} as CSSProperties}>{action.cards.map(c=><Card card={c} key={c} small/>)}</div></>:action?.kind==='pass'?<span className="seat-pass">不出</span>:action?.kind==='double'?<span className="seat-pass">{action.value?'加倍 ×2':'不加倍'}</span>:action?.kind==='bid'?<span className="seat-pass">{action.value?`${action.value} 分`:'不叫'}</span>:null}
  </div>;
 }
 

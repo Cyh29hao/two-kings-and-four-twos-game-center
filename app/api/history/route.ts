@@ -9,7 +9,7 @@ export async function GET(req:Request){return safe(async()=>{
  if(!['all','landlord','mahjong','holdem'].includes(game)||!['rounds','tables'].includes(scope)||!/^\d{1,6}$/.test(raw))throw new AppError('记录筛选条件无效');
  const page=Number(raw);
  if(scope==='rounds'){
-  const where="EXISTS(SELECT 1 FROM json_each(result,'$.seats') WHERE json_extract(value,'$.id')=?)"+(game==='all'?'':" AND COALESCE(json_extract(result,'$.kind'),'landlord')=?"),args=game==='all'?[u.id]:[u.id,game];
+  const where="EXISTS(SELECT 1 FROM json_each(result,'$.seats') WHERE json_extract(value,'$.id')=?)"+(game==='all'?'':game==='landlord'?" AND COALESCE(json_extract(result,'$.kind'),'landlord') IN ('landlord','landlord-v3')":" AND json_extract(result,'$.kind')=?"),args=game==='all'||game==='landlord'?[u.id]:[u.id,game];
   const [rows,total]=await Promise.all([db().prepare(`SELECT id,room_code,created,result FROM records WHERE ${where} ORDER BY created DESC,id DESC LIMIT ? OFFSET ?`).bind(...args,PAGE_SIZE,page*PAGE_SIZE).all<{id:string;room_code:string;created:number;result:string}>(),db().prepare(`SELECT COUNT(*) n FROM records WHERE ${where}`).bind(...args).first<{n:number}>()]);
   return json({items:rows.results.map(r=>roundSummary(r,u.id)),total:total?.n??0,page,pageSize:PAGE_SIZE,scope,game});
  }

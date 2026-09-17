@@ -7,17 +7,21 @@ export type Combo = {kind:string; rank:number; size:number; chain:number};
 export type Seat = {id:string; name:string; hand:number[]; ready:boolean; plays:number; last:string;bot?:boolean};
 export type TableAction={kind:'play';cards:number[];label:string;eventId?:string}|{kind:'pass'}|{kind:'bid';value:number}|{kind:'double';value:boolean};
 export type Game = {visualEvents?:VisualEvent[];rules?:LandlordRules;doubles?:(boolean|null)[];tableActions?:(TableAction|null)[];practice?:Practice;phase:'waiting'|'bidding'|'doubling'|'playing'|'finished'|'closed'; seats:Seat[]; host:string; bottom:number[]; turn:number; landlord:number; bid:number; bidPasses:number; passes:number; last:{seat:number; cards:number[]; combo:Combo}|null; multiplier:number; deadline:number; seconds:number; round:string; winner:number; spring:boolean; deltas:number[]; log:{text:string; at:number}[]};
-export const rank=(c:number)=>c<52?Math.floor(c/4)+3:c===52?16:17;
+/** Virtual cards are unique, private hand instances used by landlord-v3 copies. */
+export const VIRTUAL_CARD_BASE=100000;
+export const virtualCard=(value:number,serial:number)=>VIRTUAL_CARD_BASE+serial*32+value;
+export const isVirtualCard=(c:number)=>c>=VIRTUAL_CARD_BASE;
+export const rank=(c:number)=>isVirtualCard(c)?c%32:c<52?Math.floor(c/4)+3:c===52?16:17;
 export const face=(c:number)=>({11:'J',12:'Q',13:'K',14:'A',15:'2',16:'小王',17:'大王'}[rank(c)]||String(rank(c)));
-export const suit=(c:number)=>c>=52?'★':['♠','♥','♣','♦'][c%4];
+export const suit=(c:number)=>isVirtualCard(c)?'◇':c>=52?'★':['♠','♥','♣','♦'][c%4];
 export const sorted=(cards:number[])=>[...cards].sort((a,b)=>rank(b)-rank(a)||a-b);
 function groups(cards:number[]){const g=new Map<number,number[]>();for(const c of cards)g.set(rank(c),[...(g.get(rank(c))||[]),c]);return [...g.entries()].sort((a,b)=>a[0]-b[0]);}
 const sequential=(r:number[])=>r.length>0&&r.at(-1)!<=14&&r.every((v,i)=>i===0||v===r[i-1]+1);
 export function classify(cards:number[]):Combo|null{
- if(!cards.length||cards.length>20||new Set(cards).size!==cards.length||cards.some(c=>!Number.isInteger(c)||c<0||c>53))return null;
+ if(!cards.length||cards.length>20||new Set(cards).size!==cards.length||cards.some(c=>!Number.isInteger(c)||c<0||(!isVirtualCard(c)&&c>53)||rank(c)<3||rank(c)>17))return null;
  const n=cards.length,g=groups(cards),r=g.map(x=>x[0]),counts=g.map(x=>x[1].length);const make=(kind:string,key:number,chain=1)=>({kind,rank:key,size:n,chain});
  if(n===1)return make('单张',r[0]);
- if(n===2&&r[0]===16&&r[1]===17)return make('王炸',17);
+ if(n===2&&r[0]===16&&r[1]===17&&cards.every(c=>!isVirtualCard(c)))return make('王炸',17);
  if(g.length===1&&n<=4)return make(n===2?'对子':n===3?'三张':'炸弹',r[0]);
  if(n===4&&counts.includes(3))return make('三带一',r[counts.indexOf(3)]);
  if(n===5&&counts.includes(3)&&counts.includes(2))return make('三带二',r[counts.indexOf(3)]);
