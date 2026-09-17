@@ -13,6 +13,7 @@ type Pending={kind:'discard'|'added';from:number;tile:number;meldIndex?:number;e
 export type ModernGame = {
   visualEvents?:VisualEvent[];
   practice?:Practice;
+  leavingIds?:string[];departedIds?:string[];
   kind:'mahjong';schemaVersion:2;rules:ModernRules;phase:'waiting'|'playing'|'choosing'|'revealing'|'finished'|'closed';host:string;
   seats:(Seat & {balance:Money})[];wall:number[];turn:number;dealer:number;round:string;roundNumber:number;seconds:number;deadline:number;
   drawn:number|null;lastDiscard:{seat:number;tile:number}|null;pending:Pending|null;winner:number;source:number;
@@ -36,6 +37,7 @@ function note(g:ModernGame,text:string,now:number){g.log.push({text,at:now});g.l
 function due(g:ModernGame,now:number){g.deadline=now+(g.phase==='revealing'?g.rules.revealSeconds!:g.phase==='choosing'?g.rules.chooseSeconds:g.pending?g.rules.claimSeconds:g.seconds)*1000;}
 function countLabel(g:ModernGame,tile:number){const actual=tileLabel(tile),t=effectiveType(tile,g.wildcard);return isWild(tile,g.wildcard)?`${actual}（赖）`:t!==Math.floor(tile/4)?`${actual}（代 ${tileLabel(t*4)}）`:actual;}
 export function dealModern(g:ModernGame,now=Date.now()){
+  if(g.departedIds?.length)throw Error('有玩家已离桌，请由房主结束整桌后重新开桌');
   if(g.seats.length!==4 || !['waiting','finished'].includes(g.phase))throw Error('四人准备后才能开始');
   if(g.fixedIds.length && g.seats.some((s,i)=>s.id!==g.fixedIds[i]))throw Error('开局后不能更换本桌玩家');
   if(g.roundNumber){const stays=g.rules.dealerPolicy==='dealer-stays'&&(g.winType==='draw'||g.winner===g.dealer);if(stays)g.streak++;else{g.dealer=(g.dealer+1)%4;g.streak=0;}}
@@ -191,7 +193,7 @@ export function timeoutModern(g:ModernGame,now=Date.now()){
   else {const allowed=legalDiscards(g,g.turn);moveModern(g,g.turn,{action:'discard',tile:g.drawn!==null&&allowed.includes(g.drawn)?g.drawn:allowed.at(-1)!},now);}
   return true;
 }
-export function closeModern(g:ModernGame,force=false,now=Date.now(),reason:'admin'|'practice'='admin'){
+export function closeModern(g:ModernGame,force=false,now=Date.now(),reason:'admin'|'practice'|'empty'='admin'){
   if(g.phase==='closed')return;
   if(['playing','choosing','revealing'].includes(g.phase)){
     if(!force)throw Error('请在本局结束后再结束整桌');
@@ -200,17 +202,17 @@ export function closeModern(g:ModernGame,force=false,now=Date.now(),reason:'admi
     if(g.reveal)g.wall.push(...g.reveal.awards.map(a=>a.tile).reverse());
     finish(g,'aborted',now);
   }
-  g.phase='closed';g.deadline=0;g.pending=null;g.choice=null;g.ended=now;note(g,reason==='practice'?'房主结束人机测试':force?'管理员结束整桌':'房主结束整桌',now);
+  g.phase='closed';g.deadline=0;g.pending=null;g.choice=null;g.ended=now;note(g,reason==='empty'?'全部玩家已离桌，房间自动关闭':reason==='practice'?'房主结束人机测试':force?'管理员结束整桌':'房主结束整桌',now);
 }
 export function modernView(g:ModernGame,id:string){
-  const own=g.seats.findIndex(s=>s.id===id),reveal=g.phase==='finished';
+  const own=g.seats.findIndex(s=>s.id===id),reveal=g.phase==='finished',leaving=!!g.leavingIds?.includes(id),departed=!!g.departedIds?.includes(id);
   return {visualEvents:publicVisuals(g),practice:g.practice?{difficulty:g.practice.difficulty,roomType:g.practice.roomType}:null,kind:g.kind,schemaVersion:2 as const,rules:g.rules,phase:g.phase,host:g.host,turn:g.turn,dealer:g.dealer,round:g.round,roundNumber:g.roundNumber,seconds:g.seconds,deadline:g.deadline,
     remaining:g.wall.length,drawn:own===g.turn?g.drawn:null,lastDiscard:g.lastDiscard,pending:g.pending?{kind:g.pending.kind,from:g.pending.from,tile:g.pending.tile}:null,
-    winner:g.winner,source:g.source,winType:g.winType,deltas:g.deltas,log:g.log,options:modernOptions(g,own),wildcard:g.wildcard,result:g.result,
+    winner:g.winner,source:g.source,winType:g.winType,deltas:g.deltas,log:g.log,options:modernOptions(g,leaving||departed?-1:own),wildcard:g.wildcard,result:g.result,
     session:{initialChips:g.initialChips,baseChips:g.baseChips,started:g.started,ended:g.ended,stats:g.stats,streak:g.streak,fixed:g.fixedIds.length>0},
-    entries:g.entries,canChoose:g.phase==='choosing'&&own===g.winner,
-    awardReveal:g.phase==='revealing'&&g.reveal?{plan:g.reveal.plan,awards:g.reveal.awards,canFlip:own===g.winner}:null,
-    seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,ready:s.ready,last:s.last,count:s.hand.length,river:s.river,balance:s.balance,
+    entries:g.entries,canChoose:!leaving&&!departed&&g.phase==='choosing'&&own===g.winner,
+    awardReveal:g.phase==='revealing'&&g.reveal?{plan:g.reveal.plan,awards:g.reveal.awards,canFlip:!leaving&&!departed&&own===g.winner}:null,
+    seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,leaving:!!g.leavingIds?.includes(s.id),departed:!!g.departedIds?.includes(s.id),ready:s.ready,last:s.last,count:s.hand.length,river:s.river,balance:s.balance,
       hand:i===own||reveal?s.hand:[],melds:s.melds.map(m=>({...m,tiles:m.concealed&&i!==own&&!reveal?[]:m.tiles}))})),
   };
 }

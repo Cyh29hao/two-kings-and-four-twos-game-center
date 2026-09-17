@@ -16,6 +16,7 @@
 | 统一大厅与导航 | `components/game-lobby.tsx`、`app/lobby.css`、`components/club-provider.tsx`、`components/game-nav.tsx`、`lib/club/` |
 | 好友、在线状态与邀请 | `components/friends-provider.tsx`、`friends-panel.tsx`、`app/api/friends/`、`lib/social-server.ts` |
 | 斗地主牌桌 | `components/poker-table.tsx`；规则在 `lib/game/engine.ts` |
+| 麻将离桌 | `lib/mahjong/departure.ts`；在 `lib/rooms.ts` 原子提交中结算离桌，`app/api/lobby/` 推进大厅托管 |
 | 麻将牌桌 | `components/mahjong-board.tsx`、`mahjong-tile.tsx`；规则在 `lib/mahjong/` |
 | 德州规则 | `lib/holdem/engine.ts`、`evaluate.ts`、`bot.ts` |
 | 房间接口 | `app/api/game/`、`app/api/mahjong/`、`app/api/holdem/` |

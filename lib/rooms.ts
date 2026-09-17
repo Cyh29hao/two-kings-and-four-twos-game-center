@@ -1,3 +1,4 @@
+import {settleDepartures} from './mahjong/departure';
 import {isHoldem,timeoutHoldem,type HoldemGame} from './holdem/engine';
 import {advanceHoldemBot} from './holdem/bot';
 export {isHoldem} from './holdem/engine';
@@ -23,7 +24,7 @@ export async function roomView(r:Room,g:Game|V3Game,id:string){
  const byId=new Map(scores.results.map(s=>[s.id,s])),visible=view(g,id);
  return{code:r.code,title:r.title,revision:r.revision,game:{...visible,seats:visible.seats.map(s=>({...s,accountScore:s.bot?null:byId.get(s.id)?.accountScore??null,tableScore:byId.get(s.id)?.tableScore??0}))},serverNow:Date.now()};
 }
-export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>D1PreparedStatement[]){const op=crypto.randomUUID(),now=Date.now();if(!isHoldem(g)&&(!isMahjong(g)||isModern(g)))scheduleBots(g,now);const guard='EXISTS (SELECT 1 FROM rooms WHERE code=? AND op=?)';const statements=[db().prepare('UPDATE rooms SET state=?,phase=?,revision=revision+1,op=?,updated=? WHERE code=? AND revision=?').bind(JSON.stringify(g),g.phase,op,now,r.code,r.revision)];
+export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>D1PreparedStatement[]){const op=crypto.randomUUID(),now=Date.now();const departed=isMahjong(g)&&isModern(g)?settleDepartures(g,now):[];if(!isHoldem(g)&&(!isMahjong(g)||isModern(g)))scheduleBots(g,now);const guard='EXISTS (SELECT 1 FROM rooms WHERE code=? AND op=?)';const statements=[db().prepare('UPDATE rooms SET state=?,phase=?,revision=revision+1,op=?,updated=? WHERE code=? AND revision=?').bind(JSON.stringify(g),g.phase,op,now,r.code,r.revision)];
  const before=JSON.parse(r.state) as RoomGame;
  if(isHoldem(g)){
  if(g.result&&g.result.id!==(isHoldem(before)?before.result?.id:undefined))statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.result.id,r.code,JSON.stringify(g.result),g.result.ended,r.code,op));
@@ -38,6 +39,7 @@ export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>
  statements.push(db().prepare(`INSERT INTO records (id,room_code,result,created) SELECT ?,?,?,? WHERE ${guard}`).bind(g.round,r.code,JSON.stringify({...(g.practice?{practice:true}:{}),seats:g.seats.map((s,i)=>({id:s.id,name:s.name,bot:!!s.bot,delta:g.deltas[i]})),winner:g.winner,log:g.log,...(isMahjong(g)?{kind:'mahjong',rules:g.rules,winType:g.winType,source:g.source}:{kind:'landlord',landlord:g.landlord,bid:g.bid,multiplier:g.multiplier,spring:g.spring,rules:g.rules,doubles:g.doubles})}),now,r.code,op));
  if(!g.practice)g.seats.forEach((s,i)=>statements.push(db().prepare(`UPDATE users SET score=score+? WHERE id=? AND ${guard}`).bind(g.deltas[i],s.id,r.code,op)));
  }
+ for(const id of departed)statements.push(db().prepare(`DELETE FROM members WHERE user_id=? AND room_code=? AND ${guard}`).bind(id,r.code,r.code,op));
  if(extra)statements.push(...extra(guard,op));
  let results;try{results=await db().batch(statements)}catch(e){if(String(e).includes('UNIQUE'))throw new AppError('你已在另一个房间，请先返回该房间',409);throw e;}
  if(!results[0].meta.changes)throw new AppError('牌桌已更新，请重试',409);

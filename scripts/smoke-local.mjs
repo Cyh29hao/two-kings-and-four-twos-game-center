@@ -1,5 +1,8 @@
 import './sites-env.mjs';
 import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {globSync} from 'node:fs';
+import {timeoutModern} from '../lib/mahjong/modern.ts';
 import {hints} from '../lib/game/engine.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -141,6 +144,45 @@ try {
     await request('/api/history', undefined, player.cookie);
     await request('/api/admin', undefined, player.cookie, 403);
   }
+  // A departing member stays accountable through settlement, then leaves atomically.
+  const leavers=await Promise.all([0,1,2,3].map(i=>signup('depart'+i+Date.now().toString(36))));
+  let departureRoom=(await request('/api/mahjong',{action:'create',title:'离桌验收'},leavers[0].cookie)).data;
+  for(const p of leavers.slice(1))departureRoom=(await request('/api/mahjong',{action:'join',code:departureRoom.code},p.cookie)).data;
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[1].cookie,403);
+  for(const p of leavers)departureRoom=(await request('/api/mahjong',{action:'ready',code:departureRoom.code,revision:departureRoom.revision},p.cookie)).data;
+  const queued=(await request('/api/mahjong',{action:'leave',code:departureRoom.code,revision:departureRoom.revision},leavers[1].cookie)).data;
+  assert.equal(queued.left,true);assert.equal(queued.departurePending,true);
+  departureRoom=(await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[0].cookie)).data;
+  assert.equal(departureRoom.game.phase,'playing');assert.equal(departureRoom.game.seats[1].leaving,true);
+  assert.equal((await request('/api/lobby',undefined,leavers[1].cookie)).data.departurePending,true);
+  await request('/api/mahjong',{action:'discard',tile:0,code:departureRoom.code,revision:departureRoom.revision},leavers[1].cookie,403);
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[2].cookie,403);
+  await request('/api/mahjong',{action:'create'},leavers[1].cookie,409);
+  // Advance only this isolated fixture to the final timeout; the real API must commit settlement + release.
+  const fixtureDb=new DatabaseSync(globSync(state+'/v3/d1/miniflare-D1DatabaseObject/*.sqlite').find(p=>!p.endsWith('metadata.sqlite')));
+  fixtureDb.exec('PRAGMA busy_timeout=5000');
+  let fixture=JSON.parse(fixtureDb.prepare('SELECT state FROM rooms WHERE code=?').get(departureRoom.code).state),last;
+  for(let n=0;n<600&&fixture.phase!=='finished';n++){last=structuredClone(fixture);timeoutModern(fixture,fixture.deadline);}
+  assert.equal(fixture.phase,'finished');last.deadline=0;
+  fixtureDb.prepare('UPDATE rooms SET state=?,phase=?,revision=revision+1 WHERE code=?').run(JSON.stringify(last),last.phase,departureRoom.code);fixtureDb.close();
+  const afterDeparture=(await request('/api/lobby',undefined,leavers[1].cookie)).data;
+  assert.equal(afterDeparture.activeRoom,null);assert.equal(afterDeparture.departurePending,false);
+  departureRoom=(await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[0].cookie)).data;
+  assert.equal(departureRoom.game.phase,'finished');assert.equal(departureRoom.game.seats[1].departed,true);
+  assert.deepEqual(departureRoom.game.seats.map(s=>s.balance),fixture.seats.map(s=>s.balance));
+  assert.equal(departureRoom.game.result.seats[1].id,leavers[1].data.user.id);
+  await request('/api/chat',{code:departureRoom.code,clientId:crypto.randomUUID(),kind:'text',text:'离桌后不能发送'},leavers[1].cookie,403);
+  await request('/api/mahjong',{action:'join',code:departureRoom.code},leavers[1].cookie,403);
+  await request('/api/mahjong',{action:'ready',code:departureRoom.code,revision:departureRoom.revision},leavers[0].cookie,400);
+  const nextRoom=(await request('/api/mahjong',{action:'create'},leavers[1].cookie)).data;
+  await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[0].cookie);
+  await request('/api/mahjong',{action:'leave',code:departureRoom.code,revision:0},leavers[1].cookie);
+  assert.equal((await request('/api/lobby',undefined,leavers[1].cookie)).data.activeRoom,nextRoom.code);
+  await request('/api/mahjong',{action:'leave',code:departureRoom.code,revision:departureRoom.revision},leavers[0].cookie);
+  departureRoom=(await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[2].cookie)).data;
+  assert.equal(departureRoom.game.host,leavers[2].data.user.id);
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[3].cookie,403);
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[2].cookie);
   const v3Player = await signup('landlordv3' + Date.now().toString(36));
   let v3 = (await request('/api/game', { action: 'create', mode: 'practice', title: 'v3 本机验收', rules: { id: 'landlord-v3' } }, v3Player.cookie)).data;
   assert.equal(v3.game.kind, 'landlord-v3');

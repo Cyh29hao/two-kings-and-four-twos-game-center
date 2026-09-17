@@ -8,7 +8,7 @@ import {api} from '@/lib/client';import {ClubMemory} from '@/lib/club/memory';im
 import {FriendsProvider} from './friends-provider';
 import {FriendsMenu} from './friends-panel';
 export type ClubUser={id:string;name:string;username:string;role:string;score:number};
-export type ClubLobby={user:ClubUser;config:{announcement:string;seconds:number;maintenance:boolean};activeRoom:string|null;activeKind:'landlord'|'landlord-v3'|'mahjong'|'holdem'|null};
+export type ClubLobby={departurePending?:boolean;user:ClubUser;config:{announcement:string;seconds:number;maintenance:boolean};activeRoom:string|null;activeKind:'landlord'|'landlord-v3'|'mahjong'|'holdem'|null};
 type ClubContext={user:ClubUser|null;loaded:boolean;error:string;lobby:ClubLobby|null;memory:ClubMemory;setUser:(u:ClubUser|null)=>void;loadLobby:(force?:boolean)=>Promise<ClubLobby|null>;logout:()=>Promise<void>};
 const Context=createContext<ClubContext|null>(null);
 export function ClubProvider({children}:{children:ReactNode}){
@@ -25,6 +25,7 @@ export function ClubProvider({children}:{children:ReactNode}){
  const logout=useCallback(async()=>{await api('/api/auth',{action:'logout'});setUser(null);at.current=Date.now();},[setUser]);
  // A successful login updates the shared lobby once, not once per game.
  useEffect(()=>{if(user?.id)void loadLobby().catch(()=>{});},[user?.id,loadLobby]);
+ useEffect(()=>{if(!user?.id||!lobby?.departurePending)return;const timer=setInterval(()=>{void loadLobby(true).catch(()=>{});},3000);return()=>clearInterval(timer);},[user?.id,lobby?.departurePending,loadLobby]);
  return <Context.Provider value={{user,loaded,error,lobby,memory,setUser,loadLobby,logout}}><FriendsProvider userId={user?.id??null}><ClubChrome/>{children}</FriendsProvider></Context.Provider>;
 }
 export function useClub(){const c=useContext(Context);if(!c)throw Error('ClubProvider is required');return c;}

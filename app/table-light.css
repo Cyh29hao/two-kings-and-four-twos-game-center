@@ -164,3 +164,9 @@
 }
 
 .table-light .mj-expand{display:inline-flex!important}
+
+.mj-room .room-toolbar .mj-room-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:640px){.mj-room .room-toolbar{flex-wrap:wrap}.mj-room .room-toolbar .mj-room-actions{width:100%;justify-content:flex-start}}
+
+.th-seat-result{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:3px 10px;border:1px solid #b8cdbb;border-radius:9px;background:#fffef8;color:#315c44;font-size:13px;line-height:18px;font-weight:600;white-space:nowrap}
+.th-seat.is-folded .th-seat-result{color:#788177;background:#edf0e9;border-color:#d6ded2}
