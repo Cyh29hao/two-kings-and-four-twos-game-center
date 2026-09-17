@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {winPlans,winPlanPage,findWinPlan,bestWinPlan,canWin,effectiveType,isWild,type WinContext} from '../lib/mahjong/solver.ts';
 import {newModern,modernSeat,dealModern,modernOptions,moveModern,timeoutModern,closeModern,modernView,type ModernGame} from '../lib/mahjong/modern.ts';
-import {HAM,HAM_V1,HAM_V2,HAM_V3,HAM_V5,BASIC_CHIPS,isHamRules,hamRulePreset} from '../lib/mahjong/rules.ts';
+import {HAM,HAM_V1,HAM_V2,HAM_V3,HAM_V5,HAM_V6,BASIC_CHIPS,isHamRules,hamRulePreset} from '../lib/mahjong/rules.ts';
 import {isModern} from '../lib/mahjong/game.ts';
 import {isWinning,type Meld} from '../lib/mahjong/engine.ts';
 import {publicRound,roundReport} from '../lib/mahjong/report.ts';
@@ -103,9 +103,9 @@ test('ham-v6 double wild is x4 for self and discard, other factors still multipl
 });
 test('ham-v6 snapshots flow through manual prizes, zero-sum settlement and reports for both win sources',()=>{
  const hand=[3,4,5,9,10,11,18,19,20,27,27,32,32,4];
- assert.equal(newModern('p0','A').rules.id,'ham-v6');assert.equal(hamRulePreset('ham-v5'),HAM_V5);
+ assert.equal(newModern('p0','A',30,HAM_V6).rules.id,'ham-v6');assert.equal(hamRulePreset('ham-v5'),HAM_V5);
  for(const source of ['self','discard'] as const)for(const hits of [0,1,2]){
-  const g=source==='self'?fixture(hand,{rules:{...HAM}}):arranged([[4],hand.slice(0,-1)]);g.rules={...HAM};const winner=source==='self'?0:1;
+  const g=source==='self'?fixture(hand,{rules:{...HAM_V6}}):arranged([[4],hand.slice(0,-1)]);g.rules={...HAM_V6};const winner=source==='self'?0:1;
   if(source==='self')moveModern(g,0,{action:'hu'});else {moveModern(g,0,{action:'discard',tile:g.seats[0].hand[0]});const claim=modernOptions(g,1).claims.find(c=>c.kind==='hu');assert(claim);moveModern(g,1,{action:'claim',key:claim.key});}
   assert.equal(g.phase,'choosing');assert.equal(g.choice!.doubleWildIncludesSelfDraw,true);
   const restored=JSON.parse(JSON.stringify(g)) as ModernGame;

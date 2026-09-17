@@ -2,6 +2,7 @@ import {FAN_TABLE} from './rules';
 
 type FanId = typeof FAN_TABLE[number][0];
 type Explanation = {condition:string;note:string};
+export const SEVEN_PAIRS_INCOMING_NOTE='七小对及全部豪华七对只限制最后胡进的一张：必须代表 4～9 的万、筒、条，不能是 1～3 或字牌；其他手牌不限。赖子和白板按最终代表的身份判断，无需构成中张顺子。';
 /** Reading guide only. The server's solver remains the source of scoring decisions. */
 export const FAN_DETAILS: Record<FanId,Explanation> = {
  fourWild:{condition:'自己回合摸牌后，手中有四张实体赖子即可主动胡牌。庄家最初 14 张、闲家轮到自己后的摸牌、杠后补牌都适用；不要求普通胡牌结构或中张。',note:'先选四张赖子的身份，再翻奖牌。×4 与自摸 ×2 相乘，三家各付；清一色等按所选牌张组成判断，七对、碰碰胡、天胡等仍需完整对应结构。杠分另算。'},

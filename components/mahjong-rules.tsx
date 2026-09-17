@@ -3,20 +3,22 @@ import {Button} from '@/components/ui/button';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogTrigger,DialogDescription} from '@/components/ui/dialog';
 import {Table,TableHeader,TableHead,TableRow,TableBody,TableCell} from '@/components/ui/table';
 import {HAM,hamRulePreset,isHamRules,RULE_NOTES,FAN_TABLE,type ModernRules} from '@/lib/mahjong/rules';
-import {FAN_DETAILS} from '@/lib/mahjong/rule-guide';
+import {FAN_DETAILS,SEVEN_PAIRS_INCOMING_NOTE} from '@/lib/mahjong/rule-guide';
 
 export function MahjongRules({rulesId=HAM.id,name='ham 规',snapshot}:{rulesId?:string;name?:string;snapshot?:Partial<ModernRules>}){
  const ham=isHamRules(rulesId),preset={...hamRulePreset(rulesId),...snapshot},legacy=ham&&rulesId!==HAM.id;
  const closed=preset?.closedBonus!==false,noWild=preset?.noWildBonus!==false;
  const doubleWildCombined=!!preset.doubleWildIncludesSelfDraw;
- const fanNote=(id:typeof FAN_TABLE[number][0])=>doubleWildCombined&&id==='doubleWild'?FAN_DETAILS[id].note+' 双赖子自摸、点炮均以 ×4 为起点，不再额外乘自摸 ×2；清一色等其他牌型、杠上开花和抢杠胡照常相乘。例：双赖子＋清一色，自摸、点炮均为 ×16。':doubleWildCombined&&id==='selfDraw'?'通常乘 2；满足双赖子时，自摸已包含在双赖子的 ×4 中，不再额外加倍。四赖胡仍叠加自摸 ×2。付款人数与胡牌资格不变。':FAN_DETAILS[id].note;
+ const sevenNote=SEVEN_PAIRS_INCOMING_NOTE;
+ const fanNote=(id:typeof FAN_TABLE[number][0])=>preset.sevenPairsSuitedFourPlus&&(id==='seven'||id.startsWith('luxury'))?(id==='seven'?sevenNote:FAN_DETAILS[id].note+' '+sevenNote):doubleWildCombined&&id==='doubleWild'?FAN_DETAILS[id].note+' 双赖子自摸、点炮均以 ×4 为起点，不再额外乘自摸 ×2；清一色等其他牌型、杠上开花和抢杠胡照常相乘。例：双赖子＋清一色，自摸、点炮均为 ×16。':doubleWildCombined&&id==='selfDraw'?'通常乘 2；满足双赖子时，自摸已包含在双赖子的 ×4 中，不再额外加倍。四赖胡仍叠加自摸 ×2。付款人数与胡牌资格不变。':FAN_DETAILS[id].note;
  const notes:readonly (readonly [string,string])[]=ham?[
   ['先认识几个词','顺子：同一花色连续三张，如三、四、五万。刻子：三张同牌。杠：四张同牌。面子指一副顺子、刻子或杠；将牌指一对同牌。字牌为东、南、西、北、中、发、白；幺九指数牌的 1 和 9。'],
   ['开局与赖子',`四人、136 张，无花牌，不换三张、不定缺。每局从白板以外的 33 种牌中等概率选一种赖子，不抽走实体牌。例如五万为赖子：实体五万可在胡牌时代表任意 34 种牌，实体白板作为普通五万使用。${preset?.forbidWildDiscard?'实体赖子不能打出；摸到赖子后，超时会改打最右侧的非赖子。':''}白板仍可正常打出、吃碰杠。`],
   ['吃碰杠中的身份','赖子不能替代吃、碰、杠所需的牌。白板先转换为本局指定身份，再参与组合。完整胡牌方案中，同一种代表牌最多四张，手牌与所有副露一起计算，杠的四张全部计入。'],
   ...(preset?.fourWildWin?[["四赖胡","手中四张实体赖子，轮到自己摸牌后即可主动胡牌；庄家起手 14 张、正常摸牌和杠后补牌都可以，闲家起手 13 张须等自己的摸牌回合。不要求普通胡牌结构或中张。四赖胡 ×4 与自摸 ×2、奖牌及其他有效因素继续相乘，三家各付。仍由玩家选定赖子身份；不成型时只按牌张组成计算清一色、混一色、字一色、幺九类，七对、碰碰胡、三元四喜、十三幺、九莲、天胡等必须确实组成对应结构才加倍。"]] as const:[]),
   ['普通胡怎么成立','四副面子加一对将，最后胡进的牌必须位于一副顺子的中间，并代表数字 4、5、6、7、8。例如三万、五万胡四万可以；二万、四万胡三万不可以。自摸、点炮、抢杠都适用，最后一张是赖子也按所选身份判断。'],
-  ['哪些情况免中张限制',`七对及豪华、碰碰胡、三元、四喜、字一色、幺九类、十三幺、九莲、四杠、天胡、地胡可以免除上述限制，仍须组成完整合法结构。单独清一色、混一色、自摸、杠上开花、抢杠胡不免除。${preset?.fourWildWin?'四赖直胡是特例，不成型也可胡；字一色、幺九类奖励此时只按所选牌张组成判定。':''}`],
+  ...(preset.sevenPairsSuitedFourPlus?[["七小对的进牌限制",sevenNote]] as const:[]),
+  ['哪些情况免中张限制',`七对及豪华${preset.sevenPairsSuitedFourPlus?'（仍须遵守上述进牌限制）':''}、碰碰胡、三元、四喜、字一色、幺九类、十三幺、九莲、四杠、天胡、地胡可以免除上述限制，仍须组成完整合法结构。单独清一色、混一色、自摸、杠上开花、抢杠胡不免除。${preset?.fourWildWin?'四赖直胡是特例，不成型也可胡；字一色、幺九类奖励此时只按所选牌张组成判定。':''}`],
   ['选择方案后再翻奖牌',`宣布胡牌并确定胡牌者后，有 60 秒选择完整拆法和每张赖子的身份；即使只有一个方案也要确认。确认后锁定，再翻当前牌墙末尾两张作为奖牌。超时或掉线超时采用最高倍数，并列按固定顺序，选择不参考隐藏奖牌。${preset?.revealSeconds?'锁定方案后，由胡牌玩家依次点击两张牌背，其他玩家同步观看；每张 15 秒，超时自动翻开。未翻牌面不提前公开，两张揭晓后再结算。':''}`],
   ['奖牌怎样命中','奖牌与所选方案的完整代表牌比较，包括吃碰杠。白板奖牌先转换身份；实体赖子奖牌按它印着的原牌种比较，不自动中奖。每张奖牌最多命中一次，手中同种牌再多也不重复加分；两张相同奖牌都命中则算两次。赖子代表的牌即使没有自然牌，也可命中。'],
   ['筹码怎么算',`设基础筹码为 B，命中奖牌数为 n（0、1 或 2），所有有效倍数相乘为 M：每位付款者付 B ×（1+n）× M。自摸本身 ×${preset?.selfDrawUnit}，另外三家各付一次；点炮本身 ×1，只有点炮者付一次，不包三家。抢杠胡只有补杠者付款，并计抢杠胡倍数。${closed?'本桌旧版保留门前清 ×2。':'门前清不加倍。'}${noWild?'本桌旧版保留无赖子 ×2。':'无赖子不加倍。'}${doubleWildCombined?'双赖子 ×4 已包含自摸，不再重复乘自摸；其余':''}独立倍数相乘、不封顶，筹码允许为负。`],

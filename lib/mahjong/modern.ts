@@ -51,7 +51,7 @@ export function dealModern(g:ModernGame,now=Date.now()){
 function context(g:ModernGame,seat:number,tile?:number,p?:Pending):WinContext {
   return {round:g.round,hand:tile===undefined?[...g.seats[seat].hand]:[...g.seats[seat].hand,tile],melds:g.seats[seat].melds,wildcard:g.wildcard,incoming:tile??g.drawn!,
     winType:p?.kind==='added'?'rob':tile===undefined?'self':'discard',flower:tile===undefined&&g.flower,selfDrawUnit:g.rules.selfDrawUnit,noWildBonus:g.rules.noWildBonus,closedBonus:g.rules.closedBonus,fourWildWin:g.rules.fourWildWin,disabledWins:g.rules.disabledWins,
-    doubleWildIncludesSelfDraw:g.rules.doubleWildIncludesSelfDraw,
+    doubleWildIncludesSelfDraw:g.rules.doubleWildIncludesSelfDraw,sevenPairsSuitedFourPlus:g.rules.sevenPairsSuitedFourPlus,
     heaven:tile===undefined&&g.opening&&g.discardCount===0&&seat===g.dealer,earth:!!p?.earth&&seat!==g.dealer};
 }
 function wins(g:ModernGame,seat:number,tile?:number,p?:Pending){return g.rules.wildcards?canWin(context(g,seat,tile,p)):isWinning(tile===undefined?g.seats[seat].hand:[...g.seats[seat].hand,tile],g.seats[seat].melds.length,false);}

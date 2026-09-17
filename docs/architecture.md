@@ -13,7 +13,8 @@
 | 内容 | 入口与职责 |
 |---|---|
 | 页面入口 | `app/page.tsx`、`app/mahjong/page.tsx`、`app/holdem/page.tsx` |
-| 统一大厅与导航 | `components/club-provider.tsx`、`components/game-nav.tsx`、`lib/club/` |
+| 统一大厅与导航 | `components/game-lobby.tsx`、`app/lobby.css`、`components/club-provider.tsx`、`components/game-nav.tsx`、`lib/club/` |
+| 好友、在线状态与邀请 | `components/friends-provider.tsx`、`friends-panel.tsx`、`app/api/friends/`、`lib/social-server.ts` |
 | 斗地主牌桌 | `components/poker-table.tsx`；规则在 `lib/game/engine.ts` |
 | 麻将牌桌 | `components/mahjong-board.tsx`、`mahjong-tile.tsx`；规则在 `lib/mahjong/` |
 | 德州规则 | `lib/holdem/engine.ts`、`evaluate.ts`、`bot.ts` |
@@ -30,7 +31,8 @@
 ## 公共功能怎样复用
 
 - **导航和账号**：`ClubProvider` 管理当前登录状态与页面恢复。退出或换账号时清掉相关页面内存，防止串号。
-- **聊天**：每房间一个订阅；表情与文字走同一消息接口。聊天不修改房间版本、计时和筹码。发送只传编号，本机即时预览，服务器回执直接合并；见 [编号同步](chat-signals.md)。
+- **好友**：只能向同桌真人发申请，由接收者同意。前台每 30 秒更新好友状态，90 秒内有有效会话心跳视为在线；退出会话即失效。邀请 10 分钟有效，接受时通过原游戏加入接口做原子占座，不能绕过房满、开局或固定成员限制。只返回本人关系、在线布尔值和邀请房间摘要。
+- **聊天**：每房间一个订阅；表情与文字走同一消息接口；聊天框和未读计数只包含文字，表情仍在牌桌播放。聊天不修改房间版本、计时和筹码。发送只传编号，本机即时预览，服务器回执直接合并；见 [编号同步](chat-signals.md)。
 - **动画**：所有游戏读同一素材登记表、缓存和播放器。加一款表情不应修改三个游戏页面。见 [缓存框架](motion-cache.md)。
 - **人机**：斗地主和麻将的陪练在 `lib/practice/`，德州在自己的 `bot.ts`。只使用该玩家可以看到的信息。
 - **公开信息**：渲染牌桌只能使用服务端过滤后的状态。不得为了播放特效把牌墙、别人的响应资格或提前的奖牌发给浏览器。

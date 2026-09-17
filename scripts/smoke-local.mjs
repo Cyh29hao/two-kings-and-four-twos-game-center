@@ -56,6 +56,64 @@ try {
   await request('/api/history', undefined, '', 401);
   const signup = async name => request('/api/auth', { action: 'register', username: name, name: '本地验收', password: crypto.randomUUID() });
   const outsider = await signup('outside' + Date.now().toString(36));
+  // Friend requests are mutual and restricted to actual same-table human members.
+  await request('/api/friends',undefined,'',401);
+  const friendA=await signup('frienda'+Date.now().toString(36)),friendB=await signup('friendb'+Date.now().toString(36)),friendC=await signup('friendc'+Date.now().toString(36));
+  const a=friendA.data.user.id,b=friendB.data.user.id,c=friendC.data.user.id;
+  let socialRoom=(await request('/api/game',{action:'create',title:'好友验收'},friendA.cookie)).data;
+  await request('/api/friends',{action:'request',target:b,code:socialRoom.code},friendA.cookie,403);
+  socialRoom=(await request('/api/game',{action:'join',code:socialRoom.code},friendB.cookie)).data;
+  await request('/api/friends',{action:'request',target:a,code:socialRoom.code},friendA.cookie,400);
+  await request('/api/friends',{action:'request',target:b,code:socialRoom.code},friendA.cookie);
+  await request('/api/friends',{action:'request',target:b,code:socialRoom.code},friendA.cookie);
+  assert.equal((await request('/api/friends',undefined,friendB.cookie)).data.incoming.length,1,'重复申请不能重复建关系');
+  await request('/api/friends',{action:'accept',target:b},friendA.cookie,403);
+  await request('/api/friends',{action:'accept',target:a},outsider.cookie,409);
+  await request('/api/friends',{action:'invite',target:b,code:socialRoom.code},friendA.cookie,403);
+  await request('/api/friends',{action:'accept',target:a},friendB.cookie);
+  await request('/api/friends',{action:'heartbeat'},friendB.cookie);
+  const privateFriends=(await request('/api/friends',undefined,friendA.cookie)).data;
+  assert.equal(privateFriends.friends[0].id,b);assert.equal(privateFriends.friends[0].online,true);
+  assert.equal('username' in privateFriends.friends[0],false);
+  assert.equal((await request('/api/friends',undefined,outsider.cookie)).data.friends.length,0);
+  socialRoom=(await request('/api/game',{action:'join',code:socialRoom.code},friendC.cookie)).data;
+  await request('/api/friends',{action:'request',target:c,code:socialRoom.code},friendA.cookie);
+  await request('/api/friends',{action:'decline',target:a},friendC.cookie);
+  assert.equal((await request('/api/friends',undefined,friendA.cookie)).data.outgoing.length,0);
+  await request('/api/friends',{action:'request',target:c,code:socialRoom.code},friendA.cookie);
+  await request('/api/friends',{action:'cancel',target:c},friendA.cookie);
+  assert.equal((await request('/api/friends',undefined,friendC.cookie)).data.incoming.length,0);
+  assert.equal((await request('/api/game?room='+socialRoom.code,undefined,friendA.cookie)).data.revision,socialRoom.revision,'好友操作不得推进牌桌版本');
+  await request('/api/game',{action:'leave',code:socialRoom.code,revision:socialRoom.revision},friendC.cookie);
+  socialRoom=(await request('/api/game?room='+socialRoom.code,undefined,friendB.cookie)).data;
+  await request('/api/game',{action:'leave',code:socialRoom.code,revision:socialRoom.revision},friendB.cookie);
+  async function inviteRound(endpoint,room){
+    await request('/api/friends',{action:'invite',target:b,code:room.code},friendA.cookie);
+    await request('/api/friends',{action:'invite',target:b,code:room.code},friendA.cookie);
+    const invitations=(await request('/api/friends',undefined,friendB.cookie)).data.invites;
+    assert.equal(invitations.length,1,'重复邀请不能产生多个通知');
+    const inviteId=invitations[0].id;
+    await request('/api/friends',{action:'open_invite',inviteId},outsider.cookie,409);
+    const dest=(await request('/api/friends',{action:'open_invite',inviteId},friendB.cookie)).data;
+    assert.equal(dest.code,room.code);
+    let joined=(await request(endpoint,{action:'join',code:dest.code},friendB.cookie)).data;
+    await request('/api/friends',{action:'dismiss_invite',inviteId},friendB.cookie);
+    assert.equal((await request('/api/friends',undefined,friendB.cookie)).data.invites.length,0);
+    await request(endpoint,{action:'leave',code:room.code,revision:joined.revision},friendB.cookie);
+    const updated=(await request(endpoint+'?room='+room.code,undefined,friendA.cookie)).data;
+    await request('/api/friends',{action:'invite',target:b,code:room.code},friendA.cookie);
+    const stale=(await request('/api/friends',undefined,friendB.cookie)).data.invites[0].id;
+    await request(endpoint,{action:'leave',code:room.code,revision:updated.revision},friendA.cookie);
+    await request('/api/friends',{action:'open_invite',inviteId:stale},friendB.cookie,409);
+    assert.equal((await request('/api/friends',undefined,friendB.cookie)).data.invites.length,0);
+  }
+  await inviteRound('/api/game',socialRoom);
+  for(const endpoint of ['/api/mahjong','/api/holdem']){
+    const created=(await request(endpoint,{action:'create',title:'跨游戏好友邀请'},friendA.cookie)).data;
+    await inviteRound(endpoint,created);
+  }
+  await request('/api/auth',{action:'logout'},friendB.cookie);
+  assert.equal((await request('/api/friends',undefined,friendA.cookie)).data.friends[0].online,false,'退出后不能继续显示在线');
   for (const [kind, endpoint, size] of [['landlord', '/api/game', 3], ['mahjong', '/api/mahjong', 4], ['holdem', '/api/holdem', 4]]) {
     const player = await signup(kind + Date.now().toString(36));
     const room = (await request(endpoint, { action: 'create', capacity: size, mode: 'practice', title: '本机自动验收' }, player.cookie)).data;

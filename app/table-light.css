@@ -43,6 +43,30 @@
 .table-light .mj-self-top strong{font-size:14px}
 .table-light .mj-actions{min-height:56px;margin:4px 0;gap:8px}
 .table-light .mj-light-actions{width:100%}
+/* Keep the table open, with slightly larger tiles and less unused action space. */
+.table-light.mj-room{max-width:1240px}
+.table-light .mj-surface{padding-top:48px}
+.table-light .mj-surface .zone-north{margin-bottom:40px}
+.table-light .mj-surface.phase-finished{padding-top:24px}
+.table-light .phase-finished .zone-north{margin-bottom:24px}
+.table-light .mj-surface.phase-playing{min-height:270px;row-gap:8px}
+.table-light .mj-actions:empty{display:none}
+.table-light .mj-actions:has(.mj-light-actions.is-idle){min-height:20px}
+.table-light .mj-light-actions.is-idle{min-height:20px}
+.table-light .mj-light-actions.is-idle>.table-action-row:empty{display:none}
+.table-light .mj-hand{padding-top:12px}
+.mj-final-hand-label{display:block;text-align:center;font-size:12px;color:#607d65;margin-top:8px}
+@media(min-width:901px){
+ .table-light .mj-hand .mj-tile{width:56px;height:80px}
+ .table-light .mj-discards{max-width:225px}
+ .table-light .mj-discards .mj-tile,.table-light .mj-player-zone .round-tiles .mj-tile{width:33px;height:47px}
+ .table-light .mj-meld .mj-tile{width:30px;height:43px}
+ .table-light .zone-south .mj-discards{max-width:441px}
+ .table-light .mj-player-zone .seat-final-hand{max-width:270px}
+}
+@media(min-width:581px) and (max-width:900px){
+ .table-light .mj-hand .mj-tile{width:44px;height:63px}
+}
 .mj-response-tile{display:inline-flex;align-items:center;margin-right:6px}
 .mj-choice-options{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .mj-choice-option{display:flex;gap:2px;padding:7px;border:2px solid transparent;background:#f0f3ed;border-radius:10px}
