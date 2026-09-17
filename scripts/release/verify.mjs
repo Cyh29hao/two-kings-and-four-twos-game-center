@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { validatePublishedWebp } from './verify-asset.mjs';
 const config = JSON.parse(readFileSync('config/release.json', 'utf8'));
 const receipt = JSON.parse(readFileSync('release/candidate.json', 'utf8'));
 if (receipt.status !== 'prepared' || receipt.siteUrl !== config.siteUrl || receipt.projectId !== config.projectId || !/^[a-f0-9]{40}$/.test(receipt.commit)) throw Error('发布回执不匹配。');
@@ -24,9 +24,8 @@ try {
       const [src, asset] = entries.shift();
       try {
         const response = await get(src + '?v=' + asset.revision);
-        if (!response.headers.get('content-type')?.startsWith('image/webp')) throw Error('返回内容不是图片');
         const bytes = Buffer.from(await response.arrayBuffer());
-        if (bytes.length !== asset.bytes || createHash('sha256').update(bytes).digest('hex').slice(0, 20) !== asset.revision) throw Error('素材内容不一致');
+        validatePublishedWebp(response.headers.get('content-type'), bytes, asset);
       } catch (error) { failures.push(`${src}: ${error.message}`); }
     }
   }));

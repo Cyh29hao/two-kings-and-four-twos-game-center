@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {bidV3,buyV3Equipment,clearanceV3,connectionsV3,declareV3NoBid,finishShopping,newLandlordV3,peekV3Bottom,placeV3Bet,playV3,readyV3,refreshV3Shop,resolveV3Equipment,selectionCombo,sellV3Equipment,skipV3Bet,skipV3OpeningEquipment,timeoutV3,useV3OpeningEquipment,viewV3,V3_EQUIPMENT_CATALOG,type V3Game} from '../../lib/game/landlord-v3.ts';
+import {bidV3,buyV3Equipment,clearanceV3,connectionsV3,declareV3NoBid,finishShopping,newLandlordV3,peekV3Bottom,placeV3Bet,playV3,readyV3,refreshV3Shop,resolveV3Equipment,selectionCombo,sellV3Equipment,skipV3Bet,skipV3OpeningEquipment,timeoutV3,useV3OpeningEquipment,viewV3,v3BotAction,V3_EQUIPMENT_CATALOG,type V3Game} from '../../lib/game/landlord-v3.ts';
 import {advanceBot,fillBots,scheduleBots} from '../../lib/practice/room.ts';
-import {beats,rank,virtualCard} from '../../lib/game/engine.ts';
+import {beats,classify,rank,virtualCard} from '../../lib/game/engine.ts';
 
 function game(){const g=newLandlordV3('a','甲',30);g.seats.push({id:'b',name:'乙',hand:[],ready:false,plays:0,last:''},{id:'c',name:'丙',hand:[],ready:false,plays:0,last:''});return g;}
 function begin(g:V3Game){for(let seat=0;seat<3;seat++)readyV3(g,seat,1000);assert.equal(g.phase,'shopping');}
@@ -53,7 +53,7 @@ test('v3 equipment activations publish a named notice with their target',()=>{
  g.seats[0].hand=cards(9,3,5,7,11,13,14,10);
  useV3OpeningEquipment(g,0,[cards(9)[0]],4710);
  const copied=g.log.filter(entry=>entry.kind==='equipment').at(-1);
- assert.equal(copied?.id,'copy-4');assert(copied?.text.includes('复制了'));assert(copied?.text.includes('9'));
+ assert.equal(copied?.id,'copy-4');assert(copied?.text.includes('复制了'));assert(copied?.text.includes('4 张牌'));assert(!copied?.text.includes('9'));
  const bomb=game();give(bomb,0,'bomb-1');playing(bomb,{hands:[[9,9,9,9,5,5,5,5],[6,7],[8,10]]});
  playV3(bomb,0,cards(9,9,9,9),4720);
  resolveV3Equipment(bomb,0,[bomb.seats[0].hand.at(-1)!],4721,{effect:'bomb-1'});
@@ -407,7 +407,7 @@ test('v3 clearance and connections buy outside the own shop with their own guard
  connectionsV3(g,1,'skip-straight',2802);
  assert.equal(g.coins[1],'3');assert(g.equipment[1].some(item=>item.id==='skip-straight'));
  assert.throws(()=>connectionsV3(g,1,'airdrop',2803),/本桌已经使用过人脉/);
- const exclusive=game();give(exclusive,0,'clearance','connections');begin(exclusive);
+ const exclusive=game();give(exclusive,0,'clearance','connections');begin(exclusive);exclusive.equipmentUsed.push('0:clearance');
  assert.throws(()=>connectionsV3(exclusive,0,'airdrop',2804),/不能在同一局共同触发/);
 });
 
@@ -574,9 +574,9 @@ test('v3 skip-straight plays a gapped run as a normal straight that only a longe
  playV3(g,0,run,2400);
  const combo=g.last?.combo;
  assert.equal(combo?.kind,'顺子');assert.equal(combo?.size,5);assert.equal(combo?.rank,11);
- assert.equal(beats({kind:'顺子',rank:13,size:5,chain:1},combo!),true);
- assert.equal(beats({kind:'顺子',rank:9,size:5,chain:1},combo!),false);
- assert.equal(beats({kind:'顺子',rank:14,size:6,chain:1},combo!),false);
+ assert.equal(beats(classify(cards(9,10,11,12,13))!,combo!),true);
+ assert.equal(beats(classify(cards(5,6,7,8,9))!,combo!),false);
+ assert.equal(beats(classify(cards(9,10,11,12,13,14))!,combo!),false);
  assert.equal(beats({kind:'炸弹',rank:4,size:4,chain:1},combo!),true);
 });
 
@@ -835,3 +835,119 @@ test('v3 equipment buttons resolve through the same pending effect as the timeou
  assert((bomb.equipmentUsed??[]).includes('1:bomb'));assert.equal(bomb.phase,'playing');
 });
 
+
+
+test('v3 privacy hides shopping bottom, per-player peeks and future windows',()=>{
+ const g=game();give(g,0,'peek-bottom');give(g,1,'peek-bottom');begin(g);
+ for(const player of g.seats)assert.deepEqual(viewV3(g,player.id).bottom,[-1,-1,-1]);
+ bids(g);peekV3Bottom(g,0,0);peekV3Bottom(g,1,1);
+ assert.deepEqual(viewV3(g,'a').bottom,[g.bottom[0],-1,-1]);
+ assert.deepEqual(viewV3(g,'b').bottom,[-1,g.bottom[1],-1]);
+ assert.deepEqual(viewV3(g,'c').bottom,[-1,-1,-1]);
+ g.pending=[{kind:'borrowed',seat:1}];
+ const view=viewV3(g,'a');assert.equal(view.pending,undefined);assert.equal(view.privatePeeks,undefined);
+ assert.equal(g.pending.length,1);assert.deepEqual(g.privatePeeks,{'0':[0],'1':[1]});
+});
+
+test('v3 unfinished equipment cannot be randomly sold or bought from an old offer',()=>{
+ for(let attempt=0;attempt<30;attempt++){
+  const g=game();begin(g);assert(!g.shops.some(shop=>shop.offers.some(offer=>['quit-early','last-stand'].includes(offer.id))));
+ }
+ const g=game();begin(g);g.coins[0]='20';g.shops[0].offers=[{offerId:'pending',id:'quit-early',level:3,price:'4',bought:false}];
+ assert.throws(()=>buyV3Equipment(g,0,'pending'),/尚未开放/);assert.equal(g.coins[0],'20');
+});
+
+test('v3 first-round purchases copy only after shopping closes, without private rank logs',()=>{
+ const g=game();begin(g);g.shops[0].offers=[{offerId:'copy',id:'copy-1',level:1,price:'1',bought:false}];
+ buyV3Equipment(g,0,'copy');assert.equal(g.seats[0].hand.length,17);
+ bids(g);assert.equal(g.seats[0].hand.length,18);assert.match(g.log.find(entry=>entry.id==='copy-1')!.text,/复制了 1 张牌$/);
+});
+
+test('v3 series upgrades replace one slot at the correct price and enforce symmetric exclusions',()=>{
+ const g=game();begin(g);give(g,0,'copy-1');g.coins[0]='10';
+ g.shops[0].offers=[{offerId:'upgrade',id:'copy-3',level:3,price:'4',bought:false}];
+ buyV3Equipment(g,0,'upgrade');assert.deepEqual(g.equipment[0].map(item=>item.id),['copy-3']);assert.equal(g.coins[0],'6');
+ const h=game();begin(h);give(h,0,'precision-copy-1');h.coins[0]='10';h.shops[0].offers=[{offerId:'copy',id:'copy-1',level:1,price:'1',bought:false}];
+ assert.throws(()=>buyV3Equipment(h,0,'copy'),/不能.*共存/);assert.equal(h.coins[0],'10');
+});
+
+test('v3 completed shopping rejects late purchases, sales and refreshes',()=>{
+ const g=game();begin(g);give(g,0,'extra-refresh');finishShopping(g,0);
+ assert.throws(()=>buyV3Equipment(g,0,g.shops[0].offers[0].offerId),/商店/);
+ assert.throws(()=>sellV3Equipment(g,0,g.equipment[0][0].instanceId),/商店/);
+ assert.throws(()=>refreshV3Shop(g,0),/商店/);
+});
+
+test('v3 equipment windows preserve the landlord first turn and give each skipped bettor a choice',()=>{
+ const g=game();give(g,1,'all-in');give(g,2,'all-in');begin(g);g.dealer=0;bids(g);
+ bidV3(g,0,true,5000);bidV3(g,1,false,5001);bidV3(g,2,false,5002);
+ assert.equal(g.pendingEffect?.seat,1);
+ resolveV3Equipment(g,1,[],5003,{choice:'skip'});assert.equal(g.pendingEffect?.seat,2);
+ resolveV3Equipment(g,2,[],5004,{choice:'skip'});assert.equal(g.phase,'playing');assert.equal(g.turn,0);assert.equal(g.deadline,35004);
+});
+
+test('v3 reveal activates with a full hand, is table-limited, and restores the landlord turn',()=>{
+ const g=game();give(g,1,'stand-up-fight');give(g,2,'stand-up-fight');begin(g);g.dealer=0;bids(g);
+ bidV3(g,0,true);bidV3(g,1,false);bidV3(g,2,false);
+ assert.equal(g.pendingEffect?.kind,'reveal');assert.equal(g.pendingEffect?.seat,1);
+ resolveV3Equipment(g,1,[g.seats[1].hand.find(card=>rank(card)<16)!]);
+ assert.equal(g.phase,'playing');assert.equal(g.turn,0);assert.equal(g.seats[1].hand.length,16);
+ assert.equal(viewV3(g,'a').seats[1].hand.length,16);
+});
+
+test('v3 farmer income target window opens on their turn and cannot reopen after skip',()=>{
+ const g=game();give(g,1,'cut-off-income');playing(g,{hands:[[3,4],[5,6],[7,8]]});
+ playV3(g,0,cards(3));assert.equal(g.pendingEffect?.kind,'target');assert.equal(g.turn,1);
+ resolveV3Equipment(g,1,[],5000,{choice:'skip'});assert.equal(g.phase,'playing');assert.equal(g.turn,1);
+ playV3(g,1,cards(5));assert.equal(g.turn,2);
+});
+
+test('v3 rejects duplicate card IDs before mapping or equipment discards',()=>{
+ const g=game();give(g,0,'smith');playing(g,{hands:[[11,12,3],[4],[5]]});
+ const duplicate=[cards(11)[0],cards(11)[0]];
+ assert.equal(selectionCombo(g,0,duplicate),null);assert.throws(()=>playV3(g,0,duplicate),/不重复/);
+ g.phase='equipment';g.pendingEffect={seat:0,kind:'thirteen',max:13};
+ assert.throws(()=>resolveV3Equipment(g,0,[cards(3)[0],cards(3)[0]]),/不重复/);
+});
+
+test('v3 precision-copy-two allows three existing cards when only one source has that rank',()=>{
+ const g=game();give(g,0,'precision-copy-2');g.phase='equipment';g.pendingEffect={seat:0,kind:'opening'};
+ hand(g,0,[3,3,3,4,5]);useV3OpeningEquipment(g,0,[cards(3)[0],cards(4)[0]]);
+ assert.equal(g.seats[0].hand.filter(card=>rank(card)===3).length,4);
+ assert.equal(g.seats[0].hand.filter(card=>rank(card)===4).length,2);
+});
+
+test('v3 connections remains consumed after the next round starts',()=>{
+ const g=game();give(g,0,'connections');begin(g);g.coins[0]='20';connectionsV3(g,0,'airdrop');
+ g.phase='finished';g.seats.forEach(player=>player.ready=false);for(let i=0;i<3;i++)readyV3(g,i);
+ assert.throws(()=>connectionsV3(g,0,'skip-straight'),/本桌已经使用过/);
+});
+
+
+test('v3 gapped straights consume one use and ordinary straights can beat them',()=>{
+ const g=game();give(g,0,'skip-straight');playing(g,{hands:[[3,5,7,9,11,12],[9,10,11,12,13,14],[4]]});
+ playV3(g,0,cards(3,5,7,9,11));assert.equal(g.last?.combo.chain,5);assert(g.equipmentUsed.includes('0:skip-straight'));
+ playV3(g,1,cards(9,10,11,12,13));assert.equal(g.last?.seat,1);
+ g.turn=0;g.last=null;hand(g,0,[3,5,7,9,11,12]);assert.throws(()=>playV3(g,0,cards(3,5,7,9,11)),/合法牌型/);
+});
+
+test('v3 seeded complete tables terminate with legal bots, private views and nonnegative coins',t=>{
+ let seed=713;
+ t.mock.method(crypto,'getRandomValues',((buffer:Uint32Array)=>{for(let i=0;i<buffer.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;buffer[i]=seed;}return buffer;}) as typeof crypto.getRandomValues);
+ for(let table=0;table<12;table++){
+  const g=game();let turns=0;
+  while(g.champion<0&&turns++<4000){
+   const now=1000+turns*100;
+   if(g.phase==='waiting'||g.phase==='finished'){for(let seat=0;seat<3;seat++)readyV3(g,seat,now);}
+   else if(g.phase==='shopping'){const seat=g.seats.findIndex(player=>player.last!=='商店完成');v3BotAction(g,seat,now);}
+   else v3BotAction(g,g.turn,now);
+   assert(g.coins.every(value=>BigInt(value)>=0n));
+   const live=g.seats.flatMap(player=>player.hand);assert.equal(new Set(live).size,live.length);
+   for(let seat=0;seat<3;seat++){
+    const visible=viewV3(g,g.seats[seat].id);
+    assert(visible.shops.every((shop,index)=>index===seat||!shop.offers.length));
+   }
+  }
+  assert(g.champion>=0,`table ${table} stalled after ${turns} steps`);assert(g.roundNumber<=13);
+ }
+});

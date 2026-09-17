@@ -7,6 +7,7 @@ import {mahjongDecision,mahjongPlan} from './mahjong.ts';
 type PracticeGame=Game|V3Game|ModernGame;
 const mahjong=(g:PracticeGame):g is ModernGame=>'kind' in g&&g.kind==='mahjong';
 function rosterEditable(g:PracticeGame){
+ if(isLandlordV3(g)&&g.roundNumber>0)throw Error('扩展赛制开始后座位固定');
  if(g.phase!=='waiting'||(mahjong(g)&&g.fixedIds.length))throw Error('只能在开局前调整人机座位');
  if(soloPractice(g))throw Error('个人测试房的陪练座位固定，请另开好友房');
 }

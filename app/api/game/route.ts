@@ -29,7 +29,7 @@ export async function POST(req:Request){return safe(async()=>{
  if(g.phase==='closed')throw new AppError('该房间已关闭');
  if(g.seats.some(s=>s.id===u.id))return json(await roomView(r,g,u.id));
  if(soloPractice(g))throw new AppError('这是个人的人机测试房，不能加入其他玩家',403);
- if(g.phase!=='waiting'||g.seats.length>=3)throw new AppError('该房间已满或正在对局');
+ if(g.phase!=='waiting'||isLandlordV3(g)&&g.roundNumber>0||g.seats.length>=3)throw new AppError('该房间已满或正在对局');
  if((await config()).maintenance)throw new AppError('暂时暂停加入新桌');
  g.seats.push({id:u.id,name:u.display,hand:[],ready:false,plays:0,last:''});resetRosterReady(g);r=await commit(r,g,(guard,op)=>[db().prepare(`INSERT INTO members (user_id,room_code) SELECT ?,? WHERE ${guard}`).bind(u.id,r.code,r.code,op)]);return json(await roomView(r,g,u.id));
  }
@@ -45,10 +45,11 @@ export async function POST(req:Request){return safe(async()=>{
   g.phase='closed';g.deadline=0;g.log.push({text:'房主结束人机测试，未完成对局不计分',at:Date.now()});
   r=await commit(r,g,(guard,op)=>[db().prepare(`DELETE FROM members WHERE room_code=? AND ${guard}`).bind(r.code,r.code,op)]);return json({left:true});
  }
- if(['bid','play','pass','double','v3_bid','v3_no_bid','v3_peek','v3_bet','v3_bet_skip','shop_buy','shop_sell','shop_done','shop_refresh','shop_clearance','shop_connections','equipment_resolve','equipment_opening'].includes(b.action)&&g.deadline<=Date.now()){r=await advance(r);throw new AppError('本次操作已超时，已为你自动操作',409);}
+ if(['bid','play','pass','double','v3_bid','v3_no_bid','v3_peek','v3_bet','v3_bet_skip','shop_buy','shop_sell','shop_done','shop_refresh','shop_clearance','shop_connections','equipment_resolve','equipment_opening','equipment_opening_skip'].includes(b.action)&&g.deadline<=Date.now()){r=await advance(r);throw new AppError('本次操作已超时，已为你自动操作',409);}
  if(isLandlordV3(g)){
   if(b.action==='leave'){
    if(g.phase==='closed')return json({left:true});if(soloPractice(g))throw new AppError('请使用结束测试，系统会关闭整个人机房');if(!['waiting','finished'].includes(g.phase))throw new AppError('对局中请留在房间；关闭页面后仍会超时托管');
+   if(g.roundNumber>0){g.phase='closed';g.deadline=0;g.pending=[];g.pendingEffect=undefined;g.log.push({text:'固定三人赛制结束：有玩家离桌',at:Date.now()});r=await commit(r,g,(guard,op)=>[db().prepare(`DELETE FROM members WHERE room_code=? AND ${guard}`).bind(r.code,r.code,op)]);return json({left:true});}
    g.seats.splice(seat,1);g.phase=g.seats.length?'waiting':'closed';g.seats.forEach(s=>{s.ready=false;s.hand=[];s.last=''});g.host=g.seats[0]?.id||'';g.bottom=[];g.last=null;g.tableActions=[];g.winner=-1;g.deadline=0;g.landlord=-1;g.bid='0';g.stake='0';g.turn=0;transferHumanHost(g);
    r=await commit(r,g,(guard,op)=>[db().prepare(`DELETE FROM members WHERE user_id=? AND ${guard}`).bind(u.id,r.code,op)]);return json({left:true});
   }

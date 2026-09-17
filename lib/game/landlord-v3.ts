@@ -30,10 +30,13 @@ export type V3Game={
  deadline:number;seconds:number;round:string;roundNumber:number;suddenDeath:boolean;winner:number;champion:number;victoryPoints:string[];coins:string[];equipment:V3Equipment[][];shops:V3Shop[];
  firstFinisher:number;deltas:number[];log:{text:string;at:number;kind?:'equipment';id?:string}[];roundHistory:{round:number;suddenDeath:boolean;winner:number;landlord:number;victoryPoints:string[];coins:string[]}[];
  equipmentUsed:string[];virtualSerial:number;rocketUsed:boolean;pendingEffect?:V3Effect;developerMode?:boolean;
- pending?:V3Effect[];tableUsed?:string[];revealed?:{card:number;from:number}[];peeked?:number[];peekedSeat?:number;betUsedRound?:number;betIsSet?:{seat:number};mapUsed?:string[];passStreak?:boolean[];
+ effectResumeTurn?:number;privatePeeks?:Record<string,number[]>;pending?:V3Effect[];tableUsed?:string[];revealed?:{card:number;from:number}[];peeked?:number[];peekedSeat?:number;betUsedRound?:number;betIsSet?:{seat:number};mapUsed?:string[];passStreak?:boolean[];
  stakeUsedRound?:number;lossStreak?:string[];allIn?:{seat:number;amount:string};sideBet?:{seat:number;side:'landlord'|'farmers'};cutIncome?:{seat:number;source:number};maxPlayed?:number[];
 };
 export const V3_CATALOG_VERSION=2;
+/** Frozen IDs remain documented, but unfinished effects must never be sold. */
+export const V3_UNAVAILABLE_EQUIPMENT=['quit-early','last-stand'] as const;
+export const equipmentAvailable=(id:string)=>!V3_UNAVAILABLE_EQUIPMENT.some(pending=>pending===id);
 const item=(id:string,level:1|2|3|4,name:string,effect:string,extra:Partial<V3CatalogEntry>={}):V3CatalogEntry=>({id,level,price:String(2**(level-1)),name,effect,...extra});
 export const V3_EQUIPMENT_CATALOG:V3CatalogEntry[]=[
  item('peek-bottom',1,'看底牌','竞价开始前，可私下查看 1 张底牌。'),
@@ -116,7 +119,7 @@ export function newLandlordV3(host:string,name:string,seconds=30,developerMode=f
  return{kind:'landlord-v3',rules:{...DEFAULT_LANDLORD_V3_RULES,equipmentCatalog:V3_EQUIPMENT_CATALOG.map(x=>({...x}))},phase:'waiting',seats:[{id:host,name,hand:[],ready:false,plays:0,last:''}],host,bottom:[],turn:0,landlord:-1,dealer:-1,bid:'0',stake:'0',initialPasses:0,bidPasses:0,passes:0,last:null,tableActions:[],deadline:0,seconds,round:'',roundNumber:0,suddenDeath:false,winner:-1,champion:-1,victoryPoints:['0','0','0'],coins:['2','2','2'],equipment:[[],[],[]],shops:[{offers:[]},{offers:[]},{offers:[]}],firstFinisher:-1,deltas:[0,0,0],log:[],roundHistory:[],equipmentUsed:[],virtualSerial:0,rocketUsed:false,pending:[],tableUsed:[],revealed:[],peeked:[],betUsedRound:0,mapUsed:[],passStreak:[false,false,false],stakeUsedRound:0,lossStreak:['0','0','0'],maxPlayed:[0,0,0],...(developerMode?{developerMode:true}:{})};
 }
 function randomOffers(g:V3Game,seat:number,level:1|2|3|4,revision=0){
- const levelItems=g.rules.equipmentCatalog.filter(item=>item.level===level&&!(item.id==='piggy-bank'&&g.roundNumber>6));
+ const levelItems=g.rules.equipmentCatalog.filter(item=>item.level===level&&equipmentAvailable(item.id)&&!(item.id==='piggy-bank'&&g.roundNumber>6));
  const repeatable=levelItems.filter(item=>item.id==='extra-refresh'||item.id==='change');
  const optional=levelItems.filter(item=>!repeatable.includes(item)&&!owned(g,seat,item.id));
  const source=[...repeatable,...(optional.length?optional:levelItems.filter(item=>!repeatable.includes(item)))],pool=[...source],picked:V3Offer[]=[];
@@ -137,8 +140,9 @@ function applyMaps(cards:number[],maps:number[]|undefined){return cards.map(card
 /** 只对给定的牌面（映射已经套用完毕）判定牌型；影子牌与史密斯夫妇的替代都在这里生效。 */
 function comboOf(g:V3Game,seat:number,mapped:number[]){
  const found:Combo[]=[];
+ if(new Set(mapped).size!==mapped.length)return null;
  const normal=classify(mapped);
- if(normal)found.push(normal);else if(owned(g,seat,'skip-straight')){const skipped=classifySkippedStraight(mapped);if(skipped)found.push(skipped);}
+ if(normal)found.push(normal);else if(owned(g,seat,'skip-straight')&&!used(g,seat,'skip-straight')){const skipped=classifySkippedStraight(mapped);if(skipped)found.push(skipped);}
  if(owned(g,seat,'smith')){
   const choices=mapped.map(card=>rank(card)===11||rank(card)===12?[rank(card),rank(card)===11?12:11]:[rank(card)]);
   const visit=(index:number,values:number[])=>{if(index===mapped.length){const combo=classify(values);if(combo)found.push(combo);return;}for(const value of choices[index])visit(index+1,[...values,value===rank(mapped[index])?mapped[index]:virtualCard(value,500000+index)]);};
@@ -148,6 +152,7 @@ function comboOf(g:V3Game,seat:number,mapped:number[]){
  return found.reduce((best,combo)=>combo.rank>best.rank?combo:best);
 }
 function classifyV3(g:V3Game,seat:number,cards:number[],maps:number[]|undefined){
+ if(new Set(cards).size!==cards.length)return null;
  return comboOf(g,seat,applyMaps(cards,maps));
 }
 // 接龙：相邻两张差 1 或差 2 的单张组合按「顺子」结算（例如 3 5 6 7 8），不产生新牌型。
@@ -156,7 +161,7 @@ function classifySkippedStraight(cards:number[]):Combo|null{
  const values=cards.map(rank).sort((a,b)=>a-b);
  if(values.some(value=>value<3||value>14))return null;
  if(!values.every((value,index)=>index===0||value-values[index-1]===1||value-values[index-1]===2))return null;
- return {kind:'顺子',rank:values[values.length-1],size:cards.length,chain:1};
+ return {kind:'顺子',rank:values[values.length-1],size:cards.length,chain:cards.length};
 }
 function countFamilies(g:V3Game,seat:number,family:V3Family){return g.equipment[seat].filter(entry=>catalog(g,entry.id)?.family===family).length;}
 function hasCopyWindow(g:V3Game,seat:number){
@@ -173,8 +178,8 @@ function lessLimit(g:V3Game,seat:number){const entry=familyEquipment(g,seat,'les
 function stakeOption(g:V3Game,seat:number){
  if(g.suddenDeath||g.stakeUsedRound===g.roundNumber)return null;
  const amount=coin(g.coins[seat]);
- if(owned(g,seat,'all-in')&&amount>=1n)return 'all-in' as const;
- if(owned(g,seat,'raise-stake')&&seat===g.landlord&&amount>=coin(g.stake))return 'raise-stake' as const;
+ if(owned(g,seat,'all-in')&&!used(g,seat,'all-in')&&amount>=1n)return 'all-in' as const;
+ if(owned(g,seat,'raise-stake')&&!used(g,seat,'raise-stake')&&seat===g.landlord&&amount>=coin(g.stake))return 'raise-stake' as const;
  return null;
 }
 /** 借光只在手牌里真有可弃的牌（与上一次出牌任一点数相同）时才询问，否则不弹窗。 */
@@ -185,30 +190,31 @@ function valid(g:V3Game,effect:V3Effect):boolean{
  switch(effect.kind){
   case 'opening':return hasOpeningEquipment(g,effect.seat);
   case 'stake':return stakeOption(g,effect.seat)!==null;
-  case 'bet':return coin(g.coins[effect.seat])>=1n&&!used(g,effect.seat,'side-bet')&&!used(g,effect.seat,'bet-is-set')&&(owned(g,effect.seat,'side-bet')||owned(g,effect.seat,'bet-is-set'));
+  case 'bet':return !g.suddenDeath&&g.stakeUsedRound!==g.roundNumber&&coin(g.coins[effect.seat])>=(owned(g,effect.seat,'side-bet')?1n:2n)&&!used(g,effect.seat,'side-bet')&&!used(g,effect.seat,'bet-is-set')&&(owned(g,effect.seat,'side-bet')||owned(g,effect.seat,'bet-is-set'));
   case 'bomb':return hand.length>0&&!!familyEquipment(g,effect.seat,'bomb')&&!used(g,effect.seat,'bomb');
   case 'discard':return hand.length>0&&owned(g,effect.seat,'take-the-lot')&&(g.equipmentUsed??[]).filter(entry=>entry.startsWith(`${effect.seat}:take-the-lot`)).length<3;
   case 'thirteen':return hand.some(card=>rank(card)<16)&&owned(g,effect.seat,'thirteen')&&!used(g,effect.seat,'thirteen');
   case 'aftershock':return hand.length>0&&owned(g,effect.seat,'aftershock')&&!used(g,effect.seat,'aftershock');
   case 'borrowed':return hand.length>1&&owned(g,effect.seat,'borrowed-light')&&(g.equipmentUsed??[]).filter(entry=>entry.startsWith(`${effect.seat}:borrowed-light`)).length<2&&canBorrow(g,effect.seat);
   case 'transfer':return g.last?.combo.kind==='四带二'&&owned(g,effect.seat,'four-with-two-pass')&&!used(g,effect.seat,'four-with-two-pass');
-  case 'reveal':return hand.length>1&&hand.length<=6&&owned(g,effect.seat,'stand-up-fight')&&!used(g,effect.seat,'stand-up-fight');
-  case 'target':return g.turn===effect.seat&&['playing','equipment'].includes(g.phase)&&g.seats.some((_,index)=>index!==effect.seat&&g.seats[index].hand.length>0)&&owned(g,effect.seat,'cut-off-income')&&!used(g,effect.seat,'cut-off-income');
+  case 'reveal':return !g.suddenDeath&&!g.equipmentUsed.some(token=>token.endsWith(':stand-up-fight'))&&hand.length>1&&owned(g,effect.seat,'stand-up-fight')&&!used(g,effect.seat,'stand-up-fight');
+  case 'target':return !g.suddenDeath&&g.turn===effect.seat&&['playing','equipment'].includes(g.phase)&&g.seats.some((_,index)=>index!==effect.seat&&g.seats[index].hand.length>0)&&owned(g,effect.seat,'cut-off-income')&&!used(g,effect.seat,'cut-off-income');
   case 'lead':return hand.length>0&&(['return-lead','follow-through'] as const).some(id=>owned(g,effect.seat,id)&&!used(g,effect.seat,id));
  }
 }
 function queue(g:V3Game,...effects:V3Effect[]){g.pending??=[];g.pending.push(...effects.filter(effect=>valid(g,effect)));}
-function nextEffect(g:V3Game){
+function nextEffect(g:V3Game,now=Date.now()){
  g.pending??=[];
  while(g.pending.length){
   const effect=g.pending.shift()!;
   if(!valid(g,effect))continue;
   // 打开装备窗口时不清空牌桌显示：别人刚出的牌必须一直看得到，否则没法决定怎么压。
-  g.pendingEffect=effect;g.phase='equipment';g.turn=effect.seat;g.deadline=Date.now()+g.seconds*1000;
+  g.effectResumeTurn??=g.turn;g.pendingEffect=effect;g.phase='equipment';g.turn=effect.seat;g.deadline=now+g.seconds*1000;
   return true;
  }
  g.pendingEffect=undefined;
  if(g.phase==='equipment')g.phase=g.landlord>=0?'playing':'bidding';
+ if(g.effectResumeTurn!==undefined){g.turn=g.effectResumeTurn;g.effectResumeTurn=undefined;g.deadline=now+g.seconds*1000;}
  return false;
 }
 function beginBidding(g:V3Game,now:number){
@@ -217,26 +223,27 @@ function beginBidding(g:V3Game,now:number){
  note(g,`${g.seats[dealer].name} 先叫地主`,now);
 }
 function advanceOpening(g:V3Game,now:number){
+ g.seats.forEach((_,seat)=>{const copy=familyEquipment(g,seat,'copy');if((copy?.id==='copy-1'||copy?.id==='copy-2')&&!used(g,seat,'copy')){const sources=randomCopySources(g,seat,copy.id==='copy-1'?1:2);sources.forEach(card=>addCopy(g,seat,rank(card)));mark(g,seat,'copy');if(sources.length)notice(g,`${g.seats[seat].name} 的${catalog(g,copy.id)?.name}发动：复制了 ${sources.length} 张牌`,now,copy.id);}});
+
  g.pending=(g.pending??[]).filter(effect=>effect.kind!=='opening');
  g.pendingEffect=undefined;
  const seat=g.seats.findIndex((_,index)=>hasOpeningEquipment(g,index));
  if(seat>=0){g.pendingEffect={seat,kind:'opening'};g.phase='equipment';g.turn=seat;g.tableActions=[null,null,null];g.deadline=now+g.seconds*1000;note(g,`${g.seats[seat].name} 整理开局装备`,now);return;}
  // 押注与买定离手都在竞价开始前声明：此时地主尚未确定，押注才有意义。
  queue(g,...order(g,g.dealer).map(index=>({seat:index,kind:'bet' as const})));
- if(nextEffect(g))return;
+ if(nextEffect(g,now))return;
  beginBidding(g,now);
 }
 function startRound(g:V3Game,now:number){
  if(g.seats.length!==3)throw Error('需要三人入座');
  const firstRound=g.roundNumber===0;g.roundNumber++;g.suddenDeath=g.roundNumber===13;g.dealer=firstRound?random(3):next(g.dealer);g.round=crypto.randomUUID();g.winner=-1;g.landlord=-1;g.bid='0';g.stake='0';g.initialPasses=0;g.bidPasses=0;g.passes=0;g.last=null;g.firstFinisher=-1;g.tableActions=[null,null,null];g.deltas=[0,0,0];g.visualEvents=[];g.log=[];
- g.equipmentUsed=[];g.pending=[];g.pendingEffect=undefined;g.revealed=[];g.peeked=[];g.mapUsed=[];g.passStreak=[false,false,false];g.stakeUsedRound=0;g.betUsedRound=0;g.allIn=undefined;g.sideBet=undefined;g.betIsSet=undefined;g.cutIncome=undefined;g.maxPlayed=[0,0,0];
+ g.equipmentUsed=[];g.effectResumeTurn=undefined;g.privatePeeks={};g.peekedSeat=undefined;g.pending=[];g.pendingEffect=undefined;g.revealed=[];g.peeked=[];g.mapUsed=[];g.passStreak=[false,false,false];g.stakeUsedRound=0;g.betUsedRound=0;g.allIn=undefined;g.sideBet=undefined;g.betIsSet=undefined;g.cutIncome=undefined;g.maxPlayed=[0,0,0];
  const deck=shuffledDeck(),cardsEach=g.suddenDeath?18:17;
  g.seats.forEach((seat,index)=>{seat.hand=sorted(deck.slice(index*cardsEach,index*cardsEach+cardsEach));seat.plays=0;seat.last='';seat.ready=false;});
  g.bottom=g.suddenDeath?[]:deck.slice(51);g.turn=g.dealer;g.deadline=now+g.seconds*1000;
  if(g.suddenDeath){g.phase='playing';note(g,'第 13 局突然死亡开始：三人各自为战',now);return;}
- g.seats.forEach((_,seat)=>{const copy=familyEquipment(g,seat,'copy');if(copy?.id==='copy-1'||copy?.id==='copy-2'){const sources=randomCopySources(g,seat,copy.id==='copy-1'?1:2);sources.forEach(card=>addCopy(g,seat,rank(card)));mark(g,seat,'copy');if(sources.length)notice(g,`${g.seats[seat].name} 的${catalog(g,copy.id)?.name}发动：复制了 ${sources.map(face).join(' ')}`,now,copy.id);}});
  g.seats.forEach((_,seat)=>{
-  if(held(g,seat,'piggy-bank')&&g.roundNumber===7){removeEquipment(g,seat,'piggy-bank');addCoin(g,seat,5n);notice(g,`${g.seats[seat].name} 的存钱罐到期，获得 5 金币`,now,'piggy-bank');}
+  if(held(g,seat,'piggy-bank')&&g.roundNumber===7){removeEquipment(g,seat,'piggy-bank');equipmentReward(g,seat,5n,now,'piggy-bank');}
   if(held(g,seat,'appearance-fee')&&[3,6,9].includes(g.roundNumber)&&tableCount(g,`fee:${seat}`)<3){tableMark(g,`fee:${seat}`);addCoin(g,seat,2n);notice(g,`${g.seats[seat].name} 收取出场费 2 金币`,now,'appearance-fee');} });
  refreshShops(g);g.phase='shopping';note(g,`第 ${g.roundNumber} 局商店已刷新`,now);
 }
@@ -251,22 +258,28 @@ export function finishShopping(g:V3Game,seat:number,now=Date.now()){
  if(g.seats.every(player=>player.last==='商店完成'))advanceOpening(g,now);
 }
 function grant(g:V3Game,seat:number,entry:V3CatalogEntry,now:number,options:{free?:boolean;nonSellable?:boolean;source?:string;price?:bigint}={}){
+ if(!equipmentAvailable(entry.id))throw Error('这件装备尚未开放购买');
  if(entry.tableOnce&&tableUsed(g,`buy:${entry.id}`))throw Error('这件装备本桌已经售出过');
  if(owned(g,seat,entry.id))throw Error('已经持有这件装备');
- const own=g.equipment[seat],predecessor=entry.family?own.find(entry2=>catalog(g,entry2.id)?.family===entry.family&&entry2.level===entry.level-1):undefined;
+ const own=g.equipment[seat],sameFamily=entry.family?own.find(entry2=>catalog(g,entry2.id)?.family===entry.family):undefined,predecessor=sameFamily?.level===entry.level-1?sameFamily:undefined;
+ if(sameFamily&&sameFamily.level>=entry.level)throw Error('同一系列只能向更高等级升级');
+ if(own.some(entry2=>(catalog(g,entry2.id)?.exclusive??[]).includes(entry.family??'')))throw Error('这件装备不能与已持有的系列共存');
  for(const group of entry.exclusive??[])if(own.some(entry2=>(catalog(g,entry2.id)?.exclusive??[]).includes(group)||catalog(g,entry2.id)?.family===group))throw Error('这件装备不能与已持有的系列共存');
  if(predecessor&&entry.family&&countFamilies(g,seat,entry.family)>1)throw Error('同一系列同一时刻只能持有一个等级');
- if(!predecessor&&own.length>=8)throw Error('最多持有 8 件装备');
+ if(!sameFamily&&own.length>=8)throw Error('最多持有 8 件装备');
  const price=options.free?0n:options.price??(coin(entry.price)/(predecessor?2n:1n));
  if(coin(g.coins[seat])<price)throw Error('金币不足');
  setCoin(g,seat,coin(g.coins[seat])-price);
- if(predecessor)own.splice(own.indexOf(predecessor),1);
+ if(sameFamily)own.splice(own.indexOf(sameFamily),1);
  if(entry.tableOnce)tableMark(g,`buy:${entry.id}`);
+ if(entry.id==='lucky-star'){g.lossStreak??=['0','0','0'];g.lossStreak[seat]='0';}
  own.push({instanceId:crypto.randomUUID(),id:entry.id,level:entry.level,price:entry.price,...(options.nonSellable?{nonSellable:true}:{})});
  if(entry.level===1&&!predecessor&&!options.free&&owned(g,seat,'change')&&!used(g,seat,'change')){mark(g,seat,'change');addCoin(g,seat,1n);notice(g,`${g.seats[seat].name} 的找零发动：返还 1 金币`,now,'change');}
  note(g,`${g.seats[seat].name} ${options.source??'购买'} ${entry.name}${predecessor?'（半价升级）':''}`,now);
 }
+function shopping(g:V3Game,seat:number){if(g.phase!=='shopping'||g.seats[seat].last==='商店完成')throw Error('当前不在可操作的商店阶段');}
 export function buyV3Equipment(g:V3Game,seat:number,offerId:unknown,now=Date.now()){
+ shopping(g,seat);
  if(g.phase!=='shopping')throw Error('只能在商店阶段购买装备');if(typeof offerId!=='string')throw Error('装备选择无效');
  const offer=g.shops[seat]?.offers.find(entry=>entry.offerId===offerId),entry=offer&&catalog(g,offer.id);
  if(!offer||!entry||offer.bought)throw Error('该装备不可购买');
@@ -274,22 +287,26 @@ export function buyV3Equipment(g:V3Game,seat:number,offerId:unknown,now=Date.now
  grant(g,seat,entry,now);offer.bought=true;
 }
 export function clearanceV3(g:V3Game,seat:number,offerId:unknown,now=Date.now()){
+ shopping(g,seat);
  if(g.phase!=='shopping')throw Error('只能在商店阶段使用清仓');if(typeof offerId!=='string')throw Error('装备选择无效');
+ if(used(g,seat,'connections'))throw Error('人脉与清仓不能在同一局共同触发');
  if(!owned(g,seat,'clearance'))throw Error('没有清仓装备');if(tableUsed(g,'clearance'))throw Error('本桌已经有人使用过清仓');
  const offer=g.shops[seat]?.offers.find(entry=>entry.offerId===offerId),entry=offer&&catalog(g,offer.id);
  if(!offer||!entry||offer.bought)throw Error('该候选不可清仓');
- grant(g,seat,entry,now,{free:true,source:'清仓免费获得'});offer.bought=true;tableMark(g,'clearance');
+ grant(g,seat,entry,now,{free:true,source:'清仓免费获得'});offer.bought=true;tableMark(g,'clearance');mark(g,seat,'clearance');
  notice(g,`${g.seats[seat].name} 的清仓发动：免费获得 ${entry.name}`,now,'clearance');
 }
 export function connectionsV3(g:V3Game,seat:number,equipmentId:unknown,now=Date.now()){
+ shopping(g,seat);
  if(g.phase!=='shopping')throw Error('只能在商店阶段使用人脉');if(typeof equipmentId!=='string')throw Error('装备选择无效');
- if(!owned(g,seat,'connections'))throw Error('没有人脉装备');if(used(g,seat,'connections'))throw Error('本桌已经使用过人脉');
- if(owned(g,seat,'clearance'))throw Error('人脉与清仓不能在同一局共同触发');
+ if(!owned(g,seat,'connections'))throw Error('没有人脉装备');if(tableUsed(g,`connections:${seat}`))throw Error('本桌已经使用过人脉');
+ if(used(g,seat,'clearance'))throw Error('人脉与清仓不能在同一局共同触发');
  const entry=catalog(g,equipmentId);if(!entry||entry.level!==4)throw Error('人脉只能指定四级装备');
- grant(g,seat,entry,now,{price:6n,source:'通过人脉购买'});mark(g,seat,'connections');
+ grant(g,seat,entry,now,{price:6n,source:'通过人脉购买'});mark(g,seat,'connections');tableMark(g,`connections:${seat}`);
  notice(g,`${g.seats[seat].name} 的人脉发动：花 6 金币指定购买 ${entry.name}`,now,'connections');
 }
 export function sellV3Equipment(g:V3Game,seat:number,instanceId:unknown,now=Date.now()){
+ shopping(g,seat);
  if(typeof instanceId!=='string')throw Error('装备选择无效');
  const index=g.equipment[seat].findIndex(item=>item.instanceId===instanceId);if(index<0)throw Error('没有这件装备');
  const entry=g.equipment[seat][index];if(entry.nonSellable)throw Error('这件装备不能出售');
@@ -297,6 +314,7 @@ export function sellV3Equipment(g:V3Game,seat:number,instanceId:unknown,now=Date
  note(g,`${g.seats[seat].name} 出售 ${catalog(g,entry.id)?.name??`${entry.level} 级装备`}，返还 ${refund} 金币`,now);
 }
 export function refreshV3Shop(g:V3Game,seat:number,now=Date.now()){
+ shopping(g,seat);
  if(g.phase!=='shopping'||!owned(g,seat,'extra-refresh')||used(g,seat,'refresh'))throw Error('当前不能额外刷新');
  replaceOffers(g,seat);mark(g,seat,'refresh');notice(g,`${g.seats[seat].name} 使用额外刷新`,now,'extra-refresh');
 }
@@ -327,11 +345,11 @@ export function peekV3Bottom(g:V3Game,seat:number,index:unknown,now=Date.now()){
  if(!owned(g,seat,'peek-bottom')||used(g,seat,'peek'))throw Error('本局不能再次查看底牌');
  if(typeof index!=='number'||![0,1,2].includes(index))throw Error('请选择一张底牌');
  if(index>=g.bottom.length)throw Error('本局没有这张底牌');
- mark(g,seat,'peek');g.peeked=[...(g.peeked??[]),index];g.peekedSeat=seat;
+ mark(g,seat,'peek');g.privatePeeks??={};g.privatePeeks[String(seat)]=[index];
 }
 export function useV3OpeningEquipment(g:V3Game,seat:number,cards:unknown,now=Date.now()){
  if(g.phase!=='equipment'||g.pendingEffect?.kind!=='opening'||g.pendingEffect.seat!==seat)throw Error('当前没有可整理的开局装备');
- if(!Array.isArray(cards)||cards.some(card=>typeof card!=='number'))throw Error('请选择手牌');
+ if(!Array.isArray(cards)||cards.some(card=>!Number.isSafeInteger(card))||new Set(cards).size!==cards.length)throw Error('请选择不重复的手牌');
  const hand=g.seats[seat].hand,limit=lessLimit(g,seat);
  if(limit&&!used(g,seat,'less')&&(cards.length===0||cards.length<=limit)){
   if(cards.some(card=>!hand.includes(card)))throw Error('只能弃掉自己的手牌');
@@ -354,7 +372,7 @@ export function useV3OpeningEquipment(g:V3Game,seat:number,cards:unknown,now=Dat
    sources=[...chosen,...randomCopySources(g,seat,2,[],planned)];
   }
   for(const value of new Set(sources.map(rank)))if(countRank(g,seat,value)+sources.filter(card=>rank(card)===value).length>4)throw Error('复制后会超过 4 张同点，无法复制该点数');
-  sources.forEach(card=>addCopy(g,seat,rank(card)));mark(g,seat,'copy');notice(g,`${g.seats[seat].name} 的${copyEntry?.name}发动：复制了 ${sources.map(face).join(' ')}`,now,copy.id);advanceOpening(g,now);return;
+  sources.forEach(card=>addCopy(g,seat,rank(card)));mark(g,seat,'copy');notice(g,`${g.seats[seat].name} 的${copyEntry?.name}发动：复制了 ${sources.length} 张牌`,now,copy.id);advanceOpening(g,now);return;
  }
  if(precision&&!used(g,seat,'precision')){
   let values:number[],count:number;
@@ -368,9 +386,9 @@ export function useV3OpeningEquipment(g:V3Game,seat:number,cards:unknown,now=Dat
    const candidates=[...new Set(pool.map(rank))].filter(value=>value<16&&countRank(g,seat,value)<=2).sort((a,b)=>b-a);
    if(!candidates.length)throw Error('没有可以复刻的点数');values=[candidates[0]];count=2;
   }
-  for(const value of values)if(countRank(g,seat,value)+count>4)throw Error(`该点数复制后会超过 4 张，无法复制（点数 ${value}，现有 ${countRank(g,seat,value)}，新增 ${count}）`);
+  for(const value of new Set(values))if(countRank(g,seat,value)+(precision.id==='precision-copy-2'?values.filter(rank=>rank===value).length:count)>4)throw Error(`该点数复制后会超过 4 张，无法复制（点数 ${value}，现有 ${countRank(g,seat,value)}，新增 ${count}）`);
   for(let copyCount=0;copyCount<count;copyCount++)addCopy(g,seat,values[precision.id==='precision-copy-2'?copyCount:0]);
-  mark(g,seat,'precision');notice(g,`${g.seats[seat].name} 的${precisionEntry?.name}发动：复制了 ${values.map(rankLabel).join(' ')}`,now,precision.id);advanceOpening(g,now);return;
+  mark(g,seat,'precision');notice(g,`${g.seats[seat].name} 的${precisionEntry?.name}发动：复制了 ${count} 张牌`,now,precision.id);advanceOpening(g,now);return;
  }
  throw Error('当前没有可用的开局装备');
 }
@@ -414,7 +432,7 @@ function appointLandlord(g:V3Game,seat:number,stake:bigint,now:number,forced=fal
  // 我不叫：本局最终地主不是声明者时发放 1 金币；声明者自己被指定为地主则不发放。
  for(let index=0;index<g.seats.length;index++)if(index!==seat&&owned(g,index,'no-bid')&&used(g,index,'no-bid')){addCoin(g,index,1n);notice(g,`${g.seats[index].name} 的我不叫发动：获得 1 金币`,now,'no-bid');}
  queue(g,...order(g,g.dealer).map(index=>({seat:index,kind:'stake' as const})),...order(g,g.dealer).map(index=>({seat:index,kind:'reveal' as const,max:5})),...order(g,g.dealer).map(index=>({seat:index,kind:'target' as const})));
- nextEffect(g);
+ nextEffect(g,now);
 }
 function forceLandlord(g:V3Game,now:number){
  const amounts=g.coins.map(coin),maximum=amounts.reduce((a,b)=>a>b?a:b,0n);
@@ -430,8 +448,8 @@ export function stakeV3(g:V3Game,seat:number,choice:unknown,now=Date.now()){
   else{const amount=coin(g.coins[seat])/2n||1n;setCoin(g,seat,coin(g.coins[seat])-amount);g.allIn={amount:amount.toString(),seat};notice(g,`${g.seats[seat].name} 的孤注发动：托管 ${amount} 金币押自己这方获胜`,now,'all-in');}
   g.stakeUsedRound=g.roundNumber;
  }
- g.pending=(g.pending??[]).filter(effect=>effect.kind!=='stake');
- nextEffect(g);
+ if(choice)g.pending=(g.pending??[]).filter(effect=>effect.kind!=='stake');
+ nextEffect(g,now);
 }
 function equipmentReward(g:V3Game,seat:number,amount:bigint,now:number,id:string){
  if(amount<=0n)return;
@@ -483,15 +501,15 @@ function settleV3(g:V3Game,winner:number,now:number,doublePoints=false){
  }else{const first=stake/2n,second=stake-first,high=stake%2n===1n?g.firstFinisher:-1;farmers.forEach(farmer=>addCoin(g,farmer,farmer===high?second:first));}
  g.seats.forEach((_,index)=>addCoin(g,index,1n));
  if(g.firstFinisher>=0)addCoin(g,g.firstFinisher,1n);
- const snapshot=g.coins.map(coin);
  settleAllIn(g,landlordWon,now);
  settleBet(g,landlordWon,now);
+ const snapshot=g.coins.map(coin);
  const handCounts=g.seats.map(player=>player.hand.length),points=g.victoryPoints.map(Number),multiplier=doublePoints?2:1;
  if(landlordWon)points[g.landlord]+=1*multiplier;else farmers.forEach(farmer=>points[farmer]+=.5*multiplier);
  g.victoryPoints=points.map(value=>String(value));
  g.lossStreak=(g.lossStreak??['0','0','0']).map((value,seat)=>{
   const won=landlordWon?seat===g.landlord:farmers.includes(seat);
-  if(!won)return String(Number(value)+1);
+  if(!won)return owned(g,seat,'lucky-star')?String(Number(value)+1):'0';
   const losses=Number(value),star=held(g,seat,'lucky-star');
   if(star&&losses>=3){equipmentReward(g,seat,BigInt(Math.min(losses+1,5)),now,'lucky-star');removeEquipment(g,seat,'lucky-star');}
   return '0';
@@ -530,14 +548,14 @@ function leadTurn(g:V3Game,seat:number,now:number){
  // 两人都不出后把牌权交还给上一名出牌者：必须清空上一手，否则领出者仍被要求压过自己的牌型，也无法在超时自动操作时领出。
  g.passes=0;g.passStreak=[false,false,false];g.last=null;g.seats.forEach(player=>player.last='');g.tableActions=[null,null,null];g.deadline=now+g.seconds*1000;
  if(!g.seats[seat].hand.length){endRound(g,seat,now);return;}
- g.turn=seat;
+ g.turn=seat;queue(g,{seat,kind:'target'});nextEffect(g,now);
 }
-function continueTurn(g:V3Game,seat:number,now:number){g.turn=nextWithCards(g,next(seat));g.tableActions[g.turn]=null;g.deadline=now+g.seconds*1000;}
+function continueTurn(g:V3Game,seat:number,now:number){g.turn=nextWithCards(g,next(seat));g.tableActions[g.turn]=null;g.deadline=now+g.seconds*1000;queue(g,{seat:g.turn,kind:'target'});nextEffect(g,now);}
 function grantLeadIfReady(g:V3Game,seat:number,now:number){
  const eligible=(['return-lead','follow-through'] as const).filter(id=>owned(g,seat,id)&&!used(g,seat,id));
  if(!eligible.length)return false;
  queue(g,...eligible.map(id=>({seat,kind:'lead' as const})));
- return nextEffect(g);
+ return nextEffect(g,now);
 }
 function continueAfterPlay(g:V3Game,seat:number,now:number){
  if(!g.seats[seat].hand.length){g.firstFinisher=seat;endRound(g,seat,now);return;}
@@ -558,16 +576,16 @@ function afterPlay(g:V3Game,seat:number,now:number){
  queue(g,...effects);
  // 借光是别人的被动窗口：本家主动与被动效果结算完之后再询问，终局出牌不触发。
  if(!empty)for(const target of order(g,g.dealer).filter(index=>index!==seat))if(valid(g,{seat:target,kind:'borrowed'}))queue(g,{seat:target,kind:'borrowed'});
- if(nextEffect(g))return; continueAfterPlay(g,seat,now);
+ if(nextEffect(g,now))return; continueAfterPlay(g,seat,now);
 }
 export function resolveV3Equipment(g:V3Game,seat:number,cards:unknown,now=Date.now(),extra:V3Action={}){
  const pending=g.pendingEffect; if(g.phase!=='equipment'||!pending||pending.seat!==seat)throw Error('当前没有可处理的装备效果');
- if(!Array.isArray(cards)||cards.some(card=>typeof card!=='number'))throw Error('请选择手牌');
+ if(!Array.isArray(cards)||cards.some(card=>!Number.isSafeInteger(card))||new Set(cards).size!==cards.length)throw Error('请选择不重复的手牌');
  // 效果种类以服务端队列里的 pendingEffect 为准；客户端只提交手牌、选项和目标。
  // 同一种效果只保留一套实现，避免「按钮路径」与「默认路径」出现两套不同规则。
  const skip=extra.choice==='skip',picked:number[]=skip?[]:cards;
  const hand=g.seats[seat].hand;
- const finish=(actor=seat)=>{nextEffect(g);if(g.phase==='equipment')return;if(!g.seats[actor].hand.length){g.firstFinisher=actor;endRound(g,actor,now);return;}continueAfterPlay(g,actor,now);};
+ const finish=(actor=g.last?.seat??seat)=>{nextEffect(g,now);if(g.phase==='equipment')return;if(!g.seats[actor].hand.length){g.firstFinisher=actor;endRound(g,actor,now);return;}continueAfterPlay(g,actor,now);};
  const discardFor=(kind:'bomb'|'aftershock'|'thirteen'|'discard',max:number)=>{
   if(picked.length){
    if(picked.some(card=>!hand.includes(card)))throw Error('只能弃掉自己的手牌');
@@ -600,7 +618,7 @@ export function resolveV3Equipment(g:V3Game,seat:number,cards:unknown,now=Date.n
  const transferFor=()=>{
   if(picked.length){
    const target=typeof extra.target==='number'?extra.target:-1;
-   if(target<0||target>2||target===seat)throw Error('请选择一名其他玩家作为转移目标');
+   if(!Number.isInteger(target)||target<0||target>2||target===seat)throw Error('请选择一名其他玩家作为转移目标');
    const played=g.last?.cards??[],combo=g.last?.combo;
    if(!combo||combo.kind!=='四带二')throw Error('当前没有四带二出牌');
    const singles=played.filter(card=>rank(card)!==combo.rank);
@@ -623,7 +641,7 @@ export function resolveV3Equipment(g:V3Game,seat:number,cards:unknown,now=Date.n
    if(choice==='hold')placeV3Bet(g,seat,undefined,now,'hold');
    else if(choice==='landlord'||choice==='farmers')placeV3Bet(g,seat,choice,now,'side');
    else skipV3Bet(g,seat,'equipment',now);
-   nextEffect(g);
+   nextEffect(g,now);
    if(!g.pendingEffect){if(g.landlord>=0)g.phase='playing';else beginBidding(g,now);}
    return;
   }
@@ -636,19 +654,19 @@ export function resolveV3Equipment(g:V3Game,seat:number,cards:unknown,now=Date.n
     g.seats[seat].hand=hand.filter(card=>!picked.includes(card));mark(g,seat,'stand-up-fight');
     notice(g,`${g.seats[seat].name} 的站起来跟他打发动：公开弃掉 ${cardFaces(picked)}，本局手牌对其他两人可见`,now,'stand-up-fight');
    }
-   nextEffect(g);if(!g.pendingEffect)g.phase='playing';
+   nextEffect(g,now);if(!g.pendingEffect)g.phase='playing';
    return;
   }
   case 'target':{
    const target=typeof extra.target==='number'?extra.target:-1;
-   if(skip||target<0)note(g,`${g.seats[seat].name} 放弃断你财路`,now);
+   if(skip||target<0){mark(g,seat,'cut-off-income');note(g,`${g.seats[seat].name} 放弃断你财路`,now);}
    else{
-    if(target>2||target===seat)throw Error('请选择一名仍在局内的对手');
+    if(!Number.isInteger(target)||target>2||target===seat)throw Error('请选择一名仍在局内的对手');
     if(!g.seats[target].hand.length)throw Error('目标必须仍在局内');
     mark(g,seat,'cut-off-income');g.cutIncome={seat,source:target};
     notice(g,`${g.seats[seat].name} 的断你财路发动：目标 ${g.seats[target].name}，本局他的装备金币减半`,now,'cut-off-income');
    }
-   nextEffect(g);if(!g.pendingEffect)g.phase='playing';
+   nextEffect(g,now);if(!g.pendingEffect)g.phase='playing';
    return;
   }
   case 'lead':{
@@ -659,7 +677,7 @@ export function resolveV3Equipment(g:V3Game,seat:number,cards:unknown,now=Date.n
     notice(g,`${g.seats[seat].name} 的${catalog(g,id)?.name}发动：公开弃掉 ${face(picked[0])}，重新领出`,now,id);
     if(!g.seats[seat].hand.length){g.firstFinisher=seat;endRound(g,seat,now);return;}
    }
-   nextEffect(g);if(!g.pendingEffect)leadTurn(g,seat,now);
+   nextEffect(g,now);if(!g.pendingEffect)leadTurn(g,seat,now);
    return;
   }
   case 'borrowed':borrowFor();return;
@@ -730,11 +748,12 @@ function autoShadow(g:V3Game,seat:number,cards:number[],now:number):number[]|und
 /** 出牌按钮用的判定：和 playV3 走同一套牌型逻辑（含影子牌映射、史密斯夫妇替代、接龙），只读、不写状态。 */
 export function selectionCombo(g:V3Game,seat:number,cards:number[]):Combo|null{
  if(seat<0||seat>=g.seats.length||!cards.length)return null;
- if(cards.some(card=>typeof card!=='number'))return null;
+ if(cards.some(card=>!Number.isSafeInteger(card))||new Set(cards).size!==cards.length)return null;
  return classifyV3(g,seat,cards,shadowMaps(g,seat,cards));
 }
 export function playV3(g:V3Game,seat:number,cards:number[],now=Date.now(),mapping?:unknown){
  if(g.phase!=='playing'||g.turn!==seat)throw Error('还没轮到你出牌');
+ if(!Array.isArray(cards)||cards.some(card=>!Number.isSafeInteger(card))||new Set(cards).size!==cards.length)throw Error('请选择不重复的手牌');
  const player=g.seats[seat],a=actions(g);
  if(!cards.length){
   if(!g.last||g.last.seat===seat)throw Error('新一轮必须出牌');
@@ -754,6 +773,7 @@ export function playV3(g:V3Game,seat:number,cards:number[],now=Date.now(),mappin
  const combo=classifyV3(g,seat,cards,maps);
  if(!combo)throw Error('这些牌不能组成合法牌型');
  if(!beats(combo,g.last?.combo??null))throw Error('需要出相同牌型中更大的牌，或使用炸弹');
+ if(combo.kind==='顺子'&&!classify(applyMaps(cards,maps)))mark(g,seat,'skip-straight');
  player.hand=player.hand.filter(card=>!cards.includes(card));player.plays++;player.last=combo.kind;
  g.maxPlayed=g.maxPlayed??[0,0,0];g.maxPlayed[seat]=Math.max(g.maxPlayed[seat]??0,cards.length);
  a[seat]={kind:'play',cards:sorted(cards),label:combo.kind,...(DDZ_EFFECTS[combo.kind]?{eventId:emitVisual(g,seat,DDZ_EFFECTS[combo.kind],now)}:{})};
@@ -783,7 +803,7 @@ export function v3BotAction(g:V3Game,seat:number,now=Date.now()){
   if(g.phase==='shopping')finishShopping(g,seat,now);
   return;
  }
- if(g.phase==='bidding'){bidV3(g,seat,coin(g.coins[seat])>coin(g.stake),now);return;}
+ if(g.phase==='bidding'){bidV3(g,seat,!used(g,seat,'no-bid')&&coin(g.coins[seat])>coin(g.stake),now);return;}
  if(g.phase==='equipment'){
   const pending=g.pendingEffect;
   if(pending?.kind==='opening')skipV3OpeningEquipment(g,seat,now);
@@ -798,9 +818,10 @@ export function viewV3(g:V3Game,id:string){
  const own=g.seats.findIndex(player=>player.id===id);
  const faceUp=g.seats.map((_,index)=>used(g,index,'stand-up-fight'));
  const view:V3Game&{peeked?:number[]}=Object.assign({},g,{visualEvents:publicVisuals(g),tableActions:actions(g),peeked:undefined,bottom:[...g.bottom],shops:g.shops.map(shop=>({offers:shop.offers.map(offer=>({...offer}))})),equipment:g.equipment.map(items=>items.map(item=>({...item}))),seats:g.seats.map(player=>({...player,hand:[...player.hand]}))});
- const peeks=g.peeked??[];
+ const peeks=g.privatePeeks?.[String(own)]??(peekedSeat(g)===own?g.peeked??[]:[]);
+ delete view.privatePeeks;delete view.peekedSeat;delete view.pending;delete view.effectResumeTurn;
  // 竞价期间底牌必须保密：只有「看底牌」指定的那一张，持有者才看得到。
- if(g.phase==='bidding'||g.phase==='equipment')view.bottom=g.bottom.map((card,index)=>peekedSeat(g)===own&&peeks.includes(index)?card:-1);
+ if(g.phase==='shopping'||g.phase==='bidding'||g.phase==='equipment'&&g.landlord<0)view.bottom=g.bottom.map((card,index)=>g.phase!=='shopping'&&peeks.includes(index)?card:-1);
  view.seats[own]={...g.seats[own],count:g.seats[own].hand.length,hand:g.phase==='shopping'?[]:[...g.seats[own].hand]} as typeof view.seats[number]; for(let seat=0;seat<view.seats.length;seat++){
   if(seat===own)continue;
   view.shops[seat]={offers:[]};

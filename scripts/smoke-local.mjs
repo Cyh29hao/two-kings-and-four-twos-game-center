@@ -1,5 +1,6 @@
 import './sites-env.mjs';
 import assert from 'node:assert/strict';
+import {hints} from '../lib/game/engine.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { mkdirSync, openSync, closeSync, writeFileSync } from 'node:fs';
@@ -19,7 +20,7 @@ await once(probe, 'listening');
 const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const origin = `http://127.0.0.1:${port}`;
-const child = spawn(process.execPath, ['scripts/preview.mjs', '--port', String(port), '--state', state], { stdio: ['ignore', log, log] });
+const child = spawn(process.execPath, ['scripts/preview.mjs', '--port', String(port), '--state', state], { stdio: ['ignore', log, log], env: {...process.env,LOCAL_DEV_TOOLS:'0'} });
 const exited = once(child, 'exit');
 let startupError;
 child.on('error', error => { startupError = error; });
@@ -67,16 +68,25 @@ try {
     const after = (await request(endpoint + '?room=' + room.code, undefined, player.cookie)).data;
     assert.equal(after.revision, room.revision, '聊天不能修改牌局版本');
     const emote = { code: room.code, clientId: crypto.randomUUID(), kind: 'emote', emoteId: 'royale-v2-king-laugh' };
-    await request('/api/chat', emote, player.cookie);
+    const acknowledged = (await request('/api/chat', emote, player.cookie)).data;
+    assert.equal(acknowledged.message.clientId, emote.clientId);
+    assert.equal(acknowledged.message.emoteId, emote.emoteId);
+    assert.equal(acknowledged.message.own, 1);
+    assert.equal(acknowledged.emoteReadyAt, acknowledged.created + 3000);
+    assert.equal((await request('/api/chat', emote, player.cookie)).data.message.id, acknowledged.message.id);
     await request('/api/chat', { ...emote, clientId: crypto.randomUUID() }, player.cookie, 429);
     const chat = (await request('/api/chat?room=' + room.code, undefined, player.cookie)).data;
     assert.equal(chat.messages.length, 2);
+    assert.equal(chat.messages[1].clientId, emote.clientId);
+    assert.equal(chat.messages[1].id, acknowledged.message.id);
     await request('/api/history', undefined, player.cookie);
     await request('/api/admin', undefined, player.cookie, 403);
   }
   const v3Player = await signup('landlordv3' + Date.now().toString(36));
   let v3 = (await request('/api/game', { action: 'create', mode: 'practice', title: 'v3 本机验收', rules: { id: 'landlord-v3' } }, v3Player.cookie)).data;
   assert.equal(v3.game.kind, 'landlord-v3');
+  assert.equal(v3.game.developerMode, undefined);
+  await request('/api/game', {action:'dev_equipment',code:v3.code,revision:v3.revision,equipmentId:'rocket-win'},v3Player.cookie,400);
   assert.deepEqual(v3.game.coins, ['2', '2', '2']);
   v3 = (await request('/api/game', { action: 'ready', code: v3.code, revision: v3.revision }, v3Player.cookie)).data;
   assert.equal(v3.game.phase, 'shopping');
@@ -94,6 +104,68 @@ try {
   }
   assert.equal(v3.game.phase, 'bidding');
   assert.equal(v3.game.seats.filter(seat => seat.bot).length, 2);
+  // Four humans keep bot timers out of the preview/turn and stale-version assertions.
+  const humans = [];
+  for (let i=0;i<4;i++) humans.push(await signup('preselect'+i+Date.now().toString(36)));
+  let table=(await request('/api/holdem',{action:'create',capacity:4,seconds:60},humans[0].cookie)).data;
+  for(let i=1;i<4;i++) table=(await request('/api/holdem',{action:'join',code:table.code},humans[i].cookie)).data;
+  for(const player of humans) table=(await request('/api/holdem',{action:'ready',code:table.code,revision:table.revision},player.cookie)).data;
+  const preview=(await request('/api/holdem?room='+table.code,undefined,humans[0].cookie)).data;
+  assert.equal(preview.game.options.acting,false);
+  assert.equal(preview.game.actionPreview.call,'20');
+  assert.equal(preview.game.actionPreview.minRaise,'60');
+  assert(preview.game.seats.slice(1).every(s=>s.hand.length===0));
+  await request('/api/holdem',{action:'call',code:table.code,revision:table.revision},humans[0].cookie,400);
+  assert.equal(preview.game.actionPreview.betStep,'10');
+  await request('/api/holdem',{action:'raise',amount:'30',code:table.code,revision:table.revision},humans[3].cookie,400);
+  table=(await request('/api/holdem',{action:'raise',amount:'100',code:table.code,revision:table.revision},humans[3].cookie)).data;
+  const updated=(await request('/api/holdem?room='+table.code,undefined,humans[0].cookie)).data;
+  assert.equal(updated.game.options.acting,true);
+  assert.equal(updated.game.actionPreview.call,'90');
+  assert.equal(updated.game.actionPreview.minRaise,'170');
+  await request('/api/holdem',{action:'call',code:table.code,revision:preview.revision},humans[0].cookie,409);
+  const confirmed=(await request('/api/holdem',{action:'call',code:table.code,revision:updated.revision},humans[0].cookie)).data;
+  assert.equal(confirmed.game.seats[0].bet,'100');
+  assert.equal(confirmed.game.seats[0].total,'100');
+  assert.equal(confirmed.game.seats[0].stack,'900');
+  assert.equal(confirmed.game.seats[0].action.kind,'call');
+  assert.equal(confirmed.game.seats[0].action.paid,'90');
+  await request('/api/holdem',{action:'call',code:table.code,revision:updated.revision},humans[0].cookie,409);
+  const acting=confirmed.game.seats[confirmed.game.turn];
+  const timeoutRequest={action:'timeout_choice',code:table.code,revision:confirmed.revision,round:confirmed.game.round,street:confirmed.game.street,bet:acting.bet,stack:acting.stack,choice:{action:'call',maxCall:'80'}};
+  const planned=(await request('/api/holdem',timeoutRequest,humans[1].cookie)).data;
+  assert.equal(planned.game.seats[1].stack,acting.stack);
+  assert(!JSON.stringify(planned.game).includes('timeoutChoice'));
+  await request('/api/holdem',{...timeoutRequest,revision:planned.revision,round:'wrong'},humans[1].cookie,400);
+  await request('/api/holdem',{...timeoutRequest,revision:planned.revision,choice:null},humans[1].cookie);
+  // Exercise one real v3 round with fixed humans, production permissions, and a stale write.
+  const v3Humans=[];
+  for(let i=0;i<3;i++)v3Humans.push(await signup('v3human'+i+Date.now().toString(36)));
+  let extended=(await request('/api/game',{action:'create',rules:{id:'landlord-v3'}},v3Humans[0].cookie)).data;
+  for(let i=1;i<3;i++)extended=(await request('/api/game',{action:'join',code:extended.code},v3Humans[i].cookie)).data;
+  for(let i=0;i<3;i++)extended=(await request('/api/game',{action:'ready',code:extended.code,revision:extended.revision},v3Humans[i].cookie)).data;
+  assert.equal(extended.game.phase,'shopping');assert.deepEqual(extended.game.bottom,[-1,-1,-1]);
+  const stale=extended.revision;
+  extended=(await request('/api/game',{action:'shop_done',code:extended.code,revision:extended.revision},v3Humans[0].cookie)).data;
+  await request('/api/game',{action:'shop_done',code:extended.code,revision:stale},v3Humans[1].cookie,409);
+  for(let i=1;i<3;i++)extended=(await request('/api/game',{action:'shop_done',code:extended.code,revision:extended.revision},v3Humans[i].cookie)).data;
+  for(let turn=0;extended.game.phase==='bidding';turn++){
+    assert(turn<4);
+    const seat=extended.game.turn;
+    extended=(await request('/api/game',{action:'v3_bid',call:false,code:extended.code,revision:extended.revision},v3Humans[seat].cookie)).data;
+  }
+  for(let turn=0;extended.game.phase!=='finished';turn++){
+    assert(turn<200,'V3 should finish a complete hand');
+    const seat=extended.game.turn;
+    extended=(await request('/api/game?room='+extended.code,undefined,v3Humans[seat].cookie)).data;
+    const options=hints(extended.game.seats[seat].hand,extended.game.last?.combo??null);
+    extended=(await request('/api/game',{action:options.length?'play':'pass',cards:options[0]??[],code:extended.code,revision:extended.revision},v3Humans[seat].cookie)).data;
+  }
+  assert(extended.game.coins.every(value=>BigInt(value)>=0n));
+  assert.equal(extended.game.roundHistory.length,1);
+  await request('/api/game',{action:'leave',code:extended.code,revision:extended.revision},v3Humans[1].cookie);
+  for(const player of v3Humans)assert.equal((await request('/api/game',undefined,player.cookie)).data.activeRoom,null);
+  await request('/api/game',{action:'join',code:extended.code},outsider.cookie,400);
   const info = (await request('/build-info.json')).data;
   assert.match(info.commit, /^[a-f0-9]{40}$/);
   writeFileSync('work/smoke-local.json', JSON.stringify({ status: 'passed', checks, commit: info.commit, state }, null, 2) + '\n');

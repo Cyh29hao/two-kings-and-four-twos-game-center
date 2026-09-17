@@ -37,3 +37,9 @@ export function collectMotionAssets(emotes: readonly Emote[], effects: readonly 
 }
 
 export const MOTION_CATALOG = collectMotionAssets(EMOTES, TABLE_EFFECTS);
+
+/** Lightweight DOM feedback: no downloaded assets or separate cache are needed. */
+export const TABLE_FEEDBACK_MOTIONS = {
+ chips: {duration:650,frames:[{transform:'translateY(-7px) scale(.94)',opacity:.65},{transform:'translateY(0) scale(1.08)',opacity:1,offset:.5},{transform:'translateY(0) scale(1)',opacity:1}]},
+ action: {duration:650,frames:[{transform:'scale(.9)',opacity:.4},{transform:'scale(1.12)',opacity:1,offset:.4},{transform:'scale(1)',opacity:1}]},
+};

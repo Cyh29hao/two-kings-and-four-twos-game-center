@@ -7,6 +7,8 @@
 | 安装、打开 localhost、迁移本地数据库 | [本地开发](local-development.md) |
 | 找页面、接口、规则、公共组件 | [代码地图](architecture.md) |
 | 加表情、换图、处理加载慢 | [素材与缓存](motion-cache.md) |
+| 表情发送慢、重复气泡、消息乱序 | [编号同步](chat-signals.md) |
+| 音效可以补什么、如何共用缓存 | [音效扩展计划](audio-plan.md) |
 | 改游戏规则并保住老房间 | [规则与兼容](rules-and-compatibility.md) |
 | 检查改动是否能正常使用 | [验收](testing.md) |
 | 提 PR、合并、发布和回退 | [发布](releasing.md) |
