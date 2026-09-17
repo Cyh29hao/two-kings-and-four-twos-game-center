@@ -5,8 +5,10 @@ import {Club,History,LogOut,Settings} from 'lucide-react';
 import {gamePaths,gameAPIs,roomDestination} from '@/lib/club/routes';
 import type {HistoryGame} from '@/lib/club/history';
 import {api} from '@/lib/client';import {ClubMemory} from '@/lib/club/memory';import {GameNav} from './game-nav';import {Button} from './ui/button';
+import {FriendsProvider} from './friends-provider';
+import {FriendsMenu} from './friends-panel';
 export type ClubUser={id:string;name:string;username:string;role:string;score:number};
-export type ClubLobby={user:ClubUser;config:{announcement:string;seconds:number;maintenance:boolean};activeRoom:string|null;activeKind:'landlord'|'landlord-v3'|'mahjong'|'holdem'|null};
+export type ClubLobby={departurePending?:boolean;user:ClubUser;config:{announcement:string;seconds:number;maintenance:boolean};activeRoom:string|null;activeKind:'landlord'|'landlord-v3'|'mahjong'|'holdem'|null};
 type ClubContext={user:ClubUser|null;loaded:boolean;error:string;lobby:ClubLobby|null;memory:ClubMemory;setUser:(u:ClubUser|null)=>void;loadLobby:(force?:boolean)=>Promise<ClubLobby|null>;logout:()=>Promise<void>};
 const Context=createContext<ClubContext|null>(null);
 export function ClubProvider({children}:{children:ReactNode}){
@@ -23,7 +25,8 @@ export function ClubProvider({children}:{children:ReactNode}){
  const logout=useCallback(async()=>{await api('/api/auth',{action:'logout'});setUser(null);at.current=Date.now();},[setUser]);
  // A successful login updates the shared lobby once, not once per game.
  useEffect(()=>{if(user?.id)void loadLobby().catch(()=>{});},[user?.id,loadLobby]);
- return <Context.Provider value={{user,loaded,error,lobby,memory,setUser,loadLobby,logout}}><ClubChrome/>{children}</Context.Provider>;
+ useEffect(()=>{if(!user?.id||!lobby?.departurePending)return;const timer=setInterval(()=>{void loadLobby(true).catch(()=>{});},3000);return()=>clearInterval(timer);},[user?.id,lobby?.departurePending,loadLobby]);
+ return <Context.Provider value={{user,loaded,error,lobby,memory,setUser,loadLobby,logout}}><FriendsProvider userId={user?.id??null}><ClubChrome/>{children}</FriendsProvider></Context.Provider>;
 }
 export function useClub(){const c=useContext(Context);if(!c)throw Error('ClubProvider is required');return c;}
 export function useClubState<T>(key:string,initial:T):[T,(value:SetStateAction<T>)=>void]{
@@ -35,7 +38,7 @@ export function useClubState<T>(key:string,initial:T):[T,(value:SetStateAction<T
  const set=useCallback((next:SetStateAction<T>)=>memory.set(key,next,fallback,epoch),[memory,key,fallback,epoch]);
  return [value,set];
 }
-function ClubChrome(){const {user,logout}=useClub(),path=usePathname();if(!user||!['/','/mahjong','/holdem','/history'].includes(path))return null;return <header className="app-header club-header"><Link href="/" className="brand"><span className="brand-icon"><Club size={21}/></span><span>娱乐中心<small>好 友 游 戏 室</small></span></Link><GameNav current={path==='/mahjong'?'mahjong':path==='/holdem'?'holdem':path==='/history'?'history':'landlord'}/><div className="header-right"><Link href="/history" className={`club-history-link ${path==='/history'?'is-current':''}`} aria-current={path==='/history'?'page':undefined}><History size={17}/><span>对局记录</span></Link>{user.role==='admin'&&<Button variant="ghost" size="icon" asChild><Link href="/admin" aria-label="管理后台"><Settings size={18}/></Link></Button>}<span className="club-user" title={user.name}>{user.name}</span><Button variant="ghost" size="icon" aria-label="退出登录" onClick={()=>void logout().catch(()=>{})}><LogOut size={18}/></Button></div></header>}
+function ClubChrome(){const {user,logout}=useClub(),path=usePathname();if(!user||!['/','/mahjong','/holdem','/history'].includes(path))return null;return <header className="app-header club-header"><Link href="/" className="brand"><span className="brand-icon"><Club size={21}/></span><span>娱乐中心<small>好 友 游 戏 室</small></span></Link><GameNav current={path==='/mahjong'?'mahjong':path==='/holdem'?'holdem':path==='/history'?'history':'landlord'}/><div className="header-right"><FriendsMenu/><Link href="/history" className={`club-history-link ${path==='/history'?'is-current':''}`} aria-current={path==='/history'?'page':undefined}><History size={17}/><span>对局记录</span></Link>{user.role==='admin'&&<Button variant="ghost" size="icon" asChild><Link href="/admin" aria-label="管理后台"><Settings size={18}/></Link></Button>}<span className="club-user" title={user.name}>{user.name}</span><Button variant="ghost" size="icon" aria-label="退出登录" onClick={()=>void logout().catch(()=>{})}><LogOut size={18}/></Button></div></header>}
 export function HistoryEntry({game}:{game:'landlord'|'mahjong'|'holdem'}){return <Link href={'/history?game='+game} className="club-history-entry"><History size={21}/><div><b>对局记录</b><span>查看过去的输赢与战报</span></div><span aria-hidden="true">→</span></Link>}
 
 export function useRoomNavigation(){const {memory,loadLobby}=useClub(),router=useSiteRouter();

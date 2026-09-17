@@ -7,7 +7,7 @@ import {HoldemCard} from './holdem-card';
 import {TableNotice,TurnClock,RoundSummary} from './table-ui';
 import {chips} from '@/lib/mahjong/report';
 import type {HoldemView} from '@/lib/holdem/engine';
-import {newDraft,reconcileDraft,selectAction,paymentDetails,quickPayment,canSubmitAction,type BettingAction,type PreselectionContext} from '@/lib/holdem/preselection';
+import {newDraft,reconcileDraft,selectAction,paymentDetails,quickPayment,raiseUnit,canSubmitAction,type BettingAction,type PreselectionContext} from '@/lib/holdem/preselection';
 
 type Props={game:HoldemView;userId:string;roomCode:string;connected:boolean;reset:number;seconds:number;busy:boolean;onAction:(action:string,extra?:Record<string,unknown>)=>Promise<boolean>;onTimeoutChoice:(payload:Record<string,unknown>)=>Promise<boolean>;children:ReactNode};
 export function HoldemControls({game:g,userId,roomCode,connected,reset,seconds,busy,onAction,onTimeoutChoice,children}:Props){
@@ -19,6 +19,7 @@ export function HoldemControls({game:g,userId,roomCode,connected,reset,seconds,b
  const submitting=useRef(false);
  const wagerOpen=draft.selected?.action==='raise'||draft.selected?.action==='allin';
  const details=preview&&me?paymentDetails(draft.raise,preview,me.bet,me.stack):null;
+ const unit=preview?raiseUnit(preview,g.currentBet):'0';
  const verb=g.currentBet==='0'?'下注':'加注',callAction=preview?.check?'check':'call';
  const label=(action:BettingAction)=>action==='fold'?'弃牌':action==='check'?'过牌':action==='call'?`跟注 ${chips(preview?.call??'0')}`:action==='allin'?`全下 ${chips(me?.stack??'0')}`:`${verb}，本次投入 ${/^\d+$/.test(draft.raise)?chips(draft.raise):'—'}`;
  function choose(action:BettingAction){
@@ -37,7 +38,7 @@ export function HoldemControls({game:g,userId,roomCode,connected,reset,seconds,b
  const timeoutPayload=JSON.stringify({round:g.round,street:g.street,bet:me?.bet,stack:me?.stack,choice:timeoutLegal?{action:selected,amount:selected==='raise'?details?.target:undefined,maxCall:draft.selected!.callAtSelection}:null});
  const timeoutStatus=useHoldemTimeoutChoice(context.scope+timeoutPayload,eligible,timeoutPayload,onTimeoutChoice);
  function fillPayment(value:string){if(!preview||busy)return;setDraft({...draft,raise:value,selected:{action:'raise',callAtSelection:preview.call},notice:''});}
- function addPayment(multiple:string){fillPayment(quickPayment(draft.raise,preview?.call??'0',g.rules.big,multiple));}
+ function addPayment(multiple:string){if(preview&&me)fillPayment(quickPayment(draft.raise,preview,me.bet,g.currentBet,multiple));}
  const changedCall=draft.selected?.action==='call'&&preview&&draft.selected.callAtSelection!==preview.call;
  const betting=g.phase==='playing'&&!!me&&!me.folded&&!me.allIn;
  const notice=!connected?'连接恢复后可操作':busy?'正在提交…':g.options.acting&&seconds<=0?'操作时间已到':[
@@ -56,8 +57,8 @@ export function HoldemControls({game:g,userId,roomCode,connected,reset,seconds,b
    </div>
    {wagerOpen&&<div className="table-choice-panel th-wager-panel" id="holdem-wager-panel" aria-label="下注金额">
     <div className="th-wager-editor"><label htmlFor="holdem-raise-amount">本次投入<Input id="holdem-raise-amount" inputMode="numeric" maxLength={100} value={draft.raise} aria-invalid={!!details?.error} onChange={e=>setDraft({...draft,raise:e.target.value,selected:preview?{action:'raise',callAtSelection:preview.call}:null,notice:''})} disabled={!eligible||busy}/></label>
-    <div className="th-quick-payments" role="group" aria-label="快速填入金额"><Button variant="outline" disabled={!eligible||busy} onClick={()=>fillPayment(preview?.call??'0')}>跟注额 {chips(preview?.call??'0')}</Button>{['1','2','5'].map(amount=><Button key={amount} variant="outline" disabled={!eligible||busy} title={`再投入 ${chips((BigInt(preview?.call!=='0'?preview?.call??g.rules.big:g.rules.big)*BigInt(amount)).toString())}`} onClick={()=>addPayment(amount)}>+{amount}倍</Button>)}</div>
-    <small className="th-wager-basis">1 倍 = {chips(preview?.call!=='0'?preview?.call??g.rules.big:g.rules.big)}{preview?.call==='0'?'（大盲）':'（跟注额）'}</small></div><div className="th-wager-summary"><span role="status" aria-live="polite">将付出 <strong>{draft.selected?.action==='allin'?chips(me.stack):details?.extra==null?'—':chips(details.extra)}</strong> · 剩余 {draft.selected?.action==='allin'?'0':details?.remaining===null?'—':chips(details?.remaining??me.stack)}</span><small>最低投入 {chips((BigInt(preview?.minRaise??'0')-BigInt(me.bet)).toString())}{preview?.betStep!=='1'&&<> · {chips(preview?.betStep??'1')} 的倍数</>}</small></div>
+    <div className="th-quick-payments" role="group" aria-label="快速填入金额"><Button variant="outline" disabled={!eligible||busy} onClick={()=>fillPayment(preview?.call??'0')}>跟注额 {chips(preview?.call??'0')}</Button>{['1','2','5'].map(amount=><Button key={amount} variant="outline" disabled={!eligible||busy} title={`增加 ${chips((BigInt(unit)*BigInt(amount)).toString())}，按本桌下注单位取整`} onClick={()=>addPayment(amount)}>+{amount}倍</Button>)}</div>
+    <small className="th-wager-basis">1 倍 = {chips(unit)}（当前最低加注幅度）</small></div><div className="th-wager-summary"><span role="status" aria-live="polite">将付出 <strong>{draft.selected?.action==='allin'?chips(me.stack):details?.extra==null?'—':chips(details.extra)}</strong> · 剩余 {draft.selected?.action==='allin'?'0':details?.remaining===null?'—':chips(details?.remaining??me.stack)}</span><small>最低投入 {chips((BigInt(preview?.minRaise??'0')-BigInt(me.bet)).toString())}{preview?.betStep!=='1'&&<> · 本轮加注至须为 {chips(preview?.betStep??'1')} 的倍数</>}</small></div>
 
     <Button className="th-allin-choice" title={preview?.allInReason||undefined} variant="outline" aria-pressed={draft.selected?.action==='allin'} disabled={!eligible||busy||!preview?.canAllIn} onClick={()=>choose('allin')}>{draft.selected?.action==='allin'?'✓ ':''}全下 {chips(me.stack)}</Button>
    </div>}

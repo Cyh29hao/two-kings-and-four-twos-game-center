@@ -6,7 +6,7 @@ export type PlanGroup = {kind: 'sequence'|'triplet'|'pair'|'special'|'kong'; typ
 export type WinPlan = {id: string; family: 'standard'|'seven'|'orphans'|'gates'|'fourWild'; groups: PlanGroup[];
   assignments: {tile: number; type: number}[]; fans: Fan[]; multiplier: string; hitTypes: number[]; incomingType: number; middle: boolean};
 export type WinContext = {round: string; hand: number[]; melds: Meld[]; wildcard: number; incoming: number;
-  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean;selfDrawUnit?:number;noWildBonus?:boolean;closedBonus?:boolean;fourWildWin?:boolean;disabledWins?:string[];doubleWildIncludesSelfDraw?:boolean};
+  winType: 'self'|'discard'|'rob'; flower: boolean; heaven: boolean; earth: boolean;selfDrawUnit?:number;noWildBonus?:boolean;closedBonus?:boolean;fourWildWin?:boolean;disabledWins?:string[];doubleWildIncludesSelfDraw?:boolean;sevenPairsSuitedFourPlus?:boolean};
 type Shape = {kind: PlanGroup['kind']; types: number[]; wild: boolean[]};
 export const effectiveType = (tile: number, wildcard: number) => tileType(tile) === 33 && wildcard >= 0 ? wildcard : tileType(tile);
 export const isWild = (tile: number, wildcard: number) => wildcard >= 0 && tileType(tile) === wildcard;
@@ -45,6 +45,9 @@ function score(ctx: WinContext, family: WinPlan['family'], groups: PlanGroup[], 
   if (ctx.earth && family !== 'fourWild') ids.add('earth');
   const incomingGroup = groups.find(g=>g.incoming >= 0)!;
   const incomingType = incomingGroup.types[incomingGroup.incoming];
+  // Apply to the winning tile's chosen identity, including all luxury pair variants.
+  // Other hand tiles remain unrestricted; old saved contexts omit this policy.
+  if(family==='seven'&&ctx.sevenPairsSuitedFourPlus&&(incomingType>=27||incomingType%9<3))return null;
   const middle = incomingGroup.kind === 'sequence' && incomingGroup.incoming === 1 && incomingType % 9 >= 3 && incomingType % 9 <= 7;
   const preWild = wildCount - Number(isWild(ctx.incoming, ctx.wildcard));
   if (family === 'standard' && middle && preWild === 2 && incomingGroup.wild.every((w,i)=>i === incomingGroup.incoming || w)) ids.add('doubleWild');

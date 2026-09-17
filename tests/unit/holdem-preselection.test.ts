@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {newHoldem,holdemRules,holdemSeat,startHoldem,holdemActionPreview,holdemOptions,holdemView,moveHoldem} from '../../lib/holdem/engine.ts';
-import {newDraft,reconcileDraft,selectAction,raiseDetails,paymentDetails,quickPayment,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
+import {newDraft,reconcileDraft,selectAction,raiseDetails,paymentDetails,quickPayment,raiseUnit,canSubmitAction,type PreselectionContext,type BettingAction} from '../../lib/holdem/preselection.ts';
 function game(){const g=newHoldem('p0','甲',{...holdemRules({capacity:4}),id:'holdem-v3'});g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);return g;}
 function context():PreselectionContext{return {scope:'room:account:hand:preflop:connection',ownAction:'10:990:',eligible:true,acting:false,preview:holdemActionPreview(game(),'p0')};}
 test('waiting preview and acting options share exact wager calculation without granting a turn or exposing cards',()=>{
@@ -85,11 +85,31 @@ test('payment editor shows and submits exactly the additional chips, including p
  assert.equal(paymentDetails('7',large,'9007199254740990','100').target,'9007199254740997');
 });
 
-test('quick wager buttons add fixed call multiples cumulatively without lifting invalid inputs',()=>{
- assert.equal(quickPayment('60','60','30','1'),'120');
- assert.equal(quickPayment('120','60','30','2'),'240');
- assert.equal(quickPayment('240','60','30','5'),'540');
- assert.equal(quickPayment('0','0','30','2'),'60');
- assert.equal(quickPayment('','60','30','1'),'120');
- assert.equal(quickPayment('9007199254740993','60','30','5'),'9007199254741293');
+test('quick wagers use the live minimum raise increment and exact chip arithmetic',()=>{
+ const g=game();moveHoldem(g,'p3',{action:'raise',amount:'90'});
+ const p=holdemActionPreview(g,'p0')!;
+ assert.equal(p.call,'80');assert.equal(raiseUnit(p,g.currentBet),'60');
+ assert.equal(quickPayment('80',p,'10','90','1'),'140');
+ assert.equal(quickPayment('80',p,'10','90','2'),'200');
+ assert.equal(quickPayment('80',p,'10','90','5'),'380');
+ assert.equal(quickPayment('140',p,'10','90','1'),'200');
+ assert.equal(quickPayment('',p,'10','90','1'),'140');
+ assert.equal(quickPayment('0',p,'10','90','1'),'140');
+ assert.equal(paymentDetails('140',p,'10','990').valid,true);
+ moveHoldem(g,'p0',{action:'raise',amount:'150'});assert.equal(g.seats[0].stack,'850');
+ const free={...p,call:'0',minRaise:'30'};
+ assert.equal(raiseUnit(free,'0'),'30');assert.equal(quickPayment('0',free,'0','0','1'),'30');
+ const huge={...p,betStep:'1',minRaise:'9007199254741060'};
+ assert.equal(raiseUnit(huge,'9007199254741000'),'60');
+ assert.equal(quickPayment('9007199254741000',huge,'0','9007199254741000','5'),'9007199254741300');
+});
+test('quick wagers round irregular all-in totals to a legal target without capping at an invalid stack',()=>{
+ const g=game();g.currentBet='87';g.lastRaise='55';
+ const p=holdemActionPreview(g,'p0')!;
+ assert.equal(raiseUnit(p,'87'),'63');
+ const first=quickPayment('77',p,'10','87','1');assert.equal(first,'140');
+ assert.equal(paymentDetails(first,p,'10','990').valid,true);
+ const second=quickPayment(first,p,'10','87','1');assert.equal(second,'210');
+ assert.equal(paymentDetails(second,p,'10','990').valid,true);
+ assert.equal(paymentDetails(quickPayment('990',p,'10','87','5'),p,'10','990').valid,false);
 });

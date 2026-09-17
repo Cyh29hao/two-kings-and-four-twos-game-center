@@ -18,7 +18,7 @@ export function MahjongActions({game:g,selected,forbidden,busy,connected,seconds
  const locked=useRef(false);
  function submit(action:string,data?:Record<string,unknown>){if(disabled||locked.current||seconds<=0)return;locked.current=true;Promise.resolve(onAction(action,data)).finally(()=>{locked.current=false;});}
  function choose(kind:string){const items=choices.filter(c=>c.kind===kind);if(items.length===1){submit(responding?'claim':'kong',{key:items[0].key});return;}setSelection({scope,kind,key:''});}
- return <div className="table-action-area mj-light-actions">
+ return <div className={`table-action-area mj-light-actions${active?'':' is-idle'}`}>
   <div className="table-action-row">
    {active&&<TurnClock seconds={seconds} label={responding?'请选择吃碰杠胡':'轮到你出牌'}/>}
    {responding&&g.pending&&<span className="mj-response-tile" aria-label="可响应的牌"><MahjongTile tile={g.pending.tile} small wildcard={g.wildcard}/></span>}

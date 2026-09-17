@@ -1,5 +1,8 @@
 import './sites-env.mjs';
 import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {globSync} from 'node:fs';
+import {timeoutModern} from '../lib/mahjong/modern.ts';
 import {hints} from '../lib/game/engine.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -56,6 +59,64 @@ try {
   await request('/api/history', undefined, '', 401);
   const signup = async name => request('/api/auth', { action: 'register', username: name, name: '本地验收', password: crypto.randomUUID() });
   const outsider = await signup('outside' + Date.now().toString(36));
+  // Friend requests are mutual and restricted to actual same-table human members.
+  await request('/api/friends',undefined,'',401);
+  const friendA=await signup('frienda'+Date.now().toString(36)),friendB=await signup('friendb'+Date.now().toString(36)),friendC=await signup('friendc'+Date.now().toString(36));
+  const a=friendA.data.user.id,b=friendB.data.user.id,c=friendC.data.user.id;
+  let socialRoom=(await request('/api/game',{action:'create',title:'好友验收'},friendA.cookie)).data;
+  await request('/api/friends',{action:'request',target:b,code:socialRoom.code},friendA.cookie,403);
+  socialRoom=(await request('/api/game',{action:'join',code:socialRoom.code},friendB.cookie)).data;
+  await request('/api/friends',{action:'request',target:a,code:socialRoom.code},friendA.cookie,400);
+  await request('/api/friends',{action:'request',target:b,code:socialRoom.code},friendA.cookie);
+  await request('/api/friends',{action:'request',target:b,code:socialRoom.code},friendA.cookie);
+  assert.equal((await request('/api/friends',undefined,friendB.cookie)).data.incoming.length,1,'重复申请不能重复建关系');
+  await request('/api/friends',{action:'accept',target:b},friendA.cookie,403);
+  await request('/api/friends',{action:'accept',target:a},outsider.cookie,409);
+  await request('/api/friends',{action:'invite',target:b,code:socialRoom.code},friendA.cookie,403);
+  await request('/api/friends',{action:'accept',target:a},friendB.cookie);
+  await request('/api/friends',{action:'heartbeat'},friendB.cookie);
+  const privateFriends=(await request('/api/friends',undefined,friendA.cookie)).data;
+  assert.equal(privateFriends.friends[0].id,b);assert.equal(privateFriends.friends[0].online,true);
+  assert.equal('username' in privateFriends.friends[0],false);
+  assert.equal((await request('/api/friends',undefined,outsider.cookie)).data.friends.length,0);
+  socialRoom=(await request('/api/game',{action:'join',code:socialRoom.code},friendC.cookie)).data;
+  await request('/api/friends',{action:'request',target:c,code:socialRoom.code},friendA.cookie);
+  await request('/api/friends',{action:'decline',target:a},friendC.cookie);
+  assert.equal((await request('/api/friends',undefined,friendA.cookie)).data.outgoing.length,0);
+  await request('/api/friends',{action:'request',target:c,code:socialRoom.code},friendA.cookie);
+  await request('/api/friends',{action:'cancel',target:c},friendA.cookie);
+  assert.equal((await request('/api/friends',undefined,friendC.cookie)).data.incoming.length,0);
+  assert.equal((await request('/api/game?room='+socialRoom.code,undefined,friendA.cookie)).data.revision,socialRoom.revision,'好友操作不得推进牌桌版本');
+  await request('/api/game',{action:'leave',code:socialRoom.code,revision:socialRoom.revision},friendC.cookie);
+  socialRoom=(await request('/api/game?room='+socialRoom.code,undefined,friendB.cookie)).data;
+  await request('/api/game',{action:'leave',code:socialRoom.code,revision:socialRoom.revision},friendB.cookie);
+  async function inviteRound(endpoint,room){
+    await request('/api/friends',{action:'invite',target:b,code:room.code},friendA.cookie);
+    await request('/api/friends',{action:'invite',target:b,code:room.code},friendA.cookie);
+    const invitations=(await request('/api/friends',undefined,friendB.cookie)).data.invites;
+    assert.equal(invitations.length,1,'重复邀请不能产生多个通知');
+    const inviteId=invitations[0].id;
+    await request('/api/friends',{action:'open_invite',inviteId},outsider.cookie,409);
+    const dest=(await request('/api/friends',{action:'open_invite',inviteId},friendB.cookie)).data;
+    assert.equal(dest.code,room.code);
+    let joined=(await request(endpoint,{action:'join',code:dest.code},friendB.cookie)).data;
+    await request('/api/friends',{action:'dismiss_invite',inviteId},friendB.cookie);
+    assert.equal((await request('/api/friends',undefined,friendB.cookie)).data.invites.length,0);
+    await request(endpoint,{action:'leave',code:room.code,revision:joined.revision},friendB.cookie);
+    const updated=(await request(endpoint+'?room='+room.code,undefined,friendA.cookie)).data;
+    await request('/api/friends',{action:'invite',target:b,code:room.code},friendA.cookie);
+    const stale=(await request('/api/friends',undefined,friendB.cookie)).data.invites[0].id;
+    await request(endpoint,{action:'leave',code:room.code,revision:updated.revision},friendA.cookie);
+    await request('/api/friends',{action:'open_invite',inviteId:stale},friendB.cookie,409);
+    assert.equal((await request('/api/friends',undefined,friendB.cookie)).data.invites.length,0);
+  }
+  await inviteRound('/api/game',socialRoom);
+  for(const endpoint of ['/api/mahjong','/api/holdem']){
+    const created=(await request(endpoint,{action:'create',title:'跨游戏好友邀请'},friendA.cookie)).data;
+    await inviteRound(endpoint,created);
+  }
+  await request('/api/auth',{action:'logout'},friendB.cookie);
+  assert.equal((await request('/api/friends',undefined,friendA.cookie)).data.friends[0].online,false,'退出后不能继续显示在线');
   for (const [kind, endpoint, size] of [['landlord', '/api/game', 3], ['mahjong', '/api/mahjong', 4], ['holdem', '/api/holdem', 4]]) {
     const player = await signup(kind + Date.now().toString(36));
     const room = (await request(endpoint, { action: 'create', capacity: size, mode: 'practice', title: '本机自动验收' }, player.cookie)).data;
@@ -83,6 +144,45 @@ try {
     await request('/api/history', undefined, player.cookie);
     await request('/api/admin', undefined, player.cookie, 403);
   }
+  // A departing member stays accountable through settlement, then leaves atomically.
+  const leavers=await Promise.all([0,1,2,3].map(i=>signup('depart'+i+Date.now().toString(36))));
+  let departureRoom=(await request('/api/mahjong',{action:'create',title:'离桌验收'},leavers[0].cookie)).data;
+  for(const p of leavers.slice(1))departureRoom=(await request('/api/mahjong',{action:'join',code:departureRoom.code},p.cookie)).data;
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[1].cookie,403);
+  for(const p of leavers)departureRoom=(await request('/api/mahjong',{action:'ready',code:departureRoom.code,revision:departureRoom.revision},p.cookie)).data;
+  const queued=(await request('/api/mahjong',{action:'leave',code:departureRoom.code,revision:departureRoom.revision},leavers[1].cookie)).data;
+  assert.equal(queued.left,true);assert.equal(queued.departurePending,true);
+  departureRoom=(await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[0].cookie)).data;
+  assert.equal(departureRoom.game.phase,'playing');assert.equal(departureRoom.game.seats[1].leaving,true);
+  assert.equal((await request('/api/lobby',undefined,leavers[1].cookie)).data.departurePending,true);
+  await request('/api/mahjong',{action:'discard',tile:0,code:departureRoom.code,revision:departureRoom.revision},leavers[1].cookie,403);
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[2].cookie,403);
+  await request('/api/mahjong',{action:'create'},leavers[1].cookie,409);
+  // Advance only this isolated fixture to the final timeout; the real API must commit settlement + release.
+  const fixtureDb=new DatabaseSync(globSync(state+'/v3/d1/miniflare-D1DatabaseObject/*.sqlite').find(p=>!p.endsWith('metadata.sqlite')));
+  fixtureDb.exec('PRAGMA busy_timeout=5000');
+  let fixture=JSON.parse(fixtureDb.prepare('SELECT state FROM rooms WHERE code=?').get(departureRoom.code).state),last;
+  for(let n=0;n<600&&fixture.phase!=='finished';n++){last=structuredClone(fixture);timeoutModern(fixture,fixture.deadline);}
+  assert.equal(fixture.phase,'finished');last.deadline=0;
+  fixtureDb.prepare('UPDATE rooms SET state=?,phase=?,revision=revision+1 WHERE code=?').run(JSON.stringify(last),last.phase,departureRoom.code);fixtureDb.close();
+  const afterDeparture=(await request('/api/lobby',undefined,leavers[1].cookie)).data;
+  assert.equal(afterDeparture.activeRoom,null);assert.equal(afterDeparture.departurePending,false);
+  departureRoom=(await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[0].cookie)).data;
+  assert.equal(departureRoom.game.phase,'finished');assert.equal(departureRoom.game.seats[1].departed,true);
+  assert.deepEqual(departureRoom.game.seats.map(s=>s.balance),fixture.seats.map(s=>s.balance));
+  assert.equal(departureRoom.game.result.seats[1].id,leavers[1].data.user.id);
+  await request('/api/chat',{code:departureRoom.code,clientId:crypto.randomUUID(),kind:'text',text:'离桌后不能发送'},leavers[1].cookie,403);
+  await request('/api/mahjong',{action:'join',code:departureRoom.code},leavers[1].cookie,403);
+  await request('/api/mahjong',{action:'ready',code:departureRoom.code,revision:departureRoom.revision},leavers[0].cookie,400);
+  const nextRoom=(await request('/api/mahjong',{action:'create'},leavers[1].cookie)).data;
+  await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[0].cookie);
+  await request('/api/mahjong',{action:'leave',code:departureRoom.code,revision:0},leavers[1].cookie);
+  assert.equal((await request('/api/lobby',undefined,leavers[1].cookie)).data.activeRoom,nextRoom.code);
+  await request('/api/mahjong',{action:'leave',code:departureRoom.code,revision:departureRoom.revision},leavers[0].cookie);
+  departureRoom=(await request('/api/mahjong?room='+departureRoom.code,undefined,leavers[2].cookie)).data;
+  assert.equal(departureRoom.game.host,leavers[2].data.user.id);
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[3].cookie,403);
+  await request('/api/mahjong',{action:'end_table',code:departureRoom.code,revision:departureRoom.revision},leavers[2].cookie);
   const v3Player = await signup('landlordv3' + Date.now().toString(36));
   let v3 = (await request('/api/game', { action: 'create', mode: 'practice', title: 'v3 本机验收', rules: { id: 'landlord-v3' } }, v3Player.cookie)).data;
   assert.equal(v3.game.kind, 'landlord-v3');
@@ -139,7 +239,23 @@ try {
   assert.equal(planned.game.seats[1].stack,acting.stack);
   assert(!JSON.stringify(planned.game).includes('timeoutChoice'));
   await request('/api/holdem',{...timeoutRequest,revision:planned.revision,round:'wrong'},humans[1].cookie,400);
-  await request('/api/holdem',{...timeoutRequest,revision:planned.revision,choice:null},humans[1].cookie);
+  table=(await request('/api/holdem',{...timeoutRequest,revision:planned.revision,choice:null},humans[1].cookie)).data;
+  assert.equal(table.game.rules.id,'holdem-v5');
+  while(table.game.phase==='playing'){
+    const i=table.game.turn,boardBefore=table.game.board;
+    table=(await request('/api/holdem',{action:'fold',code:table.code,revision:table.revision},humans[i].cookie)).data;
+    if(table.game.phase==='finished')assert.deepEqual(table.game.board,boardBefore);
+  }
+  assert.equal(table.game.result.type,'fold');
+  for(const player of humans){
+    const settled=(await request('/api/holdem?room='+table.code,undefined,player.cookie)).data;
+    assert(settled.game.seats.every(s=>s.hand.length===2));
+    assert(settled.game.result.seats.every(s=>s.hand.length===2&&(settled.game.board.length>=3?s.value!==null:s.value===null)));
+  }
+  for(const player of humans)table=(await request('/api/holdem',{action:'ready',code:table.code,revision:table.revision},player.cookie)).data;
+  const fresh=(await request('/api/holdem?room='+table.code,undefined,humans[0].cookie)).data;
+  assert.equal(fresh.game.phase,'playing');assert.equal(fresh.game.result,null);
+  assert(fresh.game.seats.slice(1).every(s=>s.hand.length===0));
   // Exercise one real v3 round with fixed humans, production permissions, and a stale write.
   const v3Humans=[];
   for(let i=0;i<3;i++)v3Humans.push(await signup('v3human'+i+Date.now().toString(36)));

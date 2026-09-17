@@ -23,6 +23,7 @@ export async function GET(req:Request){return safe(async()=>{
 });}
 export async function POST(req:Request){return safe(async()=>{
  const user=await requireUser(req),b=await body(req),room=await member(b.code,user.id);
+ if(JSON.parse(room.state).departedIds?.includes(user.id))throw new AppError('你已离开房间，聊天记录只读',403);
  const kind=b.kind??'text';if(kind!=='text'&&kind!=='emote')throw new AppError('消息类型无效');
  if(kind==='emote'&&(!getEmote(b.emoteId)?.enabled||b.text!==undefined))throw new AppError('这个表情暂不可用');
  if(kind==='text'&&b.emoteId!==undefined)throw new AppError('消息格式无效');
@@ -44,7 +45,7 @@ export async function POST(req:Request){return safe(async()=>{
  await limit('chat:'+user.id,20,1);
  // Cooldown and insertion are one SQLite write. Chat never changes game state or timers.
  await db().prepare(`INSERT INTO room_messages (room_code,author_id,client_id,display,text,kind,emote_id,created)
- SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM rooms r,json_each(r.state,'$.seats') s WHERE r.code=? AND r.phase!='closed' AND json_extract(s.value,'$.id')=? AND COALESCE(json_extract(s.value,'$.bot'),0)=0)
+ SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM rooms r,json_each(r.state,'$.seats') s WHERE r.code=? AND r.phase!='closed' AND json_extract(s.value,'$.id')=? AND COALESCE(json_extract(s.value,'$.bot'),0)=0 AND NOT EXISTS(SELECT 1 FROM json_each(r.state,'$.departedIds') d WHERE d.value=json_extract(s.value,'$.id')))
  AND (?!='emote' OR NOT EXISTS(SELECT 1 FROM room_messages WHERE author_id=? AND kind='emote' AND created>?))
  ON CONFLICT(room_code,author_id,client_id) DO NOTHING`).bind(room.code,user.id,b.clientId,user.display,text,kind,expected.emoteId,now,room.code,user.id,kind,user.id,now-EMOTE_COOLDOWN_MS).run();
  const sent=await find();

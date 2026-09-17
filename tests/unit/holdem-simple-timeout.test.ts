@@ -33,7 +33,7 @@ test('cancel and lifecycle changes cannot reuse a previous choice; no selection 
 
 test('default rooms restore full raises and ante units while preserving saved v4 snapshots',()=>{
  const g=newHoldem('p0','甲',holdemRules({capacity:4}));g.seats=Array.from({length:4},(_,i)=>holdemSeat('p'+i,'玩家'+i,'1000'));g.seats.forEach(s=>s.ready=true);startHoldem(g);
- assert.equal(g.rules.id,'holdem-v3');assert.equal(holdemActionPreview(g,'p3')!.minRaise,'60');assert.equal(holdemActionPreview(g,'p3')!.betStep,'10');
+ assert.equal(g.rules.id,'holdem-v5');assert.equal(holdemActionPreview(g,'p3')!.minRaise,'60');assert.equal(holdemActionPreview(g,'p3')!.betStep,'10');
  assert.throws(()=>moveHoldem(g,'p3',{action:'raise',amount:'40'}));assert.throws(()=>moveHoldem(g,'p3',{action:'raise',amount:'61'}));
  choose(g,3,{action:'raise',amount:'60'});timeoutHoldem(g,g.deadline);assert.equal(g.seats[3].bet,'60');
 });

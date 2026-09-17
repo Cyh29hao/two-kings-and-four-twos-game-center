@@ -38,8 +38,12 @@ export function paymentDetails(value:string,p:HoldemActionPreview,alreadyBet:str
  return {...details,target,remaining:details.extra!==null&&BigInt(details.extra)<=BigInt(stack)?(BigInt(stack)-BigInt(details.extra)).toString():null};
 }
 
-export function quickPayment(value:string,call:string,big:string,multiple:string){
- const unit=BigInt(call)>0n?BigInt(call):BigInt(big);
- const current=/^(0|[1-9]\d{0,99})$/.test(value)?BigInt(value):BigInt(call);
- return (current+unit*BigInt(multiple)).toString();
+/** One multiple is the current legal raise increment, not the call or big blind. */
+export function raiseUnit(p:HoldemActionPreview,currentBet:string){return (BigInt(p.minRaise)-BigInt(currentBet)).toString();}
+export function quickPayment(value:string,p:HoldemActionPreview,alreadyBet:string,currentBet:string,multiple:string){
+ const call=BigInt(currentBet)-BigInt(alreadyBet),parsed=/^(0|[1-9]\d{0,99})$/.test(value)?BigInt(value):call;
+ const current=parsed>call?parsed:call,step=BigInt(p.betStep??'1');
+ const target=current+BigInt(alreadyBet)+BigInt(raiseUnit(p,currentBet))*BigInt(multiple);
+ // Short all-ins can leave street totals off the table's wager step.
+ return (((target+step-1n)/step)*step-BigInt(alreadyBet)).toString();
 }
