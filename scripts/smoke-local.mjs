@@ -239,7 +239,23 @@ try {
   assert.equal(planned.game.seats[1].stack,acting.stack);
   assert(!JSON.stringify(planned.game).includes('timeoutChoice'));
   await request('/api/holdem',{...timeoutRequest,revision:planned.revision,round:'wrong'},humans[1].cookie,400);
-  await request('/api/holdem',{...timeoutRequest,revision:planned.revision,choice:null},humans[1].cookie);
+  table=(await request('/api/holdem',{...timeoutRequest,revision:planned.revision,choice:null},humans[1].cookie)).data;
+  assert.equal(table.game.rules.id,'holdem-v5');
+  while(table.game.phase==='playing'){
+    const i=table.game.turn,boardBefore=table.game.board;
+    table=(await request('/api/holdem',{action:'fold',code:table.code,revision:table.revision},humans[i].cookie)).data;
+    if(table.game.phase==='finished')assert.deepEqual(table.game.board,boardBefore);
+  }
+  assert.equal(table.game.result.type,'fold');
+  for(const player of humans){
+    const settled=(await request('/api/holdem?room='+table.code,undefined,player.cookie)).data;
+    assert(settled.game.seats.every(s=>s.hand.length===2));
+    assert(settled.game.result.seats.every(s=>s.hand.length===2&&(settled.game.board.length>=3?s.value!==null:s.value===null)));
+  }
+  for(const player of humans)table=(await request('/api/holdem',{action:'ready',code:table.code,revision:table.revision},player.cookie)).data;
+  const fresh=(await request('/api/holdem?room='+table.code,undefined,humans[0].cookie)).data;
+  assert.equal(fresh.game.phase,'playing');assert.equal(fresh.game.result,null);
+  assert(fresh.game.seats.slice(1).every(s=>s.hand.length===0));
   // Exercise one real v3 round with fixed humans, production permissions, and a stale write.
   const v3Humans=[];
   for(let i=0;i<3;i++)v3Humans.push(await signup('v3human'+i+Date.now().toString(36)));

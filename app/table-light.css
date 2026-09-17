@@ -170,3 +170,9 @@
 
 .th-seat-result{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:3px 10px;border:1px solid #b8cdbb;border-radius:9px;background:#fffef8;color:#315c44;font-size:13px;line-height:18px;font-weight:600;white-space:nowrap}
 .th-seat.is-folded .th-seat-result{color:#788177;background:#edf0e9;border-color:#d6ded2}
+
+/* Enlarge Mahjong countdown content without changing its reserved footprint. */
+.mj-room .table-clock b{display:inline-block;transform:scale(1.3)}
+.mj-room .table-clock svg{flex-shrink:0;transform:scale(1.28)}
+
+.th-table.is-settled .th-seat.is-folded .th-hole{opacity:1}

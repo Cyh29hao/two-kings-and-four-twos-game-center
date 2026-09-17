@@ -20,7 +20,7 @@ test('landlord shows remaining hands and the empty winning hand at settlement',(
  for(const player of g.seats)assert.deepEqual(view(g,player.id).seats.map(s=>s.hand),g.seats.map(s=>s.hand));
 });
 test('holdem settlement preserves showdown hands while folded cards stay private',()=>{
- const g=newHoldem('p0','玩家0',holdemRules({capacity:4}));g.seats=[0,1,2,3].map(i=>holdemSeat('p'+i,'玩家'+i,g.rules.initial));g.seats.forEach(s=>s.ready=true);startHoldem(g,1);
+ const g=newHoldem('p0','玩家0',{...holdemRules({capacity:4}),id:'holdem-v3'});g.seats=[0,1,2,3].map(i=>holdemSeat('p'+i,'玩家'+i,g.rules.initial));g.seats.forEach(s=>s.ready=true);startHoldem(g,1);
  assert(holdemView(g,'p0').seats.slice(1).every(s=>s.hand.length===0));
  const folded=g.seats[g.turn].id;moveHoldem(g,folded,{action:'fold'},2);
  for(let n=0;n<100&&g.phase==='playing';n++){const id=g.seats[g.turn].id;moveHoldem(g,id,{action:holdemOptions(g,id).check?'check':'call'},n+3);}
