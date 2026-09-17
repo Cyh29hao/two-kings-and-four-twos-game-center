@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import {hints} from '../lib/game/engine.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdirSync, openSync, closeSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, openSync, closeSync, writeFileSync } from 'node:fs';
 import { once } from 'node:events';
 
 // A fresh local database for every run. There is deliberately no remote URL option.
 // D1 adds a long content-addressed filename beneath this directory; keep the
 // unique segment short enough for Windows workspaces nested under Codex paths.
-const state = `.wrangler/s${crypto.randomUUID().slice(0, 4)}`;
+mkdirSync('.wrangler', { recursive: true });
+const state = mkdtempSync('.wrangler/s');
 mkdirSync('work', { recursive: true });
 const logPath = 'work/smoke-local.log', log = openSync(logPath, 'w');
 const migrate = spawnSync(process.execPath, ['scripts/setup-local.mjs', '--state', state], { stdio: ['ignore', log, log] });
@@ -94,8 +95,9 @@ try {
   const offer = v3.game.shops[0].offers[0];
   v3 = (await request('/api/game', { action: 'shop_buy', code: v3.code, revision: v3.revision, offerId: offer.offerId }, v3Player.cookie)).data;
   assert.equal(v3.game.equipment[0].length, 1);
+  const afterPurchaseCoins = v3.game.coins[0];
   v3 = (await request('/api/game', { action: 'shop_sell', code: v3.code, revision: v3.revision, instanceId: v3.game.equipment[0][0].instanceId }, v3Player.cookie)).data;
-  assert.equal(v3.game.coins[0], '1');
+  assert.equal(v3.game.coins[0], afterPurchaseCoins, '一级装备出售不退款；购买找零时可能已经返还金币');
   v3 = (await request('/api/game', { action: 'shop_done', code: v3.code, revision: v3.revision }, v3Player.cookie)).data;
   for (let attempt = 0; attempt < 8 && v3.game.phase !== 'bidding'; attempt++) {
     await pause(1000);
