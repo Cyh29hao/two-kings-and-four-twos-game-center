@@ -2,10 +2,10 @@
 
 如果有问题，就一定要问用户。不做模棱两可的事情。已有明确授权不重复询问。
 
-- 本项目当前任务为完成 Landlord V3 的开发。
+- 本项目当前任务为完成 Landlord V3 的开发。装备目录快照为 `catalogVersion: 2`（`lib/game/landlord-v3.ts` 的 `V3_EQUIPMENT_CATALOG`，45 件稳定 ID 已冻结，复刻 `precision-copy-3` 已下架）：43 件已实现并有服务端规则测试，待实现的 2 件（溜了溜了 `quit-early`、殊死一搏 `last-stand`）见 docs/landlord-v3-equipment-pending.md。
 
 - 先读 README.md；找代码看 docs/architecture.md。
-- 功能改动在分支完成；不创建 PR。合并由用户决定。不要自动合并或强推。
+- 功能改动在分支完成；允许创建 PR。合并由用户决定。不要自动合并或强推。
 - 用户说“发布 main”时，按 docs/releasing.md 使用当前 Sites 技能执行整套流程；这是对现有站点手动发布的指令。未合并的分支不能以正式版本发布。
 - 不改 .openai/hosting.json 的项目身份，不迁移玩家数据，不把线上凭据带入本地测试。
 - 规则变化保留旧版本快照；筹码使用 BigInt / 十进制字符串；提交使用现有原子事务和房间版本校验。

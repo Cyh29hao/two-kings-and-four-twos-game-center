@@ -40,9 +40,9 @@ export function fillBots(g:PracticeGame){
  }g.practice={difficulty:'advanced',botIds,nextAt:0};
 }
 export function nextBot(g:PracticeGame){
- if(!g.practice||!['shopping','bidding','doubling','playing','choosing','revealing'].includes(g.phase))return -1;
+ if(!g.practice||!['shopping','bidding','doubling','playing','equipment','choosing','revealing'].includes(g.phase))return -1;
  const bot=(i:number)=>!!g.seats[i]?.bot&&g.practice!.botIds.includes(g.seats[i].id);
- if(isLandlordV3(g))return g.phase==='shopping'?g.seats.findIndex((s,i)=>bot(i)&&s.last!=='商店完成'):bot(g.turn)?g.turn:-1;
+ if(isLandlordV3(g))return g.phase==='shopping'?g.seats.findIndex((s,i)=>bot(i)&&s.last!=='商店完成'):g.phase==='equipment'&&g.pendingEffect&&bot(g.pendingEffect.seat)?g.pendingEffect.seat:bot(g.turn)?g.turn:-1;
  if(!mahjong(g)&&g.phase==='doubling')return g.seats.findIndex((s,i)=>bot(i)&&g.doubles?.[i]===null);
  if(mahjong(g)&&['choosing','revealing'].includes(g.phase))return bot(g.winner)?g.winner:-1;
  if(mahjong(g)&&g.pending)return g.pending.eligible.find(i=>bot(i)&&!Object.hasOwn(g.pending!.responses,String(i)))??-1;

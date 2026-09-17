@@ -87,10 +87,11 @@ try {
   v3 = (await request('/api/game', { action: 'shop_sell', code: v3.code, revision: v3.revision, instanceId: v3.game.equipment[0][0].instanceId }, v3Player.cookie)).data;
   assert.equal(v3.game.coins[0], '1');
   v3 = (await request('/api/game', { action: 'shop_done', code: v3.code, revision: v3.revision }, v3Player.cookie)).data;
-  await pause(1000);
-  v3 = (await request('/api/game?room=' + v3.code, undefined, v3Player.cookie)).data;
-  await pause(1000);
-  v3 = (await request('/api/game?room=' + v3.code, undefined, v3Player.cookie)).data;
+  for (let attempt = 0; attempt < 8 && v3.game.phase !== 'bidding'; attempt++) {
+    await pause(1000);
+    v3 = (await request('/api/game?room=' + v3.code, undefined, v3Player.cookie)).data;
+    assert(['shopping', 'equipment', 'bidding'].includes(v3.game.phase), `V3 开局阶段异常：${v3.game.phase}`);
+  }
   assert.equal(v3.game.phase, 'bidding');
   assert.equal(v3.game.seats.filter(seat => seat.bot).length, 2);
   const info = (await request('/build-info.json')).data;
