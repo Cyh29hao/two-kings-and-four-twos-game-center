@@ -24,10 +24,13 @@ await once(probe, 'listening');
 const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const origin = `http://127.0.0.1:${port}`;
-const child = spawn(process.execPath, ['scripts/preview.mjs', '--port', String(port), '--state', state], { stdio: ['ignore', log, log], env: {...process.env,LOCAL_DEV_TOOLS:'0'} });
-const exited = once(child, 'exit');
 let startupError;
-child.on('error', error => { startupError = error; });
+function startPreview(){
+  const processHandle=spawn(process.execPath, ['scripts/preview.mjs', '--port', String(port), '--state', state], { stdio: ['ignore', log, log], env: {...process.env,LOCAL_DEV_TOOLS:'0'} });
+  processHandle.on('error', error => { startupError = error; });
+  return processHandle;
+}
+let child=startPreview(),exited=once(child,'exit');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let checks = 0;
 async function request(path, data, cookie = '', expected = 200) {
@@ -40,15 +43,25 @@ async function request(path, data, cookie = '', expected = 200) {
   checks++;
   return { data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] || cookie };
 }
-try {
-  let ready = false;
+async function waitForPreview(){
   for (let n = 0; n < 120; n++) {
     if (startupError) throw startupError;
     if (child.exitCode !== null) throw Error(`预览启动失败，见 ${logPath}`);
-    try { if ((await fetch(origin + '/api/auth', { signal: AbortSignal.timeout(1000) })).ok) { ready = true; break; } } catch {}
+    try { if ((await fetch(origin + '/api/auth', { signal: AbortSignal.timeout(1000) })).ok) return; } catch {}
     await pause(500);
   }
-  assert(ready, '正式产物未能在 60 秒内启动');
+  throw Error('正式产物未能在 60 秒内启动');
+}
+async function restartPreview(){
+  child.kill('SIGTERM');
+  await Promise.race([exited,pause(5000)]);
+  if(child.exitCode===null)child.kill('SIGKILL');
+  startupError=undefined;
+  child=startPreview();exited=once(child,'exit');
+  await waitForPreview();
+}
+try {
+  await waitForPreview();
   for (const path of ['/', '/mahjong', '/holdem', '/history', '/emotes']) {
     const page = await fetch(origin + path, { signal: AbortSignal.timeout(30_000) });
     assert.equal(page.status, 200, path);
@@ -72,46 +85,6 @@ try {
     checks++;
     return {data:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0] || ''};
   };
-  // Feedback quota is server-enforced and atomic, with private administrator-only browsing.
-  await request('/api/feedback',undefined,'',401);
-  await request('/api/feedback',{clientId:crypto.randomUUID(),content:'未登录'},'',401);
-  const feedbackPlayer=await signup('feedback'+Date.now().toString(36)),feedbackOther=await signup('feedbackother'+Date.now().toString(36));
-  await request('/api/admin/feedback',undefined,feedbackPlayer.cookie,403);
-  for(const content of ['   ','字'.repeat(201),'无效\0内容'])await request('/api/feedback',{clientId:crypto.randomUUID(),content},feedbackPlayer.cookie,400);
-  assert.equal((await request('/api/feedback',undefined,feedbackPlayer.cookie)).data.remaining,5);
-  const feedbackPayloads=Array.from({length:12},(_,i)=>({clientId:crypto.randomUUID(),content:'并发反馈 '+i}));
-  const feedbackResponses=await Promise.all(feedbackPayloads.map(payload=>fetch(origin+'/api/feedback',{method:'POST',headers:{Origin:origin,Cookie:feedbackPlayer.cookie,'Content-Type':'application/json'},body:JSON.stringify(payload)})));
-  assert.equal(feedbackResponses.filter(r=>r.status===200).length,5);
-  assert.equal(feedbackResponses.filter(r=>r.status===429).length,7);checks+=12;
-  const acceptedIndex=feedbackResponses.findIndex(r=>r.status===200),accepted=await feedbackResponses[acceptedIndex].json();
-  assert.equal((await request('/api/feedback',feedbackPayloads[acceptedIndex],feedbackPlayer.cookie)).data.id,accepted.id);
-  await request('/api/feedback',{...feedbackPayloads[acceptedIndex],content:'修改同一请求内容'},feedbackPlayer.cookie,409);
-  assert.equal((await request('/api/feedback',undefined,feedbackPlayer.cookie)).data.used,5);
-  const sameRetry={clientId:crypto.randomUUID(),content:'😀'.repeat(200)};
-  const retryResults=await Promise.all([1,2,3].map(()=>request('/api/feedback',sameRetry,feedbackOther.cookie)));
-  assert.equal(new Set(retryResults.map(r=>r.data.id)).size,1);
-  assert.equal((await request('/api/feedback',undefined,feedbackOther.cookie)).data.used,1);
-  const feedbackFixture=new DatabaseSync(globSync(state+'/v3/d1/miniflare-D1DatabaseObject/*.sqlite').find(p=>!p.endsWith('metadata.sqlite')));
-  const feedbackUserId=feedbackPlayer.data.user.id;
-  feedbackFixture.prepare("UPDATE player_feedback SET day='2000-01-01' WHERE user_id=?").run(feedbackUserId);
-  assert.equal((await request('/api/feedback',undefined,feedbackPlayer.cookie)).data.remaining,5);
-  assert.equal((await request('/api/feedback',feedbackPayloads[acceptedIndex],feedbackPlayer.cookie)).data.used,0);
-  await request('/api/feedback',{clientId:crypto.randomUUID(),content:'<img src=x onerror=alert(1)>'},feedbackPlayer.cookie);
-  const forbiddenOrigin=await fetch(origin+'/api/feedback',{method:'POST',headers:{Origin:'https://invalid.example',Cookie:feedbackOther.cookie,'Content-Type':'application/json'},body:JSON.stringify({clientId:crypto.randomUUID(),content:'跨站'})});assert.equal(forbiddenOrigin.status,403);checks++;
-  feedbackFixture.prepare("UPDATE users SET role='admin' WHERE id=?").run(feedbackUserId);
-  const feedbackAdmin=(await request('/api/admin/feedback',undefined,feedbackPlayer.cookie)).data;
-  assert(feedbackAdmin.items.some(item=>item.content==='<img src=x onerror=alert(1)>'));
-  assert(feedbackAdmin.items.every(item=>!('password' in item)));assert.equal(feedbackAdmin.next,null);
-  const insertFeedback=feedbackFixture.prepare('INSERT INTO player_feedback (id,user_id,client_id,day,slot,content,created) VALUES (?,?,?,?,?,?,?)');
-  for(let i=0;i<55;i++)insertFeedback.run(crypto.randomUUID(),feedbackUserId,crypto.randomUUID(),'fixture-'+Math.floor(i/5),i%5+1,'分页 '+i,Date.now());
-  const feedbackPage=(await request('/api/admin/feedback',undefined,feedbackPlayer.cookie)).data;
-  assert.equal(feedbackPage.items.length,50);assert(feedbackPage.next);
-  const feedbackNext=(await request('/api/admin/feedback?before='+feedbackPage.next,undefined,feedbackPlayer.cookie)).data;
-  assert(feedbackNext.items.length>0);assert(!feedbackNext.items.some(item=>feedbackPage.items.some(first=>first.id===item.id)));assert.equal(feedbackNext.next,null);
-  feedbackFixture.prepare('UPDATE users SET banned=1 WHERE id=?').run(feedbackOther.data.user.id);
-  await request('/api/feedback',{clientId:crypto.randomUUID(),content:'停用后'},feedbackOther.cookie,403);
-  feedbackFixture.close();
-  await pause(500);
   // Four-player rooms reuse guarded member admission, private views and record settlement.
   const fourPlayers=[];for(let i=0;i<5;i++)fourPlayers.push(await signup('four'+i+Date.now().toString(36)));
   let four=(await request('/api/game',{action:'create',rules:{id:'landlord-four-v1'}},fourPlayers[0].cookie)).data;
@@ -491,6 +464,53 @@ try {
   await verifyReportApis({request,signup,state,outsider,extended,v3Humans});
   const info = (await request('/build-info.json')).data;
   assert.match(info.commit, /^[a-f0-9]{40}$/);
+  // Feedback quota is server-enforced and atomic, with private administrator-only browsing.
+  await request('/api/feedback',undefined,'',401);
+  await request('/api/feedback',{clientId:crypto.randomUUID(),content:'未登录'},'',401);
+  const feedbackPlayer=await signup('feedback'+Date.now().toString(36)),feedbackOther=await signup('feedbackother'+Date.now().toString(36));
+  await request('/api/admin/feedback',undefined,feedbackPlayer.cookie,403);
+  for(const content of ['   ','字'.repeat(201),'无效\0内容'])await request('/api/feedback',{clientId:crypto.randomUUID(),content},feedbackPlayer.cookie,400);
+  assert.equal((await request('/api/feedback',undefined,feedbackPlayer.cookie)).data.remaining,5);
+  const feedbackPayloads=Array.from({length:12},(_,i)=>({clientId:crypto.randomUUID(),content:'并发反馈 '+i}));
+  const feedbackResponses=await Promise.all(feedbackPayloads.map(payload=>fetch(origin+'/api/feedback',{method:'POST',headers:{Origin:origin,Cookie:feedbackPlayer.cookie,'Content-Type':'application/json'},body:JSON.stringify(payload)})));
+  assert.equal(feedbackResponses.filter(r=>r.status===200).length,5);
+  assert.equal(feedbackResponses.filter(r=>r.status===429).length,7);checks+=12;
+  const acceptedIndex=feedbackResponses.findIndex(r=>r.status===200),accepted=await feedbackResponses[acceptedIndex].json();
+  assert.equal((await request('/api/feedback',feedbackPayloads[acceptedIndex],feedbackPlayer.cookie)).data.id,accepted.id);
+  await request('/api/feedback',{...feedbackPayloads[acceptedIndex],content:'修改同一请求内容'},feedbackPlayer.cookie,409);
+  assert.equal((await request('/api/feedback',undefined,feedbackPlayer.cookie)).data.used,5);
+  const sameRetry={clientId:crypto.randomUUID(),content:'😀'.repeat(200)};
+  const retryResults=await Promise.all([1,2,3].map(()=>request('/api/feedback',sameRetry,feedbackOther.cookie)));
+  assert.equal(new Set(retryResults.map(r=>r.data.id)).size,1);
+  assert.equal((await request('/api/feedback',undefined,feedbackOther.cookie)).data.used,1);
+  const feedbackFixturePath=globSync(state+'/v3/d1/miniflare-D1DatabaseObject/*.sqlite').find(p=>!p.endsWith('metadata.sqlite'));
+  let feedbackFixture=new DatabaseSync(feedbackFixturePath);
+  const feedbackUserId=feedbackPlayer.data.user.id;
+  feedbackFixture.prepare("UPDATE player_feedback SET day='2000-01-01' WHERE user_id=?").run(feedbackUserId);
+  feedbackFixture.close();
+  await restartPreview();
+  assert.equal((await request('/api/feedback',undefined,feedbackPlayer.cookie)).data.remaining,5);
+  assert.equal((await request('/api/feedback',feedbackPayloads[acceptedIndex],feedbackPlayer.cookie)).data.used,0);
+  await request('/api/feedback',{clientId:crypto.randomUUID(),content:'<img src=x onerror=alert(1)>'},feedbackPlayer.cookie);
+  const forbiddenOrigin=await fetch(origin+'/api/feedback',{method:'POST',headers:{Origin:'https://invalid.example',Cookie:feedbackOther.cookie,'Content-Type':'application/json'},body:JSON.stringify({clientId:crypto.randomUUID(),content:'跨站'})});assert.equal(forbiddenOrigin.status,403);await forbiddenOrigin.text();checks++;
+  feedbackFixture=new DatabaseSync(feedbackFixturePath);
+  feedbackFixture.prepare("UPDATE users SET role='admin' WHERE id=?").run(feedbackUserId);
+  feedbackFixture.close();
+  await restartPreview();
+  const feedbackAdmin=(await request('/api/admin/feedback',undefined,feedbackPlayer.cookie)).data;
+  assert(feedbackAdmin.items.some(item=>item.content==='<img src=x onerror=alert(1)>'));
+  assert(feedbackAdmin.items.every(item=>!('password' in item)));assert.equal(feedbackAdmin.next,null);
+  feedbackFixture=new DatabaseSync(feedbackFixturePath);
+  const insertFeedback=feedbackFixture.prepare('INSERT INTO player_feedback (id,user_id,client_id,day,slot,content,created) VALUES (?,?,?,?,?,?,?)');
+  for(let i=0;i<55;i++)insertFeedback.run(crypto.randomUUID(),feedbackUserId,crypto.randomUUID(),'fixture-'+Math.floor(i/5),i%5+1,'分页 '+i,Date.now());
+  feedbackFixture.close();
+  await restartPreview();
+  const feedbackPage=(await request('/api/admin/feedback',undefined,feedbackPlayer.cookie)).data;
+  assert.equal(feedbackPage.items.length,50);assert(feedbackPage.next);
+  const feedbackNext=(await request('/api/admin/feedback?before='+feedbackPage.next,undefined,feedbackPlayer.cookie)).data;
+  assert(feedbackNext.items.length>0);assert(!feedbackNext.items.some(item=>feedbackPage.items.some(first=>first.id===item.id)));assert.equal(feedbackNext.next,null);
+  await request('/api/admin',{action:'ban',id:feedbackOther.data.user.id,banned:true},feedbackPlayer.cookie);
+  await request('/api/feedback',{clientId:crypto.randomUUID(),content:'停用后'},feedbackOther.cookie,401);
   writeFileSync('work/smoke-local.json', JSON.stringify({ status: 'passed', checks, commit: info.commit, state }, null, 2) + '\n');
   console.log(`正式产物本地验收通过：${checks} 项检查；三游戏、人机补位、账号、聊天权限、重试与限流。`);
 } finally {
