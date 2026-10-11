@@ -64,6 +64,13 @@
       "when": 1791709910186,
       "tag": "0008_left_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791720793879,
+      "tag": "0009_familiar_deathbird",
+      "breakpoints": true
     }
   ]
 }

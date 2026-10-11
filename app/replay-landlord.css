@@ -1,0 +1,94 @@
+/* The replay uses the live table geometry, with its own bounded page height. */
+.landlord-layout.landlord-layout.replay-landlord-shell{
+  height:auto;
+  min-height:0;
+  overflow:visible;
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .game-table{
+  height:min(760px,calc(100dvh - 165px));
+  min-height:540px;
+  grid-template-rows:var(--hud-height,36px) minmax(0,1fr) var(--hand-height,164px);
+  padding-bottom:8px;
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .landlord-arena{
+  min-height:0;
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .landlord-seat>.seat-action{
+  height:calc(100% - 130px);
+  align-self:start;
+  min-height:56px;
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand{
+  grid-area:2/1;
+  align-self:end;
+  justify-self:stretch;
+  height:126px;
+  min-width:0;
+  z-index:3;
+  color:var(--table-ink);
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand .card-group-preview{
+  border:1px solid #d8d1ae63;
+  background:#12214333;
+  overflow:hidden;
+}
+.landlord-layout.landlord-layout.replay-landlord-shell.skill-room .replay-opponent-hand .card-group-preview{
+  background:#fffdf0ac;
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand .public-cards-label{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:11px;
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .replay-self-area{
+  grid-template-rows:0 minmax(0,1fr);
+}
+.landlord-layout.landlord-layout.replay-landlord-shell .replay-self-area .fixed-landlord-hand{
+  padding-top:4px;
+}
+@media(max-width:640px){
+  .landlord-layout.landlord-layout.replay-landlord-shell .game-table{
+    height:auto;
+    min-height:0;
+    grid-template-rows:36px minmax(440px,auto) auto;
+    padding-inline:8px;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .landlord-arena{
+    min-height:440px;
+    grid-template-rows:minmax(330px,1fr) 100px;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .landlord-seat>.seat-action{
+    height:calc(100% - 126px);
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand{
+    height:122px;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand .fixed-played-cards{
+    overflow-x:auto;
+    overscroll-behavior-inline:contain;
+    width:100%;
+    align-items:flex-start;
+    pointer-events:auto;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand .fixed-played-row{
+    width:max-content;
+    min-width:100%;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand .fixed-played-row .hand-slot{
+    width:27px;
+    flex-basis:27px;
+    height:45px;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand .fixed-played-row .playing-card{
+    width:31px!important;
+    height:44px!important;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-self-area{
+    min-height:170px;
+    grid-template-rows:0 auto;
+  }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-self-area .landlord-hand-zone{
+    min-height:160px;
+  }
+}

@@ -4,15 +4,29 @@ import {captureReplay,finishReplay} from '../../lib/replay/capture.ts';
 import type {ReplayState} from '../../lib/replay/types.ts';
 
 test('capture stores private cards in a detached scene and advances sequence',()=>{
- const g:{round:string;phase:string;turn:number;seats:{name:string;bot?:boolean;hand:number[]}[];bottom:number[];last:{cards:number[]}|null;replay?:ReplayState}={round:'round-1',phase:'playing',turn:0,seats:[{name:'甲',hand:[1,2]},{name:'乙',bot:true,hand:[3,4]}],bottom:[50,51],last:null};
+ const g:{round:string;phase:string;turn:number;seats:{name:string;bot?:boolean;hand:number[]}[];bottom:number[];last:{seat:number;cards:number[]}|null;replay?:ReplayState}={round:'round-1',phase:'playing',turn:0,seats:[{name:'甲',hand:[1,2]},{name:'乙',bot:true,hand:[3,4]}],bottom:[50,51],last:null};
  captureReplay(g,'发牌',undefined,100);
- assert.deepEqual(g.replay?.pending[0],{
-  at:100,action:'发牌',scene:{game:'landlord',phase:'playing',turn:0,seats:[{name:'甲',hand:[1,2]},{name:'乙',bot:true,hand:[3,4]}],bottom:[50,51]}
- });
- g.seats[0].hand.pop();g.last={cards:[2]};captureReplay(g,'甲：单张 2',0,110);
+ assert.equal(g.replay?.pending[0].timing,'automatic');
+ assert.deepEqual(g.replay?.pending[0].scene.seats.map(seat=>seat.hand),[[1,2],[3,4]]);
+ assert.deepEqual(g.replay?.pending[0].scene.bottom,[50,51]);
+ g.seats[0].hand.pop();g.last={seat:0,cards:[2]};captureReplay(g,'甲：单张 2',0,110);
  assert.deepEqual(g.replay?.pending[0].scene.seats[0].hand,[1,2]);
  assert.deepEqual(g.replay?.pending[1].scene.last,[2]);
+ assert.deepEqual(g.replay?.pending[1].scene.lastPlay,{seat:0,cards:[2]});
  assert.equal(g.replay?.nextSeq,2);
+});
+
+test('capture attributes time to the previous turn once, even when the action changes phase',()=>{
+ const g:{round:string;phase:string;turn:number;seats:{name:string;hand:number[]}[];replay?:ReplayState}={round:'round-2',phase:'bidding',turn:0,seats:[{name:'甲',hand:[1]}]};
+ captureReplay(g,'发牌',undefined,100);
+ g.replay!.window={actor:0,openedAt:100,deadline:10100,phase:'bidding'};
+ g.phase='playing';
+ captureReplay(g,'甲 叫地主',0,2100);
+ captureReplay(g,'甲 获得底牌',0,2100);
+ assert.equal(g.replay?.pending[1].durationMs,2000);
+ assert.equal(g.replay?.pending[1].timing,'manual');
+ assert.equal(g.replay?.pending[2].durationMs,undefined);
+ assert.equal(g.replay?.window,undefined);
 });
 
 test('new rounds reset capture and finish marks only current round complete',()=>{

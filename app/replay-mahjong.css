@@ -1,0 +1,12 @@
+/* Replay uses the measured live table geometry and places spectator tools in its control row. */
+.replay-mj-table.mj-room.mj-immersive{height:100dvh;min-height:320px}
+.replay-mj-table .mj-portrait-caption>span{font-size:clamp(12px,1.1vw,16px)}
+.replay-mj-table .replay-mj-tools{position:absolute;z-index:15;left:50%;top:var(--actions-y);transform:translateX(-50%);display:flex;gap:8px;justify-content:center;max-width:calc(100% - 24px)}
+.replay-mj-table .replay-mj-tools button{min-height:38px;white-space:nowrap;padding:6px 11px;background:#123f47d9;color:#f3eac2;border-color:#a7cfc36b;font-size:12px}
+.replay-mj-table .mj-self-rack,.replay-mj-table .mj-hand,.replay-mj-table .mj-hand-slot,.replay-mj-table .mj-hand .mj-tile{pointer-events:none!important}
+.replay-mj-inspect{max-height:calc(100dvh - 28px);overflow:auto}
+.replay-mj-inspect .mj-overview-hand{max-width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:5px}
+@media(max-width:580px){
+ .replay-mj-table .replay-mj-tools{left:auto;right:12px;top:calc(var(--actions-y) + 4px);transform:none;flex-direction:column;gap:4px}
+ .replay-mj-table .replay-mj-tools button{font-size:10px;min-height:34px;padding:4px 7px}
+}

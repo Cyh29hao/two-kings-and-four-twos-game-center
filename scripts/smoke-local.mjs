@@ -4,6 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {globSync,readFileSync} from 'node:fs';
 import {timeoutModern} from '../lib/mahjong/modern.ts';
 import {hints,hintsFor} from '../lib/game/engine.ts';
+import {EMOTES} from '../lib/emotes.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { mkdirSync, mkdtempSync, openSync, closeSync, writeFileSync } from 'node:fs';
@@ -100,6 +101,8 @@ try {
   }
   for(let i=0;i<4;i++)four=(await request('/api/game',{action:'double',code:four.code,revision:four.revision,value:false},fourPlayers[i].cookie)).data;
   assert.equal(four.game.bottom.length,8);assert.equal(four.game.seats[four.game.landlord].count,33);
+  await request('/api/chat',{code:four.code,clientId:crypto.randomUUID(),kind:'text',text:'本局回放聊天'},fourPlayers[1].cookie);
+  await request('/api/chat',{code:four.code,clientId:crypto.randomUUID(),kind:'emote',emoteId:EMOTES.find(item=>item.sendable).id},fourPlayers[2].cookie);
   await request('/api/game',{action:'play',code:four.code,revision:four.revision-1,cards:[0]},fourPlayers[four.game.turn].cookie,409);
   let fourMoves=0;
   while(four.game.phase==='playing'&&fourMoves++<500){
@@ -117,7 +120,11 @@ try {
   assert.equal(privateReplay.game,'landlord');assert(privateReplay.frames.length>5);
   assert(privateReplay.frames[0].scene.seats.every(seat=>seat.hand.length===25));
   assert(privateReplay.frames.some(frame=>frame.action.includes('出牌')));
-  assert(privateReplay.frames.every(frame=>frame.scene.seats.every(seat=>!('id' in seat))));
+  assert(privateReplay.frames.every(frame=>frame.scene.seats.every(seat=>typeof seat.id==='string')));
+  assert.equal(privateReplay.perspective,0);
+  assert.deepEqual(privateReplay.events.map(event=>event.kind),['text','emote']);
+  assert.equal(privateReplay.events[0].seat,1);assert.equal(privateReplay.events[0].text,'本局回放聊天');
+  assert.equal(privateReplay.events[1].seat,2);assert(privateReplay.events[1].emoteId);
   assert((await request('/api/replays',undefined,fourPlayers[3].cookie)).data.items.some(item=>item.id===replayId));
   await request('/api/tv',{action:'submit',id:replayId},fourPlayers[4].cookie,403);
   await request('/api/tv',{action:'submit',id:replayId},fourPlayers[0].cookie);
@@ -125,9 +132,10 @@ try {
   assert((await request('/api/tv?game=landlord',undefined,fourPlayers[4].cookie)).data.items.some(item=>item.id===replayId));
   assert.equal((await request('/api/tv?game=mahjong',undefined,fourPlayers[4].cookie)).data.total,0);
   const publicReplay=(await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie)).data;
-  assert(publicReplay.frames[0].scene.seats.every(seat=>seat.name.startsWith('玩家 ')));
+  assert(publicReplay.frames[0].scene.seats.every(seat=>seat.name==='本地验收'));
   assert(publicReplay.frames[0].scene.seats.every(seat=>seat.hand.length===25));
-  assert(publicReplay.frames.every(frame=>!frame.action.includes('本地验收')));
+  assert.equal(publicReplay.perspective,0);
+  assert.deepEqual(publicReplay.events,privateReplay.events);
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[3].cookie,403);
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[0].cookie);
   await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie,403);

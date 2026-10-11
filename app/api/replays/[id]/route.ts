@@ -1,5 +1,5 @@
 import {AppError,db,json,requireUser,safe} from '@/lib/server';
-import type {ReplayFrame} from '@/lib/replay/types';
+import type {ReplayEvent,ReplayFrame} from '@/lib/replay/types';
 
 export const dynamic='force-dynamic';
 
@@ -20,16 +20,15 @@ export const GET=(req:Request,{params}:{params:Promise<{id:string}>})=>safe(asyn
  const rows=await db().prepare('SELECT frame FROM replay_frames WHERE round_id=? ORDER BY seq').bind(id).all<{frame:string}>();
  if(!rows.results.length)throw new AppError('这场对局没有可播放的步骤',404);
  const frames=rows.results.map(row=>JSON.parse(row.frame) as ReplayFrame);
- // A TV viewer receives only seat labels, including in the per-step action text.
- if(!participant){
-  const names=frames[0].scene.seats.map((seat,index)=>({name:seat.name,label:seat.bot?`人机 ${index+1}`:`玩家 ${index+1}`})).filter(seat=>seat.name).sort((a,b)=>b.name.length-a.name.length);
-  const labels=new Map(names.map(({name,label})=>[name,label]));
-  const namesPattern=new RegExp(names.map(({name})=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
-  for(const frame of frames){
-   frame.action=frame.action.replace(namesPattern,name=>labels.get(name)??name);
-   frame.scene.seats=frame.scene.seats.map((seat,index)=>({...seat,name:seat.bot?`人机 ${index+1}`:`玩家 ${index+1}`}));
-  }
- }
+ const perspectiveId=participant?u.id:tv?.submitted_by;
+ const perspective=frames[0].scene.seats.findIndex(seat=>seat.id===perspectiveId);
+ const eventRows=await db().prepare(`SELECT message_id AS id,at,seat,kind,text,emote_id AS emoteId
+  FROM replay_events WHERE round_id=? ORDER BY at,message_id`).bind(id).all<ReplayEvent>();
+ const events=eventRows.results.filter(event=>event.kind==='text'||event.kind==='emote').map(event=>({
+  id:event.id,at:event.at,seat:event.seat,kind:event.kind,
+  ...(event.kind==='text'?{text:event.text}:{}),...(event.kind==='emote'?{emoteId:event.emoteId}:{})
+ }));
  return json({id,game:round.game,roomCode:participant?round.room_code:undefined,created:round.created,ended:round.ended,practice:!!round.practice,frames,
+  perspective:perspective<0?0:perspective,events,
   tv:{status:published?'published':'none',canManage:participant&&(tv===null||published&&(tv.submitted_by===u.id||u.role==='admin'))}});
 });
