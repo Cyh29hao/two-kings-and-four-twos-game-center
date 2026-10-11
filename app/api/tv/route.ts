@@ -1,0 +1,46 @@
+import {AppError,body,db,json,limit,requireUser,safe} from '@/lib/server';
+
+export const dynamic='force-dynamic';
+
+export async function GET(req:Request){return safe(async()=>{
+ await requireUser(req);
+ const raw=new URL(req.url).searchParams.get('page')??'0';
+ if(!/^\d{1,5}$/.test(raw))throw new AppError('页码无效');
+ const page=Number(raw),pageSize=12;
+ const [rows,total]=await Promise.all([
+  db().prepare(`SELECT r.id,r.game,r.created,r.ended,r.practice,t.submitted_at AS submitted
+   FROM replay_tv t JOIN replay_rounds r ON r.id=t.replay_id
+   WHERE t.withdrawn_at IS NULL AND r.ended IS NOT NULL
+   ORDER BY t.submitted_at DESC,r.id DESC LIMIT ? OFFSET ?`).bind(pageSize,page*pageSize).all(),
+  db().prepare('SELECT COUNT(*) AS n FROM replay_tv WHERE withdrawn_at IS NULL').first<{n:number}>()
+ ]);
+ return json({items:rows.results,total:total?.n??0,page,pageSize});
+});}
+
+export async function POST(req:Request){return safe(async()=>{
+ const u=await requireUser(req),b=await body(req);
+ if(!['submit','withdraw','remove'].includes(b?.action)||typeof b.id!=='string'||!/^[a-f0-9-]{36}$/i.test(b.id))throw new AppError('投稿请求无效');
+ await limit('tv:'+u.id,12,60);
+ const round=await db().prepare(`SELECT id,participants,ended FROM replay_rounds WHERE id=?`).bind(b.id).first<{id:string;participants:string;ended:number|null}>();
+ if(!round||round.ended===null)throw new AppError('只能投稿已完成的对局',409);
+ const participant=(JSON.parse(round.participants) as string[]).includes(u.id);
+ if(b.action==='submit'){
+  if(!participant)throw new AppError('只有参与者可以投稿',403);
+  const frame=await db().prepare('SELECT 1 FROM replay_frames WHERE round_id=? LIMIT 1').bind(b.id).first();
+  if(!frame)throw new AppError('这场对局缺少回放步骤',409);
+  const now=Date.now();
+  const saved=await db().prepare('INSERT INTO replay_tv (replay_id,submitted_by,submitted_at,withdrawn_at) VALUES (?,?,?,NULL) ON CONFLICT(replay_id) DO NOTHING').bind(b.id,u.id,now).run();
+  if(!saved.meta.changes)throw new AppError('这场回放已投稿或已被下架',409);
+ }else{
+  const tv=await db().prepare('SELECT submitted_by,withdrawn_at FROM replay_tv WHERE replay_id=?').bind(b.id).first<{submitted_by:string;withdrawn_at:number|null}>();
+  if(!tv||tv.withdrawn_at!==null)throw new AppError('这场回放未发布',409);
+  if(b.action==='remove'&&u.role!=='admin')throw new AppError('仅管理员可下架',403);
+  if(b.action==='withdraw'&&tv.submitted_by!==u.id)throw new AppError('只有投稿人可以撤稿',403);
+  if(b.action==='withdraw')await db().prepare('DELETE FROM replay_tv WHERE replay_id=? AND submitted_by=?').bind(b.id,u.id).run();
+  else await db().batch([
+   db().prepare('UPDATE replay_tv SET withdrawn_at=? WHERE replay_id=? AND withdrawn_at IS NULL').bind(Date.now(),b.id),
+   db().prepare('INSERT INTO audit (id,actor,action,created) VALUES (?,?,?,?)').bind(crypto.randomUUID(),u.display,'下架 TV 回放 '+b.id,Date.now())
+  ]);
+ }
+ return json({ok:true});
+});}
