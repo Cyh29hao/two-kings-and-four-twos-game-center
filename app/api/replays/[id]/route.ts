@@ -20,8 +20,16 @@ export const GET=(req:Request,{params}:{params:Promise<{id:string}>})=>safe(asyn
  const rows=await db().prepare('SELECT frame FROM replay_frames WHERE round_id=? ORDER BY seq').bind(id).all<{frame:string}>();
  if(!rows.results.length)throw new AppError('这场对局没有可播放的步骤',404);
  const frames=rows.results.map(row=>JSON.parse(row.frame) as ReplayFrame);
- // A TV viewer receives only seat labels; the private participant copy keeps names.
- if(!participant)for(const frame of frames)frame.scene.seats=frame.scene.seats.map((seat,index)=>({...seat,name:seat.bot?`人机 ${index+1}`:`玩家 ${index+1}`}));
+ // A TV viewer receives only seat labels, including in the per-step action text.
+ if(!participant){
+  const names=frames[0].scene.seats.map((seat,index)=>({name:seat.name,label:seat.bot?`人机 ${index+1}`:`玩家 ${index+1}`})).filter(seat=>seat.name).sort((a,b)=>b.name.length-a.name.length);
+  const labels=new Map(names.map(({name,label})=>[name,label]));
+  const namesPattern=new RegExp(names.map(({name})=>name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
+  for(const frame of frames){
+   frame.action=frame.action.replace(namesPattern,name=>labels.get(name)??name);
+   frame.scene.seats=frame.scene.seats.map((seat,index)=>({...seat,name:seat.bot?`人机 ${index+1}`:`玩家 ${index+1}`}));
+  }
+ }
  return json({id,game:round.game,roomCode:participant?round.room_code:undefined,created:round.created,ended:round.ended,practice:!!round.practice,frames,
   tv:{status:published?'published':'none',canManage:participant&&(tv===null||published&&(tv.submitted_by===u.id||u.role==='admin'))}});
 });

@@ -6,13 +6,16 @@ export async function GET(req:Request){return safe(async()=>{
  await requireUser(req);
  const raw=new URL(req.url).searchParams.get('page')??'0';
  if(!/^\d{1,5}$/.test(raw))throw new AppError('页码无效');
+ const game=new URL(req.url).searchParams.get('game')??'all';
+ if(!['all','landlord','mahjong','holdem'].includes(game))throw new AppError('游戏筛选无效');
  const page=Number(raw),pageSize=12;
+ const filter=" AND (?='all' OR (?='landlord' AND r.game IN ('landlord','landlord-v3')) OR r.game=?)";
  const [rows,total]=await Promise.all([
   db().prepare(`SELECT r.id,r.game,r.created,r.ended,r.practice,t.submitted_at AS submitted
    FROM replay_tv t JOIN replay_rounds r ON r.id=t.replay_id
-   WHERE t.withdrawn_at IS NULL AND r.ended IS NOT NULL
-   ORDER BY t.submitted_at DESC,r.id DESC LIMIT ? OFFSET ?`).bind(pageSize,page*pageSize).all(),
-  db().prepare('SELECT COUNT(*) AS n FROM replay_tv WHERE withdrawn_at IS NULL').first<{n:number}>()
+   WHERE t.withdrawn_at IS NULL AND r.ended IS NOT NULL ${filter}
+   ORDER BY t.submitted_at DESC,r.id DESC LIMIT ? OFFSET ?`).bind(game,game,game,pageSize,page*pageSize).all(),
+  db().prepare(`SELECT COUNT(*) AS n FROM replay_tv t JOIN replay_rounds r ON r.id=t.replay_id WHERE t.withdrawn_at IS NULL AND r.ended IS NOT NULL ${filter}`).bind(game,game,game).first<{n:number}>()
  ]);
  return json({items:rows.results,total:total?.n??0,page,pageSize});
 });}

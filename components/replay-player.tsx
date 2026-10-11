@@ -10,6 +10,9 @@ import type {ReplayFrame,ReplayGame} from '@/lib/replay/types';
 
 export type {ReplayFrame,ReplayGame} from '@/lib/replay/types';
 
+const phaseNames:Record<string,string>={waiting:'等待开局',shopping:'商店',bidding:'叫分',doubling:'加倍',playing:'对局中',equipment:'装备阶段',choosing:'选择胡牌方案',revealing:'翻开奖牌',runout:'发完公共牌',finished:'已结算',closed:'已结束'};
+const streetNames:Record<string,string>={preflop:'翻牌前',flop:'翻牌',turn:'转牌',river:'河牌'};
+
 function Cards({cards,game,wildcard}:{cards:number[];game:ReplayGame;wildcard?:number}){
  return <div className="replay-cards">{cards.map((card,i)=>game==='mahjong'?<MahjongTile key={`${card}-${i}`} tile={card} small wildcard={wildcard}/>:game==='holdem'?<HoldemCard key={`${card}-${i}`} card={card} size="report"/>:<Card key={`${card}-${i}`} card={card} small/>)}</div>;
 }
@@ -33,7 +36,7 @@ export function ReplayPlayer({game,frames}:{game:ReplayGame;frames:ReplayFrame[]
    <Button variant="outline" disabled={frames.length<2} onClick={()=>{if(index===frames.length-1)setIndex(0);setPlaying(v=>!v)}}>{playing?<Pause size={17}/>:<Play size={17}/>}{playing?'暂停':'播放'}</Button>
    <Button variant="outline" disabled={index===frames.length-1} onClick={()=>{setPlaying(false);setIndex(i=>Math.min(frames.length-1,i+1))}}>下一步<ChevronRight size={17}/></Button>
   </div>
-  <div className="replay-scene-meta"><span>{scene.phase}</span>{scene.street&&<span>{scene.street}</span>}{scene.pot!==undefined&&<span>底池 {scene.pot}</span>}{scene.wallRemaining!==undefined&&<span>牌墙剩余 {scene.wallRemaining}</span>}{scene.dealer!==undefined&&<span>庄家 {scene.seats[scene.dealer]?.name??scene.dealer+1}</span>}{scene.winner!==undefined&&<span>获胜 {scene.seats[scene.winner]?.name??scene.winner+1}</span>}</div>
+  <div className="replay-scene-meta"><span>{phaseNames[scene.phase]??scene.phase}</span>{scene.street&&<span>{streetNames[scene.street]??scene.street}</span>}{scene.pot!==undefined&&<span>底池 {scene.pot}</span>}{scene.wallRemaining!==undefined&&<span>牌墙剩余 {scene.wallRemaining}</span>}{scene.dealer!==undefined&&<span>庄家 {scene.seats[scene.dealer]?.name??scene.dealer+1}</span>}{scene.winner!==undefined&&<span>获胜 {scene.seats[scene.winner]?.name??scene.winner+1}</span>}</div>
   {scene.board&&scene.board.length>0&&<div className="replay-common"><b>公共牌</b><Cards cards={scene.board} game={game}/></div>}
   {scene.bottom&&scene.bottom.length>0&&<div className="replay-common"><b>底牌</b><Cards cards={scene.bottom} game={game}/></div>}
   {scene.last&&scene.last.length>0&&<div className="replay-common replay-last"><b>本轮出牌{frame.actor!==undefined?` · ${scene.seats[frame.actor]?.name??'玩家'}`:''}</b><Cards cards={scene.last} game={game} wildcard={scene.wildcard}/></div>}

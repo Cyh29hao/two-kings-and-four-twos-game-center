@@ -36,7 +36,7 @@ async function request(path, data, cookie = '', expected = 200) {
     headers: { Origin: origin, ...(data ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) },
     ...(data ? { body: JSON.stringify(data) } : {}),
   });
-  assert.equal(response.status, expected, `${path}: HTTP ${response.status}`);
+  assert.equal(response.status, expected, `${path}: HTTP ${response.status} ${response.status === expected ? '' : await response.clone().text()}`);
   checks++;
   return { data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] || cookie };
 }
@@ -57,7 +57,21 @@ try {
   }
   assert.equal((await request('/api/auth')).data.user, null);
   await request('/api/history', undefined, '', 401);
-  const signup = async name => request('/api/auth', { action: 'register', username: name, name: '本地验收', password: crypto.randomUUID() });
+  const signup = async name => {
+    const password = crypto.randomUUID();
+    const payload = { action: 'register', username: name, name: '本地验收', password };
+    const register = () => fetch(origin + '/api/auth', {method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    let response = await register();
+    if (response.status === 503 && (await response.text()).includes('worker restarted mid-request')) {
+      // Wrangler may reload its first local D1 writer after startup. Recover the
+      // disposable account without repeating an unknown committed mutation.
+      const login = await fetch(origin + '/api/auth', {method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({action:'login',username:name,password})});
+      response = login.status === 200 ? login : await register();
+    }
+    assert.equal(response.status, 200, `/api/auth register: HTTP ${response.status} ${response.status === 200 ? '' : await response.text()}`);
+    checks++;
+    return {data:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0] || ''};
+  };
   // Feedback quota is server-enforced and atomic, with private administrator-only browsing.
   await request('/api/feedback',undefined,'',401);
   await request('/api/feedback',{clientId:crypto.randomUUID(),content:'未登录'},'',401);
@@ -97,8 +111,9 @@ try {
   feedbackFixture.prepare('UPDATE users SET banned=1 WHERE id=?').run(feedbackOther.data.user.id);
   await request('/api/feedback',{clientId:crypto.randomUUID(),content:'停用后'},feedbackOther.cookie,403);
   feedbackFixture.close();
+  await pause(500);
   // Four-player rooms reuse guarded member admission, private views and record settlement.
-  const fourPlayers=await Promise.all(Array.from({length:5},(_,i)=>signup('four'+i+Date.now().toString(36))));
+  const fourPlayers=[];for(let i=0;i<5;i++)fourPlayers.push(await signup('four'+i+Date.now().toString(36)));
   let four=(await request('/api/game',{action:'create',rules:{id:'landlord-four-v1'}},fourPlayers[0].cookie)).data;
   for(let i=1;i<4;i++)four=(await request('/api/game',{action:'join',code:four.code},fourPlayers[i].cookie)).data;
   assert.equal(four.game.seats.length,4);await request('/api/game',{action:'join',code:four.code},fourPlayers[4].cookie,400);
@@ -134,9 +149,12 @@ try {
   await request('/api/tv',{action:'submit',id:replayId},fourPlayers[4].cookie,403);
   await request('/api/tv',{action:'submit',id:replayId},fourPlayers[0].cookie);
   assert((await request('/api/tv',undefined,fourPlayers[4].cookie)).data.items.some(item=>item.id===replayId));
+  assert((await request('/api/tv?game=landlord',undefined,fourPlayers[4].cookie)).data.items.some(item=>item.id===replayId));
+  assert.equal((await request('/api/tv?game=mahjong',undefined,fourPlayers[4].cookie)).data.total,0);
   const publicReplay=(await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie)).data;
   assert(publicReplay.frames[0].scene.seats.every(seat=>seat.name.startsWith('玩家 ')));
   assert(publicReplay.frames[0].scene.seats.every(seat=>seat.hand.length===25));
+  assert(publicReplay.frames.every(frame=>!frame.action.includes('本地验收')));
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[3].cookie,403);
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[0].cookie);
   await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie,403);
