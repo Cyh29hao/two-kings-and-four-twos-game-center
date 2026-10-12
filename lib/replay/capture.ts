@@ -1,4 +1,5 @@
 import type {ReplayFrame, ReplayGame, ReplayState} from './types.ts';
+import type {V3Shop} from '../game/landlord-v3.ts';
 
 type Seat = {
   id?: string; name: string; bot?: boolean; hand: number[]; ready?: boolean; last?: string; plays?: number;
@@ -15,7 +16,7 @@ type CaptureGame = {
   wildcard?: number; dealer?: number; winner?: number; landlord?: number;
   bid?: number|string; multiplier?: number; doubles?: (boolean|null)[]; spring?: boolean;
   deltas?: (number|string)[]; champion?:number; coins?:string[]; victoryPoints?:string[];
-  stake?:string; equipment?:unknown[][]; button?:number; smallSeat?:number; bigSeat?:number;
+  stake?:string; equipment?:ReplayFrame['scene']['equipment']; shops?:V3Shop[]; button?:number; smallSeat?:number; bigSeat?:number;
   currentBet?:string; result?:unknown; seconds?:number; deadline?:number;
   drawn?:number|null; pending?:unknown; winType?:string|null;
   lastDiscard?: {seat: number; tile: number}|null;
@@ -32,7 +33,7 @@ export function replayScene(g: CaptureGame): ReplayFrame['scene'] {
   const kind=gameKind(g);
   const mahjongPending=kind==='mahjong'&&g.pending&&typeof g.pending==='object'&&!Array.isArray(g.pending)
     ?g.pending as {kind:string;from:number;tile:number}:null;
-  const rules=g.rules && (kind==='landlord-v3'?{id:g.rules.id,catalogVersion:g.rules.catalogVersion}:structuredClone(g.rules));
+  const rules=g.rules&&structuredClone(g.rules);
   return {
     game:kind,phase:g.phase,
     ...(g.turn===undefined?{}:{turn:g.turn}),
@@ -78,6 +79,7 @@ export function replayScene(g: CaptureGame): ReplayFrame['scene'] {
     ...(g.victoryPoints?{victoryPoints:[...g.victoryPoints]}:{}),
     ...(g.stake!==undefined?{stake:g.stake}:{}),
     ...(g.equipment?{equipment:structuredClone(g.equipment)}:{}),
+    ...(kind==='landlord-v3'&&g.phase==='shopping'&&g.shops?{shops:structuredClone(g.shops)}:{}),
     ...(g.button!==undefined?{button:g.button}:{}),
     ...(g.smallSeat!==undefined?{smallSeat:g.smallSeat}:{}),
     ...(g.bigSeat!==undefined?{bigSeat:g.bigSeat}:{}),

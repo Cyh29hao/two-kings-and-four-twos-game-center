@@ -11,13 +11,14 @@ export async function GET(req:Request){return safe(async()=>{
  const page=Number(raw),pageSize=12;
  const filter=" AND (?='all' OR (?='landlord' AND r.game IN ('landlord','landlord-v3')) OR r.game=?)";
  const [rows,total]=await Promise.all([
-  db().prepare(`SELECT r.id,r.game,r.created,r.ended,r.practice,t.submitted_at AS submitted
-   FROM replay_tv t JOIN replay_rounds r ON r.id=t.replay_id
+  db().prepare(`SELECT r.id,r.game,r.created,r.ended,r.practice,t.submitted_at AS submitted,
+   CASE WHEN t.anonymous=1 THEN NULL ELSE u.display END AS poster
+   FROM replay_tv t JOIN replay_rounds r ON r.id=t.replay_id JOIN users u ON u.id=t.submitted_by
    WHERE t.withdrawn_at IS NULL AND r.ended IS NOT NULL ${filter}
    ORDER BY t.submitted_at DESC,r.id DESC LIMIT ? OFFSET ?`).bind(game,game,game,pageSize,page*pageSize).all(),
   db().prepare(`SELECT COUNT(*) AS n FROM replay_tv t JOIN replay_rounds r ON r.id=t.replay_id WHERE t.withdrawn_at IS NULL AND r.ended IS NOT NULL ${filter}`).bind(game,game,game).first<{n:number}>()
  ]);
- return json({items:rows.results,total:total?.n??0,page,pageSize});
+ return json({items:rows.results.map(row=>({...row,poster:row.poster??'匿名玩家'})),total:total?.n??0,page,pageSize});
 });}
 
 export async function POST(req:Request){return safe(async()=>{
@@ -29,10 +30,11 @@ export async function POST(req:Request){return safe(async()=>{
  const participant=(JSON.parse(round.participants) as string[]).includes(u.id);
  if(b.action==='submit'){
   if(!participant)throw new AppError('只有参与者可以投稿',403);
+  if(b.anonymous!==undefined&&typeof b.anonymous!=='boolean')throw new AppError('投稿身份无效');
   const frame=await db().prepare('SELECT 1 FROM replay_frames WHERE round_id=? LIMIT 1').bind(b.id).first();
   if(!frame)throw new AppError('这场对局缺少回放步骤',409);
   const now=Date.now();
-  const saved=await db().prepare('INSERT INTO replay_tv (replay_id,submitted_by,submitted_at,withdrawn_at) VALUES (?,?,?,NULL) ON CONFLICT(replay_id) DO NOTHING').bind(b.id,u.id,now).run();
+  const saved=await db().prepare('INSERT INTO replay_tv (replay_id,submitted_by,submitted_at,anonymous,withdrawn_at) VALUES (?,?,?,?,NULL) ON CONFLICT(replay_id) DO NOTHING').bind(b.id,u.id,now,b.anonymous===true?1:0).run();
   if(!saved.meta.changes)throw new AppError('这场回放已投稿或已被下架',409);
  }else{
   const tv=await db().prepare('SELECT submitted_by,withdrawn_at FROM replay_tv WHERE replay_id=?').bind(b.id).first<{submitted_by:string;withdrawn_at:number|null}>();

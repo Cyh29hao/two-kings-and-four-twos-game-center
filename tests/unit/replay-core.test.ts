@@ -50,3 +50,11 @@ test('finish does not add a duplicate terminal scene',()=>{
  assert.equal(g.replay?.pending.length,1);
  assert.equal(g.replay?.pending[0].scene.pot,'20');
 });
+
+test('skill shopping keeps its exact catalog, offers and bought state for the native replay shop',()=>{
+ const g:{kind:string;round:string;phase:string;rules:{id:string;catalogVersion:number;equipmentCatalog:{id:string;name:string;level:1;price:string;effect:string}[]};seats:{name:string;hand:number[]}[];shops:{offers:{offerId:string;id:string;level:1;price:string;bought:boolean}[]}[];replay?:ReplayState}={kind:'landlord-v3',round:'shop-1',phase:'shopping',rules:{id:'landlord-v3',catalogVersion:1,equipmentCatalog:[{id:'example',name:'旧版装备',level:1,price:'2',effect:'旧版效果'}]},seats:[{name:'甲',hand:[1]}],shops:[{offers:[{offerId:'offer-1',id:'example',level:1,price:'2',bought:false}]}]};
+ captureReplay(g,'进入商店',undefined,100);
+ g.shops[0].offers[0].bought=true;g.rules.equipmentCatalog[0].name='改名';
+ assert.equal(g.replay?.pending[0].scene.shops?.[0].offers[0].bought,false);
+ assert.equal((g.replay?.pending[0].scene.rules?.equipmentCatalog as {name:string}[])[0].name,'旧版装备');
+});

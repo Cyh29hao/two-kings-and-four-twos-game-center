@@ -1,3 +1,5 @@
+import type {V3Equipment,V3Shop} from '../game/landlord-v3.ts';
+
 export type ReplayGame = 'landlord' | 'landlord-v3' | 'mahjong' | 'holdem';
 
 export type ReplaySeat = {
@@ -22,7 +24,7 @@ export type ReplayFrame = {
     tableActions?: ({kind: string; cards?: number[]; label?: string; eventId?: string; value?: number | boolean} | null)[];
     landlord?: number; bid?: number | string; multiplier?: number; doubles?: (boolean | null)[];
     spring?: boolean; deltas?: (number | string)[]; champion?: number;
-    coins?: string[]; victoryPoints?: string[]; stake?: string; equipment?: unknown[][];
+    coins?: string[]; victoryPoints?: string[]; stake?: string; equipment?: V3Equipment[][]; shops?: V3Shop[];
     wallRemaining?: number; pot?: string; street?: string; wildcard?: number;
     dealer?: number; winner?: number; lastDiscard?: {seat: number; tile: number};
     button?: number; smallSeat?: number; bigSeat?: number; capacity?: number;

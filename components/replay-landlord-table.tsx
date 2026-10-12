@@ -11,6 +11,8 @@ import {RoyalBackground,RoyalCharacter} from './royal-character';
 import {EquipmentRack} from './equipment-ui';
 import {CardGroupPreview,HandStrip,SeatAction} from './poker-table';
 import {LandlordTableHud,LandlordTableStage} from './landlord-table-display';
+import {ReplaySkillShop} from './replay-skill-shop';
+import {V3_EQUIPMENT_CATALOG} from '@/lib/game/landlord-v3';
 import '@/app/landlord.css';
 import '@/app/skill-table.css';
 import '@/app/landlord-layout.css';
@@ -25,7 +27,7 @@ export function ReplayLandlordTable({frame,perspective,bubbles={},onInspect}:{fr
  const four=seats.length===4;
  const appearance=v3?'classic':'royal';
  const bottom=scene.bottomRevealed?scene.bottom:[];
- const game={...scene,bottom,last:scene.lastPlay??(scene.last?.length?{cards:scene.last}:null)};
+ const game={...scene,bottom,last:scene.lastPlay??(scene.last?.length?{cards:scene.last}:null),...(v3?{rules:{...scene.rules,equipmentCatalog:scene.rules?.equipmentCatalog??V3_EQUIPMENT_CATALOG}}:{})};
  const royalGame={round:scene.round??'replay',phase:scene.phase,landlord:scene.landlord??-1,winner:scene.winner??-1,tableActions:scene.tableActions??[]} as RoyalGame;
  const action=(index:number)=>(scene.tableActions?.[index]??null) as TableAction|null;
  const role=(index:number)=>scene.landlord===index?'地主':(scene.landlord??-1)<0?'牌友':'农民';
@@ -56,7 +58,7 @@ export function ReplayLandlordTable({frame,perspective,bubbles={},onInspect}:{fr
     <div className="landlord-self-action">{scene.phase!=='finished'&&<SeatAction showClock={false} appearance={appearance} action={action(self)} active={false} bidding={scene.phase==='bidding'} doubling={scene.phase==='doubling'} equipment={scene.phase==='equipment'} name={name(self)}/>}</div>
     <div className="self-label"><div>{!v3&&<RoyalCharacter game={royalGame} seat={self} userId={seats[self].id??''} connected={false}/>}<PlayerChat bubble={bubbles[seats[self].id??'']} align="start"><PlayerAvatar name={name(self)} userId={seats[self].id} bot={seats[self].bot}/></PlayerChat><div className="self-identity"><strong>{name(self)}</strong>{v3&&<EquipmentRack game={game} items={(scene.equipment?.[self]??[]) as Parameters<typeof EquipmentRack>[0]['items']}/>}</div><span className="seat-score">{v3?<><span><Coins size={14}/>{scene.coins?.[self]??0}</span><span><Trophy size={14}/>{scene.victoryPoints?.[self]??0}</span></>:seats[self].tableScore!==undefined?String(seats[self].tableScore):'—'}</span><span className="self-role">{role(self)}</span>{v3&&scene.dealer===self&&<span className="dealer-label">庄家</span>}</div></div>
    </div>
-   <div className="self-area replay-self-area"><div className="landlord-hand-zone">{scene.phase==='finished'?<CardGroupPreview showLabel cards={seats[self].hand} name="本人剩余牌" appearance={appearance}/>:<HandStrip readOnly layoutMode={v3?'skill':four?'four':'ordinary'} appearance={appearance} hand={seats[self].hand} round={scene.round??'replay'}/>}</div></div>
+   {v3&&scene.phase==='shopping'?<ReplaySkillShop scene={scene} seat={self}/>:<div className="self-area replay-self-area"><div className="landlord-hand-zone">{scene.phase==='finished'?<CardGroupPreview showLabel cards={seats[self].hand} name="本人剩余牌" appearance={appearance}/>:<HandStrip readOnly layoutMode={v3?'skill':four?'four':'ordinary'} appearance={appearance} hand={seats[self].hand} round={scene.round??'replay'}/>}</div></div>}
   </div>
  </div>;
 }
