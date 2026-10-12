@@ -128,9 +128,12 @@ try {
   assert((await request('/api/replays',undefined,fourPlayers[3].cookie)).data.items.some(item=>item.id===replayId));
   await request('/api/tv',{action:'submit',id:replayId},fourPlayers[4].cookie,403);
   await request('/api/tv',{action:'submit',id:replayId,anonymous:'yes'},fourPlayers[0].cookie,400);
-  await request('/api/tv',{action:'submit',id:replayId},fourPlayers[0].cookie);
+  await request('/api/tv',{action:'submit',id:replayId,reason:'x'.repeat(81)},fourPlayers[0].cookie,400);
+  await request('/api/tv',{action:'submit',id:replayId,reason:'这局\n真精彩'},fourPlayers[0].cookie,400);
+  await request('/api/tv',{action:'submit',id:replayId,reason:'  最后一手逆转了局势  '},fourPlayers[0].cookie);
   const namedTv=(await request('/api/tv',undefined,fourPlayers[4].cookie)).data.items.find(item=>item.id===replayId);
   assert.equal(namedTv.poster,'本地验收');assert(Number.isInteger(namedTv.submitted));
+  assert.equal(namedTv.reason,'最后一手逆转了局势');
   assert((await request('/api/tv?game=landlord',undefined,fourPlayers[4].cookie)).data.items.some(item=>item.id===replayId));
   assert.equal((await request('/api/tv?game=mahjong',undefined,fourPlayers[4].cookie)).data.total,0);
   const publicReplay=(await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie)).data;
@@ -138,6 +141,7 @@ try {
   assert(publicReplay.frames[0].scene.seats.every(seat=>seat.hand.length===25));
   assert.equal(publicReplay.perspective,0);
   assert.equal(publicReplay.tv.poster,'本地验收');
+  assert.equal(publicReplay.tv.reason,'最后一手逆转了局势');
   assert.deepEqual(publicReplay.events,privateReplay.events);
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[3].cookie,403);
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[0].cookie);
@@ -145,8 +149,10 @@ try {
   await request('/api/tv',{action:'submit',id:replayId,anonymous:true},fourPlayers[0].cookie);
   const anonymousTv=(await request('/api/tv',undefined,fourPlayers[4].cookie)).data.items.find(item=>item.id===replayId);
   assert.equal(anonymousTv.poster,'匿名玩家');
+  assert.equal(anonymousTv.reason,'');
   const anonymousReplay=(await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie)).data;
   assert.equal(anonymousReplay.tv.poster,'匿名玩家');
+  assert.equal(anonymousReplay.tv.reason,'');
   assert(anonymousReplay.frames[0].scene.seats.every(seat=>seat.name==='本地验收'));
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[0].cookie);
   await request('/api/game',{action:'end_table',code:four.code,revision:four.revision},fourPlayers[0].cookie);

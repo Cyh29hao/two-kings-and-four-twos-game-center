@@ -47,9 +47,14 @@ function thinkTime(frame:ReplayFrame):string{
 
 export function ReplayPlayer({game,frames,events=EMPTY_EVENTS,perspective=0}:{game:ReplayGame;frames:ReplayFrame[];events?:ReplayMessage[];perspective?:number}){
  const moments=useMemo(()=>timeline(frames,events),[frames,events]);
- const [cursor,setCursor]=useState(()=>({index:0,enteredAt:Date.now()})),[playing,setPlaying]=useState(false),[speed,setSpeed]=useState(1);
+ const [cursor,setCursor]=useState(()=>({index:0,enteredAt:Date.now()})),[playing,setPlaying]=useState(false),[speed,setSpeed]=useState(1),[autoplayPending,setAutoplayPending]=useState(true);
  const safePosition=Math.min(cursor.index,Math.max(0,moments.length-1));
  const moment=moments[safePosition],frame=moment?frames[moment.frameIndex]:undefined;
+ useEffect(()=>{
+  if(!autoplayPending||moments.length<2)return;
+  const timer=window.setTimeout(()=>{setAutoplayPending(false);setPlaying(true)},1000);
+  return()=>window.clearTimeout(timer);
+ },[autoplayPending,moments.length]);
  useEffect(()=>{
   if(!playing||!moment)return;
   const timer=window.setTimeout(()=>{
@@ -68,17 +73,17 @@ export function ReplayPlayer({game,frames,events=EMPTY_EVENTS,perspective=0}:{ga
  const actionPositions=moments.flatMap((item,i)=>item.kind==='action'?[i]:[]);
  const previousAction=actionPositions.findLast(i=>i<safePosition);
  const nextAction=actionPositions.find(i=>i>safePosition);
- const jump=(target:number)=>{setPlaying(false);setCursor({index:target,enteredAt:Date.now()})};
+ const jump=(target:number)=>{setAutoplayPending(false);setPlaying(false);setCursor({index:target,enteredAt:Date.now()})};
 
  return <section className="replay-player" aria-label="对局回放">
   <div className="replay-table-stage">
-   {game==='mahjong'?<ReplayMahjongTable frame={frame} perspective={perspective} bubbles={bubbles} onInspect={()=>setPlaying(false)} showResult={safePosition===moments.length-1}/>:game==='holdem'?<ReplayHoldemTable frame={frame} perspective={perspective} bubbles={bubbles}/>:<ReplayLandlordTable frame={frame} perspective={perspective} bubbles={bubbles} onInspect={()=>setPlaying(false)}/>}
+   {game==='mahjong'?<ReplayMahjongTable frame={frame} perspective={perspective} bubbles={bubbles} onInspect={()=>{setAutoplayPending(false);setPlaying(false)}} showResult={safePosition===moments.length-1}/>:game==='holdem'?<ReplayHoldemTable frame={frame} perspective={perspective} bubbles={bubbles}/>:<ReplayLandlordTable frame={frame} perspective={perspective} bubbles={bubbles} onInspect={()=>{setAutoplayPending(false);setPlaying(false)}}/>}
   </div>
   <div className="replay-viewer-bar">
    <div className="replay-now"><span>第 {currentAction+1} / {frames.length} 步</span><strong>{event?`${seat?.name??'玩家'}：${event.kind==='emote'?'发送表情':event.text??''}`:frame.action}</strong>{!event&&thinkTime(frame)&&<small>{thinkTime(frame)}</small>}</div>
    <div className="replay-controls" role="group" aria-label="回放控制">
     <Button variant="outline" size="sm" disabled={previousAction===undefined} onClick={()=>jump(previousAction!)} aria-label="上一步"><ChevronLeft size={17}/></Button>
-    <Button variant="outline" size="sm" onClick={()=>{if(safePosition===moments.length-1)setCursor({index:0,enteredAt:Date.now()});setPlaying(v=>!v)}} aria-label={playing?'暂停':'播放'}>{playing?<Pause size={17}/>:<Play size={17}/>}</Button>
+    <Button variant="outline" size="sm" onClick={()=>{setAutoplayPending(false);if(safePosition===moments.length-1){setCursor({index:0,enteredAt:Date.now()});setPlaying(true)}else setPlaying(v=>!v)}} aria-label={playing?'暂停':'播放'}>{playing?<Pause size={17}/>:<Play size={17}/>}</Button>
     <Button variant="outline" size="sm" disabled={nextAction===undefined} onClick={()=>jump(nextAction!)} aria-label="下一步"><ChevronRight size={17}/></Button>
     <select aria-label="播放速度" value={speed} onChange={e=>setSpeed(Number(e.target.value))}><option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option></select>
    </div>

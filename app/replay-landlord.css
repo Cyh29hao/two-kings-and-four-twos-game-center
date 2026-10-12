@@ -12,7 +12,7 @@
 }
 .landlord-layout.landlord-layout.replay-landlord-shell .game-table.phase-shopping{grid-template-rows:var(--hud-height,36px) minmax(0,1fr)}
 .replay-skill-shop .shop-workspace-header button{pointer-events:none}
-.replay-shop-legacy{grid-column:1/-1;align-self:center;padding:20px;color:#53685f;font-size:13px;text-align:center}
+.replay-shop-legacy{grid-column:1/-1;align-self:center;justify-self:stretch;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;min-height:170px;padding:20px;border:2px dashed #7d90a4;border-radius:15px;background:#fffdf5;color:#455a71;text-align:center}.replay-shop-legacy strong{font-size:15px}.replay-shop-legacy span{font-size:12px;line-height:1.5}
 .landlord-layout.landlord-layout.replay-landlord-shell .landlord-arena{
   min-height:0;
 }
