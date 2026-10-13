@@ -7,6 +7,9 @@
 .replay-mj-inspect{max-height:calc(100dvh - 28px);overflow:auto}
 .replay-mj-inspect .mj-overview-hand{max-width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:5px}
 @media(max-width:580px){
- .replay-mj-table .replay-mj-tools{left:auto;right:12px;top:calc(var(--actions-y) + 4px);transform:none;flex-direction:column;gap:4px}
- .replay-mj-table .replay-mj-tools button{font-size:10px;min-height:34px;padding:4px 7px}
+ .replay-mj-table .replay-mj-tools{left:auto;right:10px;top:calc(var(--actions-y) + 4px);transform:none;flex-direction:column;gap:4px}
+ .replay-mj-table .replay-mj-tools button{font-size:12px;min-height:44px;padding:7px 9px;white-space:normal;max-width:110px;line-height:1.25}
+ .replay-mj-inspect .mj-public-overview{grid-template-columns:1fr;gap:9px}
+ .replay-mj-inspect .mj-public-overview section{padding:9px}
+ .replay-mj-inspect .mj-overview-hand .mj-tile{width:40px;height:57px;flex:none}
 }

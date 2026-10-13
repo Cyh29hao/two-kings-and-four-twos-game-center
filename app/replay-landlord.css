@@ -67,7 +67,11 @@
   }
   .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand{
     height:122px;
+    position:relative;
   }
+  .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand::after{content:'点按放大';position:absolute;right:4px;bottom:3px;padding:2px 4px;border-radius:4px;background:#fff9e7e8;color:#28394c;font-size:10px;font-weight:700;pointer-events:none}
+  body:has(.replay-player) .landlord-cards-modal .expanded-card-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+  body:has(.replay-player) .landlord-cards-modal{max-height:calc(100dvh - 24px);overflow:auto}
   .landlord-layout.landlord-layout.replay-landlord-shell .replay-opponent-hand .fixed-played-cards{
     overflow-x:auto;
     overscroll-behavior-inline:contain;

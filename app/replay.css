@@ -20,3 +20,21 @@
 .replay-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px 20px;border:2px solid var(--replay-edge);border-radius:16px;background:#fffdf7;text-align:center;color:#57657a}.replay-empty h2{margin:0;color:var(--replay-ink);font-size:18px}.replay-empty p{margin:0;font-size:14px}
 .history-replay-links,.replay-pagination{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:0 0 18px}.replay-pagination{margin:20px 0;color:#516073;font-size:13px}.history-item-link{display:flex;gap:7px;flex-wrap:wrap}
 @media(max-width:700px){.replay-page{padding:20px 14px 48px}.replay-heading{align-items:stretch;flex-direction:column;padding:18px}.replay-heading>button{align-self:flex-end}.replay-publish{align-items:stretch;flex-direction:column;padding:17px}.replay-publish>button{align-self:stretch}.replay-filters button{flex:1}.tv-item{padding:14px;gap:10px}}
+/* A replay opens on the table. Keep the SLY brand and the route back, then give the table the first viewport. */
+@media(max-width:700px){
+ body:has(.replay-page) .app-header.club-header{min-height:0;padding:8px 14px;gap:0}
+ body:has(.replay-page) .club-header .brand{font-size:18px;gap:9px}
+ body:has(.replay-page) .club-header .brand-icon{width:32px;height:32px}
+ body:has(.replay-page) .club-header .brand small,body:has(.replay-page) .club-header .club-brand-version,body:has(.replay-page) .club-header .game-nav,body:has(.replay-page) .club-header .header-right{display:none}
+ .replay-page{padding:9px 8px 32px}
+ .replay-heading{position:relative;display:block;margin-bottom:10px;padding:10px 12px 12px;border-radius:14px;box-shadow:2px 3px 0 var(--replay-edge)}
+ .replay-heading .history-back{margin-bottom:6px;padding:5px 8px;font-size:11px}
+ .replay-heading .replay-kicker{display:none}
+ .replay-heading h1{margin:0 72px 1px 0;font-size:20px;line-height:1.3}
+ .replay-heading-meta{font-size:11px}
+ .replay-heading>button{position:absolute;right:10px;top:10px;min-height:38px;padding:5px 8px;font-size:11px}
+ .replay-story{margin-top:6px;padding:5px 9px}
+ .replay-story blockquote{margin:0;font-size:13px;line-height:1.4}
+ .replay-story span{font-size:11px}
+ .replay-player{overflow:visible;border-radius:14px;box-shadow:2px 3px 0 var(--replay-edge)}
+}

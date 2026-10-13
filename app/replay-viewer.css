@@ -6,3 +6,10 @@
 .replay-progress{grid-column:1/-1;width:100%;accent-color:#7955ac;cursor:pointer}
 .replay-timeline{border-top:2px solid var(--replay-edge);background:#fffdf7}.replay-timeline summary{cursor:pointer;padding:13px 18px;color:var(--replay-ink);font-size:13px;font-weight:750}.replay-timeline ol{max-height:230px;overflow:auto;list-style:none;margin:0;padding:0}.replay-timeline li+li{border-top:1px solid #e0dece}.replay-timeline button{display:flex;align-items:baseline;gap:10px;width:100%;padding:9px 18px;border:0;background:transparent;text-align:left;color:#43536a}.replay-timeline button:hover,.replay-timeline [aria-current=step] button{background:#fff0bf}.replay-timeline button span,.replay-timeline button small{font-size:12px;color:#68748a;white-space:nowrap}.replay-timeline button strong{font-size:13px;font-weight:600;overflow-wrap:anywhere}
 @media(max-width:700px){.replay-viewer-bar{grid-template-columns:1fr;padding:11px}.replay-viewer-bar .replay-controls{justify-content:center}.replay-progress{grid-column:1}.replay-now{line-height:1.5}}
+@media(max-width:700px){
+ .replay-viewer-bar{position:sticky;bottom:0;z-index:35;gap:6px;padding:7px 9px max(7px,env(safe-area-inset-bottom));box-shadow:0 -4px 15px #15294035}
+ .replay-viewer-bar .replay-controls button,.replay-viewer-bar .replay-controls select{min-width:44px;height:44px}
+ .replay-viewer-bar .replay-controls{gap:11px}
+ .replay-now>strong{font-size:13px}
+ .replay-progress{height:22px;margin:0}
+}
