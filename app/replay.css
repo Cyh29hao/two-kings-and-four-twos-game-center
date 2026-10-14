@@ -32,7 +32,7 @@ body:has(.replay-watch-page) .club-header .brand small,body:has(.replay-watch-pa
 .replay-watch-reason{display:block;width:100%;text-align:left;margin:0 0 8px;padding:6px 10px;border:0;border-left:3px solid #9872c5;border-radius:6px;background:#f0e6ff;color:#49306d;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .replay-info-modal{--replay-edge:#29394b;--replay-ink:#243348;background:#fffdf6;color:#243348;border:2px solid #29394b;border-radius:18px;box-shadow:4px 5px 0 #29394b}
 .replay-info-modal .replay-publish{flex-direction:column;align-items:stretch;padding:14px;margin:0;gap:10px}.replay-info-modal .replay-manage,.replay-info-modal .replay-story{margin:0}.replay-info-modal .replay-story blockquote{font-size:15px}
-@media(max-width:700px){.replay-page.replay-watch-page{padding:6px 6px 12px}.replay-watch-heading{gap:8px}.replay-watch-back{padding:7px}.replay-watch-back span{font-size:11px}.replay-watch-title h1{font-size:18px}.replay-info-button{width:44px;padding:0}}
+@media(max-width:700px){.replay-page.replay-watch-page{padding:6px 6px 12px}.replay-watch-heading{gap:8px}.replay-watch-back{padding:7px}.replay-watch-back span{font-size:11px}.replay-watch-title h1{font-size:18px}.replay-info-button{min-width:60px;padding:0 10px}}
 @media(max-width:700px){
  .replay-page{padding:9px 8px 32px}
  .replay-heading{position:relative;display:block;margin-bottom:10px;padding:10px 12px 12px;border-radius:14px;box-shadow:2px 3px 0 var(--replay-edge)}

@@ -2,7 +2,7 @@
 
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {useParams,useSearchParams} from 'next/navigation';
-import {ArrowLeft,Info,RefreshCw} from 'lucide-react';
+import {ArrowLeft,RefreshCw} from 'lucide-react';
 import Link from '@/components/site-navigation';
 import {useClub} from '@/components/club-provider';
 import AuthScreen from '@/components/auth-screen';
@@ -49,7 +49,7 @@ export default function ReplayPage(){
  let back=fromMine?'/replay':'/history';
  if(fromTv){back='/tv';try{const url=new URL(params.get('returnTo')??'/tv','https://sly.local');if(url.origin==='https://sly.local'&&url.pathname==='/tv'){const query=new URLSearchParams();const game=url.searchParams.get('game'),page=url.searchParams.get('page');if(game&&['landlord','mahjong','holdem'].includes(game))query.set('game',game);if(page&&/^\d{1,5}$/.test(page)&&Number(page)>0)query.set('page',page);back='/tv'+(query.size?'?'+query:'')}}catch{}}
  return <main className="replay-page replay-watch-page">
-  <header className="replay-watch-heading"><Link href={back} className="replay-watch-back" aria-label={fromTv?'返回精彩 TV':fromMine?'返回我的回放':'返回对局记录'}><ArrowLeft size={20}/><span>{fromTv?'精彩 TV':fromMine?'我的回放':'对局记录'}</span></Link><div className="replay-watch-title"><h1>{data?names[data.game]:'对局回放'}</h1><span>{data?.tv?.status==='published'?`投稿人 · ${data.tv.poster??'匿名玩家'}`:'对局回放'}</span></div><Button ref={infoButton} variant="outline" className="replay-info-button" onClick={()=>setInfoOpen(true)} aria-label="对局信息与投稿"><Info size={19}/></Button></header>
+  <header className="replay-watch-heading"><Link href={back} className="replay-watch-back" aria-label={fromTv?'返回精彩 TV':fromMine?'返回我的回放':'返回对局记录'}><ArrowLeft size={20}/><span>{fromTv?'精彩 TV':fromMine?'我的回放':'对局记录'}</span></Link><div className="replay-watch-title"><h1>{data?names[data.game]:'对局回放'}</h1><span>{data?.tv?.status==='published'?`投稿人 · ${data.tv.poster??'匿名玩家'}`:'对局回放'}</span></div><Button ref={infoButton} variant="outline" className="replay-info-button" onClick={()=>setInfoOpen(true)} aria-label={data?.tv?.canManage?'投稿':'对局信息'}>{data?.tv?.canManage?'投稿':'详情'}</Button></header>
   {data?.tv?.reason&&<button className="replay-watch-reason" onClick={()=>setInfoOpen(true)}>“{data.tv.reason}”</button>}
   {error&&!data&&<section className="replay-empty" role="alert"><h2>这局暂时打不开</h2><p>{error}</p><Button onClick={()=>setRefresh(n=>n+1)}>重试</Button><Link href={back}>返回列表</Link></section>}
   {busy&&!data?<p role="status">正在读取这一局…</p>:null}
