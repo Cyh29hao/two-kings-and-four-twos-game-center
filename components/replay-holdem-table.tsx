@@ -1,12 +1,12 @@
 "use client";
 
-import {useEffect,useRef} from 'react';
 import type {ReplayFrame} from '@/lib/replay/types';
 import type {ChatBubble} from '@/lib/chat-bubbles';
 import type {HoldemResult,HoldemSeatAction} from '@/lib/holdem/engine';
 import {HoldemCard} from '@/components/holdem-card';
 import {HoldemTable,type HoldemTableView} from '@/components/holdem-table';
 import {chips} from '@/lib/mahjong/report';
+import '@/app/replay-holdem.css';
 
 function seatAction(value:ReplayFrame['scene']['seats'][number]['action'],at:number):HoldemSeatAction|undefined {
  if(!value||!['fold','check','call','raise','allin'].includes(value.kind)||!['preflop','flop','turn','river'].includes(value.street))return undefined;
@@ -14,7 +14,7 @@ function seatAction(value:ReplayFrame['scene']['seats'][number]['action'],at:num
 }
 
 export function ReplayHoldemTable({frame,perspective,bubbles={}}:{frame:ReplayFrame;perspective:number;bubbles?:Record<string,ChatBubble>}){
- const scene=frame.scene,scrollRef=useRef<HTMLDivElement>(null);
+ const scene=frame.scene;
  const capacity=Math.max(4,Math.min(10,scene.capacity??scene.seats.length));
  const result=scene.result as HoldemResult|null|undefined;
  const game:HoldemTableView={
@@ -31,10 +31,8 @@ export function ReplayHoldemTable({frame,perspective,bubbles={}}:{frame:ReplayFr
   }))
  };
  const own=game.seats[perspective];
- useEffect(()=>{const el=scrollRef.current;if(!el)return;const center=()=>{el.scrollLeft=Math.max(0,(el.scrollWidth-el.clientWidth)/2)};center();const observer=new ResizeObserver(center);observer.observe(el);return()=>observer.disconnect()},[capacity]);
- return <div className="th-room table-light replay-holdem" aria-label="德州对局回放">
-  <p className="th-scroll-hint">左右滑动查看牌桌</p>
-  <HoldemTable game={game} perspective={perspective} bubbles={bubbles} readOnly scrollRef={scrollRef}/>
+ return <div className="th-room table-light replay-holdem" data-capacity={capacity} aria-label="德州对局回放">
+  <HoldemTable game={game} perspective={perspective} bubbles={bubbles} readOnly/>
   {own&&<div className="th-controls"><div className="th-controls-header"><div className="th-own">
    <div className="th-own-cards" aria-label="投稿者底牌">{own.hand.map(c=><HoldemCard card={c} key={c} size="own"/>)}</div>
    <strong aria-label={`剩余筹码 ${chips(own.stack)}`}>{chips(own.stack)}<small> 筹码</small></strong>

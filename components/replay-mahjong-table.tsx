@@ -55,12 +55,11 @@ export function replayMahjongView(frame:ReplayFrame):MahjongView{
 }
 
 export function ReplayMahjongTable({frame,perspective,bubbles={},onInspect,showResult=false}:{frame:ReplayFrame;perspective:number;bubbles?:Record<string,ChatBubble>;onInspect?:()=>void;showResult?:boolean}){
- const scene=frame.scene as MahjongScene,game=replayMahjongView(frame);
+ const game=replayMahjongView(frame);
  const seat=Math.max(0,Math.min(game.seats.length-1,perspective));
  const roomElement=useRef<HTMLElement>(null);
  const [layout,setLayout]=useState(()=>getMahjongLayout(1600,900));
  const [layoutReady,setLayoutReady]=useState(false);
- const [inspectOpen,setInspectOpen]=useState(false);
  useEffect(()=>{
   const element=roomElement.current;if(!element)return;
   let tick=0;
@@ -85,11 +84,11 @@ export function ReplayMahjongTable({frame,perspective,bubbles={},onInspect,showR
  return <>
   <main ref={roomElement} className="mj-room mj-immersive table-light replay-mj-table" data-layout={layout.mode} data-phase={game.phase} data-layout-ready={layoutReady} style={style} aria-label="麻将原牌桌回放">
    <div className="mj-table-info"><span>第 {game.roundNumber} 局</span>{game.wildcard>=0&&<div className="mj-wild-info"><MahjongTile tile={game.wildcard*4} wildcard={game.wildcard} small/><div><b>本局赖子</b><small>白板代 {typeName(game.wildcard)}</small></div></div>}</div>
-   <MahjongSurface riverTools={null} g={game} seat={seat} layout={layout} bubbles={bubbles} revealHands/>
+   <MahjongSurface riverTools={null} g={game} seat={seat} layout={{...layout,portraits:{...layout.portraits,south:{...layout.portraits.south,x:layout.viewport.width/2-20,y:handLayout.y-92,width:40}}}} bubbles={bubbles} revealHands/>
+   {(['east','north','west'] as const).map((position,index)=>{const player=game.seats[(seat+index+1)%4];return player?<div key={player.id} className={`replay-mj-open-hand replay-mj-open-${position}`} style={{'--north-desktop-columns':Math.max(1,player.hand.length),'--north-columns':player.hand.length<=11?Math.max(1,player.hand.length):7} as CSSProperties} aria-label={`${player.name}的明牌手牌`}><div className="replay-mj-hand-tiles">{player.hand.map(tile=><MahjongTile key={tile} tile={tile} wildcard={game.wildcard} small/>)}</div><MahjongMelds s={player} own finished={game.phase==='finished'} wildcard={game.wildcard}/></div>:null})}
    <div className="mj-self-rack" style={{left:handLayout.x,top:handLayout.y,width:handLayout.width,height:handLayout.height}} aria-label={`${me.name}的手牌区`}><div className="mj-hand" aria-label={`${me.name}的手牌`}>{hand.map((tile,index)=><div className="mj-hand-slot" key={tile} style={{left:(index%handLayout.columns)*(handLayout.tileW+handLayout.gap)+(drawn===tile?handLayout.drawGap:0),top:Math.floor(index/handLayout.columns)*(handLayout.tileH+handLayout.rowGap)-handLayout.lift,height:handLayout.tileH+handLayout.lift}}><MahjongTile tile={tile} wildcard={game.wildcard} drawn={drawn===tile}/></div>)}</div></div>
-   <div className="replay-mj-tools"><Button type="button" variant="outline" onClick={()=>{onInspect?.();setInspectOpen(true)}}>放大查看四家手牌</Button>{game.phase==='finished'&&<Button type="button" variant="outline" onClick={()=>{onInspect?.();setResultOpen(true)}}>查看结算</Button>}</div>
+   {game.phase==='finished'&&<div className="replay-mj-tools"><Button type="button" variant="outline" onClick={()=>{onInspect?.();setResultOpen(true)}}>查看结算</Button></div>}
   </main>
-  <Dialog open={inspectOpen} onOpenChange={setInspectOpen}><DialogContent className="mj-expanded-modal replay-mj-inspect"><DialogHeader><DialogTitle>本步四家手牌</DialogTitle><DialogDescription>按投稿者当时的座位顺序查看；牌桌仍保留原位明牌。</DialogDescription></DialogHeader><div className="mj-public-overview">{Array.from({length:4},(_,relative)=>{const player=game.seats[(seat+relative)%4];return player?<section key={player.id}><h3>{player.name}{relative===0?' · 投稿视角':''}{game.dealer===(seat+relative)%4?' · 庄':''}</h3><div className="mj-overview-hand" aria-label={`${player.name}的手牌`}>{player.hand.map(tile=><MahjongTile key={tile} tile={tile} small wildcard={game.wildcard}/>)}</div><MahjongMelds s={player} own finished wildcard={game.wildcard}/><div className="mj-overview-river" aria-label={`${player.name}的全部弃牌`}>{player.river.map(tile=><MahjongTile key={tile} tile={tile} small wildcard={game.wildcard}/>)}</div></section>:null})}</div></DialogContent></Dialog>
   <Dialog open={resultOpen} onOpenChange={setResultOpen}><DialogContent className="mj-result-modal"><DialogHeader><DialogTitle>{settlement}</DialogTitle><DialogDescription>四家手牌已在原牌桌明牌展示。</DialogDescription></DialogHeader><strong className="mj-result-own">本局 {game.deltas[seat]!==undefined?chips(game.deltas[seat],true):'已结束'}</strong><div className="mj-result-seats">{game.seats.map((player,index)=><div key={player.id}><span>{player.name}</span><b>{game.deltas[index]!==undefined?chips(game.deltas[index],true):'—'}</b></div>)}</div><Button type="button" variant="outline" onClick={()=>setResultOpen(false)}>收起，查看牌桌</Button></DialogContent></Dialog>
  </>;
 }
