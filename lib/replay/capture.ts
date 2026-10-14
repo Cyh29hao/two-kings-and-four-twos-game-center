@@ -114,6 +114,13 @@ export function captureReplay(g: CaptureGame, action: string, actor?: number, at
   g.replay.nextSeq++;
 }
 
+/** Finish the last event's scene after the operation advances its turn or phase.
+ * Earlier equipment events retain their intermediate hands and outcomes. */
+export function refreshReplayScene(g:CaptureGame):void {
+  const replay=g.replay,latest=replay?.pending.at(-1);
+  if(latest&&!replay?.complete)latest.scene=replayScene(g);
+}
+
 /** Mark the current round complete, adding its terminal state only if it changed. */
 export function finishReplay(g: CaptureGame, at=Date.now()): void {
   if(!g.round)return;

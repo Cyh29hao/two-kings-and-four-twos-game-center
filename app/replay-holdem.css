@@ -3,9 +3,10 @@
 .replay-holdem .th-table,.replay-holdem .th-table.is-large{min-width:0}
 .replay-holdem .th-player-name{white-space:normal;overflow-wrap:anywhere}
 .replay-holdem .th-controls{margin-top:8px}
-@media(max-width:700px){
+@media(max-width:1100px){
  .replay-holdem.th-room{padding:8px}
- .replay-holdem .th-table{height:600px;border-radius:18px}
+ .replay-holdem .th-table{height:max(450px,calc(var(--replay-stage-height,600px) - 130px));border-radius:18px}
+ .replay-holdem[data-capacity='6'] .th-table{height:max(520px,calc(var(--replay-stage-height,600px) - 90px))}
  .replay-holdem .th-seat{left:clamp(42px,var(--x),calc(100% - 42px));width:clamp(66px,20vw,78px);gap:2px}
  .replay-holdem .th-seat .avatar{width:26px;height:26px;font-size:14px;border-radius:8px}
  .replay-holdem .th-player-name{font-size:11px;line-height:14px;max-width:100%}
@@ -28,6 +29,7 @@
  .replay-holdem .th-seat-action,.replay-holdem .th-bet{font-size:10px;line-height:12px;padding:2px 4px;min-height:18px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
  .replay-holdem .th-seat-result{font-size:10px;line-height:12px;padding:2px 4px;white-space:normal;max-width:78px}
  .replay-holdem .th-center{width:174px}
+ .replay-holdem[data-capacity='4'] .th-center{top:59%}
  .replay-holdem .th-community{gap:3px}
  .replay-holdem .th-community .th-card,.replay-holdem .th-card-placeholder{width:29px;height:43px;min-width:0}
  .replay-holdem .th-pot{gap:4px;margin:5px 0 8px;font-size:11px}

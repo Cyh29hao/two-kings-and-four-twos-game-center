@@ -20,7 +20,8 @@ export const GET=(req:Request,{params}:{params:Promise<{id:string}>})=>safe(asyn
  const rows=await db().prepare('SELECT frame FROM replay_frames WHERE round_id=? ORDER BY seq').bind(id).all<{frame:string}>();
  if(!rows.results.length)throw new AppError('这场对局没有可播放的步骤',404);
  const frames=rows.results.map(row=>JSON.parse(row.frame) as ReplayFrame);
- const perspectiveId=participant?u.id:tv?.submitted_by;
+ const tvView=new URL(req.url).searchParams.get('view')==='tv';
+ const perspectiveId=published&&(tvView||!participant)?tv.submitted_by:u.id;
  const perspective=frames[0].scene.seats.findIndex(seat=>seat.id===perspectiveId);
  const eventRows=await db().prepare(`SELECT message_id AS id,at,seat,kind,text,emote_id AS emoteId
   FROM replay_events WHERE round_id=? ORDER BY at,message_id`).bind(id).all<ReplayEvent>();
@@ -30,5 +31,5 @@ export const GET=(req:Request,{params}:{params:Promise<{id:string}>})=>safe(asyn
  }));
  return json({id,game:round.game,roomCode:participant?round.room_code:undefined,created:round.created,ended:round.ended,practice:!!round.practice,frames,
   perspective:perspective<0?0:perspective,events,
-  tv:{status:published?'published':'none',poster:published?(tv.anonymous?'匿名玩家':tv.poster):undefined,reason:published?tv.reason:undefined,canManage:participant&&(tv===null||published&&(tv.submitted_by===u.id||u.role==='admin'))}});
+  tv:{status:published?'published':'none',poster:published?(tv.anonymous?'匿名玩家':tv.poster):undefined,reason:published?tv.reason:undefined,canManage:participant&&(tv===null||published&&tv.submitted_by===u.id)}});
 });

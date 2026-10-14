@@ -40,15 +40,23 @@ export async function POST(req:Request){return safe(async()=>{
   const saved=await db().prepare('INSERT INTO replay_tv (replay_id,submitted_by,submitted_at,anonymous,reason,withdrawn_at) VALUES (?,?,?,?,?,NULL) ON CONFLICT(replay_id) DO NOTHING').bind(b.id,u.id,now,b.anonymous===true?1:0,reason).run();
   if(!saved.meta.changes)throw new AppError('这场回放已投稿或已被下架',409);
  }else{
-  const tv=await db().prepare('SELECT submitted_by,withdrawn_at FROM replay_tv WHERE replay_id=?').bind(b.id).first<{submitted_by:string;withdrawn_at:number|null}>();
+  const tv=await db().prepare('SELECT submitted_by,submitted_at,withdrawn_at FROM replay_tv WHERE replay_id=?').bind(b.id).first<{submitted_by:string;submitted_at:number;withdrawn_at:number|null}>();
   if(!tv||tv.withdrawn_at!==null)throw new AppError('这场回放未发布',409);
   if(b.action==='remove'&&u.role!=='admin')throw new AppError('仅管理员可下架',403);
   if(b.action==='withdraw'&&tv.submitted_by!==u.id)throw new AppError('只有投稿人可以撤稿',403);
-  if(b.action==='withdraw')await db().prepare('DELETE FROM replay_tv WHERE replay_id=? AND submitted_by=?').bind(b.id,u.id).run();
-  else await db().batch([
-   db().prepare('UPDATE replay_tv SET withdrawn_at=? WHERE replay_id=? AND withdrawn_at IS NULL').bind(Date.now(),b.id),
-   db().prepare('INSERT INTO audit (id,actor,action,created) VALUES (?,?,?,?)').bind(crypto.randomUUID(),u.display,'下架 TV 回放 '+b.id,Date.now())
-  ]);
+  // Compare the publication we authorized, so an intervening removal or new
+  // submission cannot be deleted or moderated by this stale request.
+  if(b.action==='withdraw'){
+   const saved=await db().prepare('DELETE FROM replay_tv WHERE replay_id=? AND submitted_by=? AND submitted_at=? AND withdrawn_at IS NULL').bind(b.id,u.id,tv.submitted_at).run();
+   if(!saved.meta.changes)throw new AppError('投稿状态已变化，请刷新后重试',409);
+  }else{
+   const now=Date.now();
+   const results=await db().batch([
+    db().prepare('UPDATE replay_tv SET withdrawn_at=? WHERE replay_id=? AND submitted_by=? AND submitted_at=? AND withdrawn_at IS NULL').bind(now,b.id,tv.submitted_by,tv.submitted_at),
+    db().prepare('INSERT INTO audit (id,actor,action,created) SELECT ?,?,?,? WHERE changes()=1').bind(crypto.randomUUID(),u.display,'下架 TV 回放 '+b.id,now)
+   ]);
+   if(!results[0].meta.changes)throw new AppError('投稿状态已变化，请刷新后重试',409);
+  }
  }
  return json({ok:true});
 });}

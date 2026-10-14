@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {captureReplay,finishReplay} from '../../lib/replay/capture.ts';
+import {captureReplay,finishReplay,refreshReplayScene} from '../../lib/replay/capture.ts';
 import type {ReplayState} from '../../lib/replay/types.ts';
 
 test('capture stores private cards in a detached scene and advances sequence',()=>{
@@ -57,4 +57,21 @@ test('skill shopping keeps its exact catalog, offers and bought state for the na
  g.shops[0].offers[0].bought=true;g.rules.equipmentCatalog[0].name='改名';
  assert.equal(g.replay?.pending[0].scene.shops?.[0].offers[0].bought,false);
  assert.equal((g.replay?.pending[0].scene.rules?.equipmentCatalog as {name:string}[])[0].name,'旧版装备');
+});
+
+test('finalizing operation bookkeeping updates only the latest scene and keeps recorded actions and timing',()=>{
+ const g:{round:string;phase:string;turn:number;seats:{name:string;hand:number[]}[];replay?:ReplayState}={round:'round-finalize',phase:'playing',turn:0,seats:[{name:'甲',hand:[1,2]},{name:'乙',hand:[3]}]};
+ captureReplay(g,'发牌',undefined,100);
+ g.replay!.window={actor:0,openedAt:100,deadline:10100,phase:'playing'};
+ g.seats[0].hand=[1];captureReplay(g,'甲 出牌',0,2100);
+ g.turn=1;refreshReplayScene(g);
+ assert.equal(g.replay!.pending.length,2);
+ assert.equal(g.replay!.pending[0].scene.turn,0);
+ const played=g.replay!.pending[1];
+ assert.equal(played.scene.turn,1);assert.equal(played.durationMs,2000);assert.equal(played.action,'甲 出牌');
+ g.phase='finished';finishReplay(g,2200);
+ const terminal=g.replay!.pending.at(-1)!;
+ g.turn=0;refreshReplayScene(g);
+ assert.equal(terminal.scene.turn,1);
+ assert.equal(g.replay!.complete,true);
 });

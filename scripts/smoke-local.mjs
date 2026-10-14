@@ -143,6 +143,12 @@ try {
   assert.equal(publicReplay.tv.poster,'本地验收');
   assert.equal(publicReplay.tv.reason,'最后一手逆转了局势');
   assert.deepEqual(publicReplay.events,privateReplay.events);
+  const participantReplay=(await request('/api/replays/'+replayId,undefined,fourPlayers[3].cookie)).data;
+  assert.equal(participantReplay.perspective,3);
+  assert.equal(participantReplay.tv.canManage,false);
+  const participantTvReplay=(await request('/api/replays/'+replayId+'?view=tv',undefined,fourPlayers[3].cookie)).data;
+  assert.equal(participantTvReplay.perspective,0);
+  assert.equal(participantTvReplay.tv.canManage,false);
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[3].cookie,403);
   await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[0].cookie);
   await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie,403);
@@ -519,11 +525,24 @@ try {
   const forbiddenOrigin=await fetch(origin+'/api/feedback',{method:'POST',headers:{Origin:'https://invalid.example',Cookie:feedbackOther.cookie,'Content-Type':'application/json'},body:JSON.stringify({clientId:crypto.randomUUID(),content:'跨站'})});assert.equal(forbiddenOrigin.status,403);await forbiddenOrigin.text();checks++;
   feedbackFixture=new DatabaseSync(feedbackFixturePath);
   feedbackFixture.prepare("UPDATE users SET role='admin' WHERE id=?").run(feedbackUserId);
+  feedbackFixture.prepare("UPDATE users SET role='admin' WHERE id=?").run(fourPlayers[3].data.user.id);
   feedbackFixture.close();
   await restartPreview();
   const feedbackAdmin=(await request('/api/admin/feedback',undefined,feedbackPlayer.cookie)).data;
   assert(feedbackAdmin.items.some(item=>item.content==='<img src=x onerror=alert(1)>'));
   assert(feedbackAdmin.items.every(item=>!('password' in item)));assert.equal(feedbackAdmin.next,null);
+  // An administrator who played this round can remove it, but cannot impersonate
+  // its poster's withdrawal. Removal retains the tombstone and one audit entry.
+  await request('/api/tv',{action:'submit',id:replayId},fourPlayers[0].cookie);
+  assert.equal((await request('/api/replays/'+replayId,undefined,fourPlayers[3].cookie)).data.tv.canManage,false);
+  await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[3].cookie,403);
+  await request('/api/tv',{action:'remove',id:replayId},fourPlayers[3].cookie);
+  await request('/api/replays/'+replayId,undefined,fourPlayers[4].cookie,403);
+  await request('/api/tv',{action:'withdraw',id:replayId},fourPlayers[0].cookie,409);
+  await request('/api/tv',{action:'submit',id:replayId},fourPlayers[0].cookie,409);
+  await request('/api/tv',{action:'remove',id:replayId},fourPlayers[3].cookie,409);
+  const removedAudit=(await request('/api/admin',undefined,fourPlayers[3].cookie)).data.audit;
+  assert.equal(removedAudit.filter(entry=>entry.action==='下架 TV 回放 '+replayId).length,1);
   feedbackFixture=new DatabaseSync(feedbackFixturePath);
   const insertFeedback=feedbackFixture.prepare('INSERT INTO player_feedback (id,user_id,client_id,day,slot,content,created) VALUES (?,?,?,?,?,?,?)');
   for(let i=0;i<55;i++)insertFeedback.run(crypto.randomUUID(),feedbackUserId,crypto.randomUUID(),'fixture-'+Math.floor(i/5),i%5+1,'分页 '+i,Date.now());

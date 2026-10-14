@@ -21,11 +21,19 @@
 .history-replay-links,.replay-pagination{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:0 0 18px}.replay-pagination{margin:20px 0;color:#516073;font-size:13px}.history-item-link{display:flex;gap:7px;flex-wrap:wrap}
 @media(max-width:700px){.replay-page{padding:20px 14px 48px}.replay-heading{align-items:stretch;flex-direction:column;padding:18px}.replay-heading>button{align-self:flex-end}.replay-publish{align-items:stretch;flex-direction:column;padding:17px}.replay-publish>button{align-self:stretch}.replay-filters button{flex:1}.tv-item{padding:14px;gap:10px}}
 /* A replay opens on the table. Keep the SLY brand and the route back, then give the table the first viewport. */
+body:has(.replay-watch-page) .app-header.club-header{min-height:0;padding:8px 16px;gap:0}
+body:has(.replay-watch-page) .club-header .brand{font-size:18px;gap:9px}
+body:has(.replay-watch-page) .club-header .brand-icon{width:32px;height:32px}
+body:has(.replay-watch-page) .club-header .brand small,body:has(.replay-watch-page) .club-header .club-brand-version,body:has(.replay-watch-page) .club-header .game-nav,body:has(.replay-watch-page) .club-header .header-right{display:none}
+.replay-page.replay-watch-page{padding:8px 12px 12px}
+.replay-watch-heading{display:flex;align-items:center;gap:12px;min-height:54px;margin-bottom:8px}
+.replay-watch-back,.replay-info-button{display:flex;align-items:center;justify-content:center;gap:5px;min-height:44px;flex:none;padding:7px 10px;border:2px solid #29394b;border-radius:11px;background:#fff6d9;color:#29394b;box-shadow:2px 3px 0 #29394b;font-size:12px;text-decoration:none}
+.replay-watch-title{flex:1;min-width:0}.replay-watch-title h1{margin:0;font-size:20px;font-weight:800;line-height:1.3}.replay-watch-title>span{display:block;font-size:11px;color:#566277;overflow-wrap:anywhere}
+.replay-watch-reason{display:block;width:100%;text-align:left;margin:0 0 8px;padding:6px 10px;border:0;border-left:3px solid #9872c5;border-radius:6px;background:#f0e6ff;color:#49306d;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.replay-info-modal{--replay-edge:#29394b;--replay-ink:#243348;background:#fffdf6;color:#243348;border:2px solid #29394b;border-radius:18px;box-shadow:4px 5px 0 #29394b}
+.replay-info-modal .replay-publish{flex-direction:column;align-items:stretch;padding:14px;margin:0;gap:10px}.replay-info-modal .replay-manage,.replay-info-modal .replay-story{margin:0}.replay-info-modal .replay-story blockquote{font-size:15px}
+@media(max-width:700px){.replay-page.replay-watch-page{padding:6px 6px 12px}.replay-watch-heading{gap:8px}.replay-watch-back{padding:7px}.replay-watch-back span{font-size:11px}.replay-watch-title h1{font-size:18px}.replay-info-button{width:44px;padding:0}}
 @media(max-width:700px){
- body:has(.replay-page) .app-header.club-header{min-height:0;padding:8px 14px;gap:0}
- body:has(.replay-page) .club-header .brand{font-size:18px;gap:9px}
- body:has(.replay-page) .club-header .brand-icon{width:32px;height:32px}
- body:has(.replay-page) .club-header .brand small,body:has(.replay-page) .club-header .club-brand-version,body:has(.replay-page) .club-header .game-nav,body:has(.replay-page) .club-header .header-right{display:none}
  .replay-page{padding:9px 8px 32px}
  .replay-heading{position:relative;display:block;margin-bottom:10px;padding:10px 12px 12px;border-radius:14px;box-shadow:2px 3px 0 var(--replay-edge)}
  .replay-heading .history-back{margin-bottom:6px;padding:5px 8px;font-size:11px}

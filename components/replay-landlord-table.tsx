@@ -66,11 +66,11 @@ export function ReplayLandlordTable({frame,perspective,bubbles={}}:{frame:Replay
       <span className="card-count" data-low={remaining(index)<6} aria-label={`剩余 ${remaining(index)} 张`}><Layers size={14}/>{remaining(index)}</span>
       {!v3&&scene.doubles?.[index]!=null&&<span className="royal-double">个人 ×{scene.doubles[index]?2:1}</span>}
      </div>
-     {scene.phase!=='finished'&&<ReplayAction appearance={appearance} action={action(index)} name={seat.name}/>}
+     <ReplayAction appearance={appearance} action={action(index)} name={seat.name}/>
      <div className="replay-opponent-hand"><ReplayOpenHand cards={seat.hand} name={`${seat.name}的手牌`} appearance={appearance}/></div>
     </section>})}</div>
     <LandlordTableStage game={game} seat={self} v3={v3}/>
-    <div className="landlord-self-action">{scene.phase!=='finished'&&<ReplayAction appearance={appearance} action={action(self)} name={name(self)}/>}</div>
+    <div className="landlord-self-action"><ReplayAction appearance={appearance} action={action(self)} name={name(self)}/></div>
     <div className="self-label"><div>{!v3&&<RoyalCharacter game={royalGame} seat={self} userId={seats[self].id??''} connected={false}/>}<PlayerChat bubble={bubbles[seats[self].id??'']} align="start"><PlayerAvatar name={name(self)} userId={seats[self].id} bot={seats[self].bot}/></PlayerChat><div className="self-identity"><strong>{name(self)}</strong>{v3&&<EquipmentRack game={game} items={(scene.equipment?.[self]??[]) as Parameters<typeof EquipmentRack>[0]['items']}/>}</div><span className="seat-score">{v3?<><span><Coins size={14}/>{scene.coins?.[self]??0}</span><span><Trophy size={14}/>{scene.victoryPoints?.[self]??0}</span></>:seats[self].tableScore!==undefined?String(seats[self].tableScore):'—'}</span><span className="self-role">{role(self)}</span>{v3&&scene.dealer===self&&<span className="dealer-label">庄家</span>}</div></div>
    </div>
    {v3&&scene.phase==='shopping'?<ReplaySkillShop scene={scene} seat={self}/>:<div className="self-area replay-self-area"><div className="landlord-hand-zone"><ReplayOpenHand cards={seats[self].hand} name={`${name(self)}的手牌`} appearance={appearance}/></div></div>}

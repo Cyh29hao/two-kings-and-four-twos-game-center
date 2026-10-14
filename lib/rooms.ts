@@ -8,6 +8,7 @@ import {isLandlordV3,timeoutV3,viewV3,type V3Game} from './game/landlord-v3';
 import {type MahjongGame,timeoutMahjong,isModern} from './mahjong/game';
 import {advanceBot,scheduleBots} from './practice/room';
 import type {ReplayState} from './replay/types';
+import {refreshReplayScene} from './replay/capture';
 export type RoomGame=Game|V3Game|MahjongGame|HoldemGame;
 export function isMahjong(g:RoomGame):g is MahjongGame{return 'kind' in g&&g.kind==='mahjong';}
 export type Room={code:string;title:string;state:string;phase:string;revision:number;op:string;created:number;updated:number};
@@ -28,6 +29,7 @@ export async function roomView(r:Room,g:Game|V3Game,id:string){
 export async function commit(r:Room,g:RoomGame,extra?:(guard:string,op:string)=>D1PreparedStatement[]){const op=crypto.randomUUID(),now=Date.now();const departed=isMahjong(g)&&isModern(g)?settleDepartures(g,now):[];if(!isHoldem(g)&&(!isMahjong(g)||isModern(g)))scheduleBots(g,now);const guard='EXISTS (SELECT 1 FROM rooms WHERE code=? AND op=?)';
  const before=JSON.parse(r.state) as RoomGame;
  const beforeReplay=(before as RoomGame&{replay?:ReplayState}).replay;
+ if(isLandlordV3(g))refreshReplayScene(g);
  const replay=(g as RoomGame&{replay?:ReplayState}).replay;
  const replayEndedAt=replay?.complete?replay.pending.at(-1)?.at??now:null;
  if(replay?.pending.length&&replay.game==='landlord'){

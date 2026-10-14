@@ -1,7 +1,7 @@
 import type {Practice} from '../practice/types.ts';
 import {beats,classify,face,hints,isVirtualCard,rank,sorted,virtualCard,type Combo,type Seat,type TableAction} from './engine.ts';
 import {DDZ_EFFECTS,emitVisual,publicVisuals,type VisualEvent} from '../motion/events.ts';
-import {captureReplay,finishReplay} from '../replay/capture.ts';
+import {captureReplay,finishReplay,refreshReplayScene} from '../replay/capture.ts';
 import type {ReplayState} from '../replay/types.ts';
 
 export type V3Equipment={instanceId:string;id:string;level:1|2|3|4;price:string;nonSellable?:boolean};
@@ -409,6 +409,10 @@ export function declareV3NoBid(g:V3Game,seat:number,now=Date.now()){
  mark(g,seat,'no-bid');notice(g,`${g.seats[seat].name} 声明我不叫，本局不再抢地主`,now,'no-bid');
 }
 export function bidV3(g:V3Game,seat:number,call:unknown,now=Date.now()){
+ bidV3Action(g,seat,call,now);
+ refreshReplayScene(g);
+}
+function bidV3Action(g:V3Game,seat:number,call:unknown,now:number){
  if(g.phase!=='bidding'||g.turn!==seat)throw Error('还没轮到你叫地主');
  if(typeof call!=='boolean')throw Error('叫地主选择无效');
  const locked=owned(g,seat,'no-bid')&&used(g,seat,'no-bid');
@@ -758,6 +762,10 @@ export function selectionCombo(g:V3Game,seat:number,cards:number[]):Combo|null{
  return classifyV3(g,seat,cards,shadowMaps(g,seat,cards));
 }
 export function playV3(g:V3Game,seat:number,cards:number[],now=Date.now(),mapping?:unknown){
+ playV3Action(g,seat,cards,now,mapping);
+ refreshReplayScene(g);
+}
+function playV3Action(g:V3Game,seat:number,cards:number[],now:number,mapping?:unknown){
  if(g.phase!=='playing'||g.turn!==seat)throw Error('还没轮到你出牌');
  if(!Array.isArray(cards)||cards.some(card=>!Number.isSafeInteger(card))||new Set(cards).size!==cards.length)throw Error('请选择不重复的手牌');
  const player=g.seats[seat],a=actions(g);

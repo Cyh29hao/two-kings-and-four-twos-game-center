@@ -1,4 +1,4 @@
-.replay-table-stage{min-width:0;overflow:hidden;border-radius:18px 18px 0 0}
+.replay-table-stage{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;border-radius:18px 18px 0 0;--replay-stage-height:calc(var(--viewer-height,760px) - 154px)}
 .replay-viewer-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:9px 18px;padding:12px 18px;background:#d9eeff;border-top:2px solid var(--replay-edge)}
 .replay-now{display:flex;align-items:center;gap:8px 12px;min-width:0;flex-wrap:wrap}.replay-now>span{padding:4px 8px;border:1.5px solid var(--replay-edge);border-radius:8px;background:#fffdf2;color:var(--replay-ink);font-size:12px;font-weight:750}.replay-now>small{color:#56647b;font-size:12px;white-space:nowrap}.replay-now>strong{color:var(--replay-ink);font-size:14px;overflow-wrap:anywhere}
 .replay-viewer-bar .replay-controls{display:flex;align-items:center;gap:7px;padding:0}.replay-viewer-bar .replay-controls button{display:grid;place-items:center;min-width:36px;height:35px;padding:0;border:1.5px solid var(--replay-edge);border-radius:9px;background:#fffdf4;color:var(--replay-ink);box-shadow:1px 2px 0 var(--replay-edge)}.replay-viewer-bar .replay-controls button[aria-label='暂停'],.replay-viewer-bar .replay-controls button[aria-label='播放']{background:#ffdf62}
@@ -13,3 +13,19 @@
  .replay-now>strong{font-size:13px}
  .replay-progress{height:22px;margin:0}
 }
+/* The controls occupy their own row; they never float over hands. */
+.replay-watch-page .replay-player{height:var(--viewer-height,calc(100dvh - 160px));display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden}
+.replay-table-stage{--replay-stage-height:calc(var(--viewer-height,760px) - 114px)}
+.replay-info-modal .replay-timeline ol{max-height:60dvh}.replay-info-modal .replay-timeline button{min-height:44px}.replay-info-modal .replay-timeline button strong{flex:1}
+.replay-watch-page .replay-viewer-bar{gap:6px 12px;padding:7px 12px}
+.replay-watch-page .replay-now{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;line-height:1.4}
+.replay-watch-page .replay-now strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.replay-watch-page .replay-controls button,.replay-watch-page .replay-controls select{min-width:44px;height:44px}
+.replay-watch-page .replay-controls button[aria-label='再看一遍']{background:#ffdf62}
+.replay-watch-page .replay-progress{min-height:24px;margin:0}
+.replay-watch-page .replay-timeline summary{min-height:44px;padding:11px 14px}
+.replay-watch-page .replay-timeline ol{max-height:30dvh}
+.replay-watch-page .replay-timeline button{min-height:44px}
+.replay-watch-page .replay-timeline button strong{flex:1}
+.replay-watch-page .replay-controls button:focus-visible,.replay-watch-page .replay-progress:focus-visible{outline:3px solid #694a96;outline-offset:2px}
+@media(max-width:700px){.replay-watch-page .replay-viewer-bar{grid-template-columns:1fr;padding:5px 8px}.replay-watch-page .replay-controls{gap:9px}.replay-watch-page .replay-now>span{font-size:11px;padding:2px 5px}.replay-watch-page .replay-now>small{font-size:11px}}
