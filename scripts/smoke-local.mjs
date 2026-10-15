@@ -36,7 +36,7 @@ async function request(path, data, cookie = '', expected = 200) {
     headers: { Origin: origin, ...(data ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) },
     ...(data ? { body: JSON.stringify(data) } : {}),
   });
-  assert.equal(response.status, expected, `${path}: HTTP ${response.status}`);
+  assert.equal(response.status, expected, `${path}: HTTP ${response.status}${response.status===expected?'':` ${await response.clone().text()}`}`);
   checks++;
   return { data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] || cookie };
 }
@@ -452,6 +452,8 @@ try {
   // Historical table recovery reads immutable settlements, even after classic seats were cleared.
   const {verifyReportApis}=await import('./smoke-reports.mjs');
   await verifyReportApis({request,signup,state,outsider,extended,v3Humans});
+  const {verifyFriendlyMatchApis}=await import('./smoke-friendly-match.mjs');
+  await verifyFriendlyMatchApis({request,signup,state,outsider});
   const info = (await request('/build-info.json')).data;
   assert.match(info.commit, /^[a-f0-9]{40}$/);
   writeFileSync('work/smoke-local.json', JSON.stringify({ status: 'passed', checks, commit: info.commit, state }, null, 2) + '\n');

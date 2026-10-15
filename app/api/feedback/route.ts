@@ -7,7 +7,9 @@ async function quota(userId:string,day:string){
 }
 export async function GET(req:Request){return safe(async()=>{const u=await requireUser(req);return json(await quota(u.id,feedbackDay()));});}
 export async function POST(req:Request){return safe(async()=>{
- const u=await requireUser(req),b=await body(req);
+ // Read the bounded JSON body before an early authentication response so the
+ // local worker proxy can retire the upload stream. Writes still require auth.
+ const b=await body(req),u=await requireUser(req);
  await limit('feedback-request:'+u.id,30,1);
  let content:string;try{content=feedbackText(b?.content);}catch(e){throw new AppError((e as Error).message);}
  if(typeof b.clientId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(b.clientId))throw new AppError('反馈标识无效');
