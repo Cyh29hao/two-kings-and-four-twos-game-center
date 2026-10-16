@@ -1,4 +1,4 @@
-import {AppError,body,db,json,limit,requireUser,safe} from '@/lib/server';
+import {AppError,body,db,discardUnreadBody,json,limit,requireUser,safe} from '@/lib/server';
 import {feedbackDay,feedbackText,FEEDBACK_DAILY_LIMIT} from '@/lib/club/feedback';
 export const dynamic='force-dynamic';
 async function quota(userId:string,day:string){
@@ -6,10 +6,8 @@ async function quota(userId:string,day:string){
  return {day,used:row?.used??0,remaining:Math.max(0,FEEDBACK_DAILY_LIMIT-(row?.used??0))};
 }
 export async function GET(req:Request){return safe(async()=>{const u=await requireUser(req);return json(await quota(u.id,feedbackDay()));});}
-export async function POST(req:Request){return safe(async()=>{
- // Read the bounded JSON body before an early authentication response so the
- // local worker proxy can retire the upload stream. Writes still require auth.
- const b=await body(req),u=await requireUser(req);
+export async function POST(req:Request){return safe(async()=>{try{
+ const u=await requireUser(req),b=await body(req);
  await limit('feedback-request:'+u.id,30,1);
  let content:string;try{content=feedbackText(b?.content);}catch(e){throw new AppError((e as Error).message);}
  if(typeof b.clientId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(b.clientId))throw new AppError('反馈标识无效');
@@ -24,4 +22,5 @@ export async function POST(req:Request){return safe(async()=>{
  if(!saved)throw new AppError('今天已反馈 5 次，请明天再来',429);
  if(saved.content!==content)throw new AppError('这次反馈已保存，请重新打开后提交新意见',409);
  return json({ok:true,id:saved.id,...await quota(u.id,day)});
+}finally{await discardUnreadBody(req).catch(()=>{});}
 });}
